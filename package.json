@@ -1,0 +1,29 @@
+{
+  "name": "gestion-compras",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma Control de Compras AGM — Suite empresarial de gestión de compras",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "clean": "turbo clean",
+    "db:push": "pnpm --filter @gestion-compras/api db:push",
+    "db:generate": "pnpm --filter @gestion-compras/api db:generate",
+    "db:migrate": "pnpm --filter @gestion-compras/api db:migrate",
+    "db:seed": "pnpm --filter @gestion-compras/api db:seed",
+    "db:studio": "pnpm --filter @gestion-compras/api db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "prettier": "^3.4.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

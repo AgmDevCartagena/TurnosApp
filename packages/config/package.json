@@ -1,0 +1,13 @@
+{
+  "name": "@gestion-compras/config",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "eslint",
+    "typescript",
+    "prettier"
+  ],
+  "devDependencies": {
+    "eslint-config-prettier": "^10.1.8"
+  }
+}
