@@ -2,12 +2,17 @@ import apiClient from './api-client';
 
 export interface Proveedor {
   id: string;
+  codigoProveedor?: string;
   tipoProveedor: string;
   tipoPersona: string;
   razonSocial: string;
+  nombreCompleto?: string;
   tipoIdentificacion: string;
   nit: string;
   direccion: string;
+  paisId?: string | null;
+  departamentoId?: string | null;
+  ciudadId?: string | null;
   departamento: string | null;
   ciudad: string | null;
   telefono: string;
@@ -24,6 +29,22 @@ export interface Proveedor {
   repLegalNumDoc: string | null;
   repLegalTelefono: string | null;
   repLegalEmail: string | null;
+  regimenIva: string | null;
+  esAutorretenedorRenta: boolean;
+  resolucionRentaNo: string | null;
+  resolucionRentaFecha: string | null;
+  resolucionRentaPct: string | null;
+  esGranContribuyente: boolean;
+  resolucionGcNo: string | null;
+  resolucionGcFecha: string | null;
+  actividadesIca: string[];
+  codigoIca: string | null;
+  municipioIca: string | null;
+  esAutorretenedorIca: boolean;
+  rangoExperiencia: string | null;
+  descripcionExperiencia: string | null;
+  estadoOnboarding: string;
+  estadoOperativo: string;
   estado: string;
   creadoPor: { id: string; nombre: string; apellido: string } | null;
   createdAt: string;
@@ -70,5 +91,19 @@ export async function updateProveedor(id: string, body: Partial<Proveedor>): Pro
 
 export async function deleteProveedor(id: string): Promise<Proveedor> {
   const { data } = await apiClient.delete<Proveedor>(`/proveedores/${id}`);
+  return data;
+}
+
+export async function validateNit(nit: string): Promise<{ available: boolean }> {
+  const { data } = await apiClient.get(`/proveedores/validate/nit`, {
+    params: { nit },
+  });
+  return data;
+}
+
+export async function validateEmail(email: string): Promise<{ available: boolean }> {
+  const { data } = await apiClient.get(`/proveedores/validate/email`, {
+    params: { email },
+  });
   return data;
 }

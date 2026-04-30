@@ -14,8 +14,20 @@ async function bootstrap() {
   const corsOrigin = configService.get<string>('API_CORS_ORIGIN', 'http://localhost:3000');
 
   app.setGlobalPrefix(prefix);
-  app.use(helmet());
-  app.enableCors({ origin: corsOrigin, credentials: true });
+  
+  app.use(require('cookie-parser')());
+  
+  app.enableCors({
+    origin: corsOrigin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie'],
+  });
+  
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -27,8 +39,8 @@ async function bootstrap() {
   );
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Gestión de Compras MARDIQUE')
-    .setDescription('API para la Plataforma Control de Compras MARDIQUE')
+    .setTitle('Sistema de gestion empresarial')
+    .setDescription('API para la Plataforma Control de Compras')
     .setVersion('1.0')
     .addBearerAuth()
     .build();

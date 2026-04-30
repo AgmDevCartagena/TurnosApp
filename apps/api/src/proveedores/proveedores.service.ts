@@ -106,20 +106,44 @@ export class ProveedoresService {
   }
 
   async create(dto: CreateProveedorDto, userId?: string) {
-    const existing = await this.prisma.proveedor.findUnique({
+    // Validar NIT único
+    const existingNit = await this.prisma.proveedor.findUnique({
       where: { nit: dto.nit },
     });
 
-    if (existing) {
+    if (existingNit) {
       throw new ConflictException(`Ya existe un proveedor con NIT ${dto.nit}`);
     }
+
+    // Validar email único
+    const existingEmail = await this.prisma.proveedor.findUnique({
+      where: { emailCorporativo: dto.emailCorporativo },
+    });
+
+    if (existingEmail) {
+      throw new ConflictException(`Ya existe un proveedor con email ${dto.emailCorporativo}`);
+    }
+
+    // Validar fecha de constitución no futura
+    if (dto.fechaConstitucion) {
+      const fecha = new Date(dto.fechaConstitucion);
+      if (fecha > new Date()) {
+        throw new ConflictException('La fecha de constitución no puede ser futura');
+      }
+    }
+
+    // Generar código de proveedor
+    const codigoProveedor = await this.generateCodigoProveedor();
 
     const proveedor = await this.prisma.proveedor.create({
       data: {
         ...dto,
+        codigoProveedor,
         fechaConstitucion: dto.fechaConstitucion
           ? new Date(dto.fechaConstitucion)
           : undefined,
+        estadoOnboarding: dto.estadoOnboarding || 'borrador',
+        estadoOperativo: dto.estadoOperativo || 'inactivo',
         creadoPorId: userId || undefined,
       },
       include: {
@@ -152,6 +176,15 @@ export class ProveedoresService {
         fechaConstitucion: dto.fechaConstitucion
           ? new Date(dto.fechaConstitucion)
           : undefined,
+        resolucionRentaFecha: dto.resolucionRentaFecha
+          ? new Date(dto.resolucionRentaFecha)
+          : undefined,
+        resolucionGcFecha: dto.resolucionGcFecha
+          ? new Date(dto.resolucionGcFecha)
+          : undefined,
+        resolucionRentaPct: dto.resolucionRentaPct
+          ? parseFloat(dto.resolucionRentaPct)
+          : undefined,
       },
       include: {
         creadoPor: {
@@ -174,5 +207,43 @@ export class ProveedoresService {
 
     this.logger.log(`Proveedor desactivado: ${proveedor.razonSocial}`);
     return proveedor;
+  }
+
+  async validateNit(nit: string): Promise<{ available: boolean }> {
+    const existing = await this.prisma.proveedor.findUnique({
+      where: { nit },
+    });
+    return { available: !existing };
+  }
+
+  async validateEmail(email: string): Promise<{ available: boolean }> {
+    const existing = await this.prisma.proveedor.findUnique({
+      where: { emailCorporativo: email },
+    });
+    return { available: !existing };
+  }
+
+  private async generateCodigoProveedor(): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `PROV-${year}-`;
+
+    const lastProveedor = await this.prisma.proveedor.findFirst({
+      where: {
+        codigoProveedor: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    let nextNumber = 1;
+    if (lastProveedor) {
+      const lastNumber = parseInt(lastProveedor.codigoProveedor.split('-')[2] || '0');
+      nextNumber = lastNumber + 1;
+    }
+
+    return `${prefix}${nextNumber.toString().padStart(6, '0')}`;
   }
 }

@@ -55,8 +55,8 @@ export default function RolesPage() {
 
   const loadPermisos = useCallback(async () => {
     try {
-      const result = await fetchPermisos();
-      setPermisos(result);
+      const result = await fetchPermisos({ limit: 1000 });
+      setPermisos(result.data);
     } catch {
       /* permisos will be empty */
     }
@@ -130,25 +130,25 @@ export default function RolesPage() {
     }));
   };
 
-  const toggleAllRecurso = (recurso: string) => {
-    const recursoPermisos = permisos.filter((p) => p.recurso === recurso);
-    const allSelected = recursoPermisos.every((p) => form.permisoIds.includes(p.id));
+  const toggleAllModulo = (modulo: string) => {
+    const moduloPermisos = permisos.filter((p) => p.modulo === modulo);
+    const allSelected = moduloPermisos.every((p) => form.permisoIds.includes(p.id));
 
     if (allSelected) {
       setForm((prev) => ({
         ...prev,
-        permisoIds: prev.permisoIds.filter((id) => !recursoPermisos.find((p) => p.id === id)),
+        permisoIds: prev.permisoIds.filter((id) => !moduloPermisos.find((p) => p.id === id)),
       }));
     } else {
-      const newIds = new Set([...form.permisoIds, ...recursoPermisos.map((p) => p.id)]);
+      const newIds = new Set([...form.permisoIds, ...moduloPermisos.map((p) => p.id)]);
       setForm((prev) => ({ ...prev, permisoIds: Array.from(newIds) }));
     }
   };
 
-  // Agrupar permisos por recurso
-  const permisosByRecurso = permisos.reduce<Record<string, Permiso[]>>((acc, p) => {
-    if (!acc[p.recurso]) acc[p.recurso] = [];
-    acc[p.recurso]!.push(p);
+  // Agrupar permisos por módulo
+  const permisosByModulo = permisos.reduce<Record<string, Permiso[]>>((acc, p) => {
+    if (!acc[p.modulo]) acc[p.modulo] = [];
+    acc[p.modulo]!.push(p);
     return acc;
   }, {});
 
@@ -226,7 +226,7 @@ export default function RolesPage() {
                         key={p.permiso.id}
                         className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 border"
                       >
-                        {p.permiso.recurso}:{p.permiso.accion}
+                        {p.permiso.codigo}
                       </span>
                     ))}
                     {r.permisos.length === 0 && (
@@ -285,18 +285,18 @@ export default function RolesPage() {
                   Permisos ({form.permisoIds.length} seleccionados)
                 </label>
                 <div className="max-h-64 space-y-3 overflow-y-auto rounded-lg border p-3">
-                  {Object.entries(permisosByRecurso).map(([recurso, perms]) => {
+                  {Object.entries(permisosByModulo).map(([modulo, perms]) => {
                     const allSelected = perms.every((p) => form.permisoIds.includes(p.id));
                     return (
-                      <div key={recurso} className="space-y-1">
+                      <div key={modulo} className="space-y-1">
                         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 capitalize cursor-pointer">
                           <input
                             type="checkbox"
                             checked={allSelected}
-                            onChange={() => toggleAllRecurso(recurso)}
+                            onChange={() => toggleAllModulo(modulo)}
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
-                          {recurso}
+                          {modulo}
                         </label>
                         <div className="ml-6 flex flex-wrap gap-2">
                           {perms.map((p) => (
@@ -321,7 +321,7 @@ export default function RolesPage() {
                       </div>
                     );
                   })}
-                  {Object.keys(permisosByRecurso).length === 0 && (
+                  {Object.keys(permisosByModulo).length === 0 && (
                     <p className="text-sm text-gray-400">Cargando permisos...</p>
                   )}
                 </div>

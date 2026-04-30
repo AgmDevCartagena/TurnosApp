@@ -25,10 +25,17 @@ async function main() {
   const permisos = [];
   for (const recurso of recursos) {
     for (const accion of acciones) {
+      const codigo = `${recurso}.${accion}`;
       const permiso = await prisma.permiso.upsert({
-        where: { recurso_accion: { recurso, accion } },
+        where: { codigo },
         update: {},
-        create: { recurso, accion },
+        create: {
+          codigo,
+          modulo: recurso,
+          recurso,
+          accion,
+          descripcion: `${accion} en ${recurso}`,
+        },
       });
       permisos.push(permiso);
     }
@@ -37,45 +44,45 @@ async function main() {
 
   // ── Roles ──
   const rolSuperAdmin = await prisma.rol.upsert({
-    where: { nombre: 'super_admin' },
+    where: { codigo: 'super_admin' },
     update: {},
-    create: { nombre: 'super_admin', descripcion: 'Super Administrador del sistema' },
+    create: { codigo: 'super_admin', nombre: 'super_admin', descripcion: 'Super Administrador del sistema' },
   });
 
   await prisma.rol.upsert({
-    where: { nombre: 'admin' },
+    where: { codigo: 'admin' },
     update: {},
-    create: { nombre: 'admin', descripcion: 'Administrador' },
+    create: { codigo: 'admin', nombre: 'admin', descripcion: 'Administrador' },
   });
 
   await prisma.rol.upsert({
-    where: { nombre: 'jefe_compras' },
+    where: { codigo: 'jefe_compras' },
     update: {},
-    create: { nombre: 'jefe_compras', descripcion: 'Jefe de Compras' },
+    create: { codigo: 'jefe_compras', nombre: 'jefe_compras', descripcion: 'Jefe de Compras' },
   });
 
   await prisma.rol.upsert({
-    where: { nombre: 'comprador' },
+    where: { codigo: 'comprador' },
     update: {},
-    create: { nombre: 'comprador', descripcion: 'Comprador' },
+    create: { codigo: 'comprador', nombre: 'comprador', descripcion: 'Comprador' },
   });
 
   await prisma.rol.upsert({
-    where: { nombre: 'aprobador' },
+    where: { codigo: 'aprobador' },
     update: {},
-    create: { nombre: 'aprobador', descripcion: 'Aprobador de solicitudes' },
+    create: { codigo: 'aprobador', nombre: 'aprobador', descripcion: 'Aprobador de solicitudes' },
   });
 
   await prisma.rol.upsert({
-    where: { nombre: 'solicitante' },
+    where: { codigo: 'solicitante' },
     update: {},
-    create: { nombre: 'solicitante', descripcion: 'Solicitante de compras' },
+    create: { codigo: 'solicitante', nombre: 'solicitante', descripcion: 'Solicitante de compras' },
   });
 
   const rolAuditor = await prisma.rol.upsert({
-    where: { nombre: 'auditor' },
+    where: { codigo: 'auditor' },
     update: {},
-    create: { nombre: 'auditor', descripcion: 'Auditor (solo lectura)' },
+    create: { codigo: 'auditor', nombre: 'auditor', descripcion: 'Auditor (solo lectura)' },
   });
 
   console.log('  ✅ 7 roles creados');
@@ -101,13 +108,30 @@ async function main() {
   }
   console.log('  ✅ Permisos de lectura asignados a auditor');
 
+  // ── Empresa principal ──
+  const empresaPrincipal = await prisma.empresa.upsert({
+    where: { nit: '900123456-1' },
+    update: {},
+    create: {
+      nombre: 'AGM Gestión de Compras',
+      nit: '900123456-1',
+      razonSocial: 'AGM Gestión de Compras S.A.S.',
+      direccion: 'Calle 100 #20-30, Bogotá',
+      telefono: '3001234567',
+      email: 'contacto@agm.com',
+      activo: true,
+    },
+  });
+  console.log('  ✅ Empresa principal creada');
+
   // ── Usuario admin por defecto ──
   const hashedPassword = await bcrypt.hash('Admin123!', 10);
 
-  await prisma.usuario.upsert({
+  const adminUser = await prisma.usuario.upsert({
     where: { email: 'admin@gestion-compras.com' },
     update: {},
     create: {
+      username: 'admin',
       email: 'admin@gestion-compras.com',
       password: hashedPassword,
       nombre: 'Administrador',
@@ -115,25 +139,59 @@ async function main() {
       rolId: rolSuperAdmin.id,
     },
   });
-  console.log('  ✅ Usuario admin creado (admin@gestion-compras.com / Admin123!)');
+  console.log('  ✅ Usuario admin creado (username: admin / password: Admin123!)');
+
+  // ── Asignar admin a empresa principal ──
+  await prisma.usuarioEmpresaRol.upsert({
+    where: {
+      usuarioId_empresaId_rolId: {
+        usuarioId: adminUser.id,
+        empresaId: empresaPrincipal.id,
+        rolId: rolSuperAdmin.id,
+      },
+    },
+    update: {},
+    create: {
+      usuarioId: adminUser.id,
+      empresaId: empresaPrincipal.id,
+      rolId: rolSuperAdmin.id,
+      activo: true,
+    },
+  });
+  console.log('  ✅ Usuario admin asignado a empresa principal');
 
   // ── Centros de costo de ejemplo ──
   await prisma.centroCosto.upsert({
     where: { codigo: 'CC-001' },
     update: {},
-    create: { nombre: 'Operaciones', codigo: 'CC-001', descripcion: 'Centro de costo de operaciones' },
+    create: {
+      nombre: 'Operaciones',
+      codigo: 'CC-001',
+      descripcion: 'Centro de costo de operaciones',
+      empresaId: empresaPrincipal.id,
+    },
   });
 
   await prisma.centroCosto.upsert({
     where: { codigo: 'CC-002' },
     update: {},
-    create: { nombre: 'Administración', codigo: 'CC-002', descripcion: 'Centro de costo administrativo' },
+    create: {
+      nombre: 'Administración',
+      codigo: 'CC-002',
+      descripcion: 'Centro de costo administrativo',
+      empresaId: empresaPrincipal.id,
+    },
   });
 
   await prisma.centroCosto.upsert({
     where: { codigo: 'CC-003' },
     update: {},
-    create: { nombre: 'Tecnología', codigo: 'CC-003', descripcion: 'Centro de costo de TI' },
+    create: {
+      nombre: 'Tecnología',
+      codigo: 'CC-003',
+      descripcion: 'Centro de costo de TI',
+      empresaId: empresaPrincipal.id,
+    },
   });
 
   console.log('  ✅ 3 centros de costo creados');

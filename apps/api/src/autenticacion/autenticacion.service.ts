@@ -23,12 +23,20 @@ export class AutenticacionService {
 
   async login(dto: LoginDto) {
     const usuario = await this.prisma.usuario.findUnique({
-      where: { email: dto.email },
+      where: { username: dto.username },
       include: {
-        rol: {
+        empresas: {
+          where: { activo: true },
           include: {
-            permisos: {
-              include: { permiso: true },
+            empresa: {
+              select: { id: true, nombre: true, activo: true },
+            },
+            rol: {
+              include: {
+                permisos: {
+                  include: { permiso: true },
+                },
+              },
             },
           },
         },
@@ -43,14 +51,30 @@ export class AutenticacionService {
       throw new UnauthorizedException('Usuario desactivado');
     }
 
+    if (!usuario.password) {
+      throw new UnauthorizedException('Usuario configurado para autenticación externa');
+    }
+
     const passwordValid = await bcrypt.compare(dto.password, usuario.password);
     if (!passwordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const tokens = await this.generateTokens(usuario.id, usuario.email, usuario.rol.nombre);
+    // Validar que el usuario tenga al menos una empresa asignada
+    const empresasActivas = usuario.empresas.filter(ue => ue.empresa.activo);
+    if (empresasActivas.length === 0) {
+      throw new UnauthorizedException('Usuario sin empresas asignadas. Contacte al administrador.');
+    }
 
-    this.logger.log(`Login exitoso: ${usuario.email}`);
+    // Obtener el rol de la primera empresa activa
+    const primeraEmpresa = empresasActivas[0];
+    if (!primeraEmpresa || !primeraEmpresa.rol) {
+      throw new UnauthorizedException('Usuario sin rol asignado');
+    }
+
+    const tokens = await this.generateTokens(usuario.id, usuario.email, primeraEmpresa.rol.nombre);
+
+    this.logger.log(`Login exitoso: ${usuario.username} (${usuario.email})`);
 
     return {
       accessToken: tokens.accessToken,
@@ -60,11 +84,19 @@ export class AutenticacionService {
   }
 
   async register(dto: RegisterDto) {
-    const existingUser = await this.prisma.usuario.findUnique({
+    const existingUserByUsername = await this.prisma.usuario.findUnique({
+      where: { username: dto.username },
+    });
+
+    if (existingUserByUsername) {
+      throw new ConflictException('El usuario ya está registrado');
+    }
+
+    const existingUserByEmail = await this.prisma.usuario.findUnique({
       where: { email: dto.email },
     });
 
-    if (existingUser) {
+    if (existingUserByEmail) {
       throw new ConflictException('El email ya está registrado');
     }
 
@@ -80,6 +112,7 @@ export class AutenticacionService {
 
     const usuario = await this.prisma.usuario.create({
       data: {
+        username: dto.username,
         email: dto.email,
         password: hashedPassword,
         nombre: dto.nombre,
@@ -96,6 +129,10 @@ export class AutenticacionService {
         },
       },
     });
+
+    if (!usuario.rol) {
+      throw new UnauthorizedException('Usuario sin rol asignado');
+    }
 
     const tokens = await this.generateTokens(usuario.id, usuario.email, usuario.rol.nombre);
 
@@ -129,6 +166,10 @@ export class AutenticacionService {
 
       if (!usuario || !usuario.activo) {
         throw new UnauthorizedException('Token inválido');
+      }
+
+      if (!usuario.rol) {
+        throw new UnauthorizedException('Usuario sin rol asignado');
       }
 
       const tokens = await this.generateTokens(usuario.id, usuario.email, usuario.rol.nombre);
@@ -168,10 +209,18 @@ export class AutenticacionService {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: userId },
       include: {
-        rol: {
+        empresas: {
+          where: { activo: true },
           include: {
-            permisos: {
-              include: { permiso: true },
+            empresa: {
+              select: { id: true, nombre: true, activo: true },
+            },
+            rol: {
+              include: {
+                permisos: {
+                  include: { permiso: true },
+                },
+              },
             },
           },
         },
@@ -200,18 +249,23 @@ export class AutenticacionService {
   }
 
   private mapToAuthenticatedUser(usuario: any): AuthenticatedUser {
+    const primeraEmpresa = usuario.empresas.find((ue: any) => ue.empresa.activo);
+    
     return {
       id: usuario.id,
+      username: usuario.username,
       email: usuario.email,
       nombre: usuario.nombre,
       apellido: usuario.apellido,
-      rol: {
-        id: usuario.rol.id,
-        nombre: usuario.rol.nombre,
-      },
-      permisos: usuario.rol.permisos.map(
-        (pr: any) => `${pr.permiso.recurso}:${pr.permiso.accion}`,
-      ),
+      rol: primeraEmpresa?.rol ? {
+        id: primeraEmpresa.rol.id,
+        nombre: primeraEmpresa.rol.nombre,
+      } : { id: '', nombre: '' },
+      permisos: primeraEmpresa?.rol?.permisos?.map((rp: any) => rp.permiso.codigo) || [],
+      empresas: usuario.empresas.map((ue: any) => ({
+        id: ue.empresa.id,
+        nombre: ue.empresa.nombre,
+      })),
     };
   }
 }

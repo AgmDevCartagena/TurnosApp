@@ -1,19 +1,36 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
-  IsOptional,
   IsEmail,
-  IsArray,
+  IsOptional,
   IsDateString,
-  IsIn,
+  IsArray,
+  MinLength,
+  MaxLength,
+  IsEnum,
   IsNotEmpty,
+  IsUUID,
+  ValidateIf,
+  IsIn,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProveedorDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Razón social (para persona jurídica)' })
   @IsString()
-  @IsNotEmpty()
+  @ValidateIf((o) => o.tipoPersona === 'juridica')
+  @IsNotEmpty({ message: 'Razón social es obligatoria para persona jurídica' })
+  @MinLength(3)
+  @MaxLength(200)
   razonSocial: string;
+
+  @ApiProperty({ description: 'Nombre completo (para persona natural)', required: false })
+  @IsString()
+  @IsOptional()
+  @ValidateIf((o) => o.tipoPersona === 'natural')
+  @IsNotEmpty({ message: 'Nombre completo es obligatorio para persona natural' })
+  @MinLength(3)
+  @MaxLength(200)
+  nombreCompleto?: string;
 
   @ApiProperty()
   @IsString()
@@ -34,11 +51,10 @@ export class CreateProveedorDto {
   @IsEmail()
   emailCorporativo: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'Tipo de proveedor', enum: ['nacional', 'internacional', 'mixto'], default: 'nacional' })
+  @IsEnum(['nacional', 'internacional', 'mixto'])
   @IsOptional()
-  @IsString()
-  @IsIn(['nacional', 'internacional', 'mixto'])
-  tipoProveedor?: string;
+  tipoProveedor?: string = 'nacional';
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -52,15 +68,20 @@ export class CreateProveedorDto {
   @IsIn(['nit', 'cc', 'ce', 'pasaporte'])
   tipoIdentificacion?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'ID del país', required: false })
+  @IsUUID('4', { message: 'ID de país debe ser un UUID válido' })
   @IsOptional()
-  @IsString()
-  departamento?: string;
+  paisId?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'ID del departamento', required: false })
+  @IsUUID('4', { message: 'ID de departamento debe ser un UUID válido' })
   @IsOptional()
-  @IsString()
-  ciudad?: string;
+  departamentoId?: string;
+
+  @ApiProperty({ description: 'ID de la ciudad', required: false })
+  @IsUUID('4', { message: 'ID de ciudad debe ser un UUID válido' })
+  @IsOptional()
+  ciudadId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -68,9 +89,9 @@ export class CreateProveedorDto {
   @IsIn(['sas', 'sa', 'ltda', 'eu', 'persona_natural', 'otro'])
   tipoEmpresa?: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'Fecha de constitución (no puede ser futura)', required: false })
+  @IsDateString({}, { message: 'Fecha de constitución debe ser una fecha válida' })
   @IsOptional()
-  @IsDateString()
   fechaConstitucion?: string;
 
   @ApiPropertyOptional()
@@ -89,9 +110,10 @@ export class CreateProveedorDto {
   @IsString({ each: true })
   certificaciones?: string[];
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty({ description: 'Observaciones generales', required: false })
   @IsString()
+  @IsOptional()
+  @MaxLength(1000)
   observaciones?: string;
 
   @ApiPropertyOptional()
@@ -130,4 +152,15 @@ export class CreateProveedorDto {
   @IsString()
   @IsIn(['activo', 'borrador'])
   estado?: string;
+
+  // Estados del wizard
+  @ApiPropertyOptional({ description: 'Estado de onboarding', enum: ['borrador', 'en_proceso', 'completado'], default: 'borrador' })
+  @IsOptional()
+  @IsEnum(['borrador', 'en_proceso', 'completado'])
+  estadoOnboarding?: string;
+
+  @ApiPropertyOptional({ description: 'Estado operativo', enum: ['activo', 'inactivo', 'suspendido', 'en_evaluacion'], default: 'inactivo' })
+  @IsOptional()
+  @IsEnum(['activo', 'inactivo', 'suspendido', 'en_evaluacion'])
+  estadoOperativo?: string;
 }

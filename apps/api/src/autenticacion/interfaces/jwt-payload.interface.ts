@@ -9,6 +9,7 @@ export interface JwtPayload {
 export interface AuthenticatedUser {
   id: string;
   email: string;
+  username: string;
   nombre: string;
   apellido: string;
   rol: {
@@ -16,4 +17,5 @@ export interface AuthenticatedUser {
     nombre: string;
   };
   permisos: string[];
+  empresas: Array<{ id: string; nombre: string }>;
 }

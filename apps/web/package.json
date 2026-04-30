@@ -10,6 +10,8 @@
     "clean": "rimraf .next"
   },
   "dependencies": {
+    "@azure/msal-browser": "^3.7.1",
+    "@azure/msal-react": "^2.0.11",
     "@gestion-compras/shared": "workspace:*",
     "@gestion-compras/ui": "workspace:*",
     "@hookform/resolvers": "^3.9.0",

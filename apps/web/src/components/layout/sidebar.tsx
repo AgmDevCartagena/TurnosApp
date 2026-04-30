@@ -8,7 +8,6 @@ import {
   Users,
   Shield,
   ShoppingCart,
-  FileText,
   ClipboardList,
   CheckSquare,
   Package,
@@ -17,8 +16,14 @@ import {
   BarChart3,
   Bell,
   Truck,
+  FileText,
   ChevronLeft,
   ChevronRight,
+  Building2,
+  MapPin,
+  DollarSign,
+  FileSearch,
+  PackageOpen,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -36,6 +41,62 @@ const navItems: NavItem[] = [
     icon: <LayoutDashboard className="h-5 w-5" />,
   },
   {
+    label: 'Catálogo',
+    href: '/dashboard/catalogo',
+    icon: <Package className="h-5 w-5" />,
+    roles: ['super_admin', 'admin', 'solicitante'],
+  },
+  {
+    label: 'Proveedores',
+    href: '/dashboard/proveedores',
+    icon: <Users className="h-5 w-5" />,
+    roles: ['super_admin', 'admin'],
+  },
+  {
+    label: 'Solicitudes',
+    href: '/dashboard/solicitudes',
+    icon: <ClipboardList className="h-5 w-5" />,
+    roles: ['super_admin', 'admin', 'solicitante'],
+  },
+  {
+    label: 'Aprobaciones',
+    href: '/dashboard/aprobaciones',
+    icon: <CheckSquare className="h-5 w-5" />,
+    roles: ['super_admin', 'admin', 'aprobador', 'jefe_compras'],
+  },
+  {
+    label: 'Cotizaciones',
+    href: '/dashboard/cotizaciones',
+    icon: <FileText className="h-5 w-5" />,
+  },
+  {
+    label: 'Órdenes de Compra',
+    href: '/dashboard/ordenes',
+    icon: <ShoppingCart className="h-5 w-5" />,
+    roles: ['super_admin', 'admin', 'comprador', 'jefe_compras'],
+  },
+  {
+    label: 'Recepción',
+    href: '/dashboard/recepcion',
+    icon: <PackageOpen className="h-5 w-5" />,
+  },
+  {
+    label: 'Seguimiento',
+    href: '/dashboard/seguimiento',
+    icon: <BarChart3 className="h-5 w-5" />,
+  },
+  {
+    label: 'Parametrización',
+    href: '#',
+    icon: <></>,
+  },
+  {
+    label: 'Atributos',
+    href: '/dashboard/atributos',
+    icon: <FolderOpen className="h-5 w-5" />,
+    roles: ['super_admin', 'admin'],
+  },
+  {
     label: 'Usuarios',
     href: '/dashboard/usuarios',
     icon: <Users className="h-5 w-5" />,
@@ -48,52 +109,34 @@ const navItems: NavItem[] = [
     roles: ['super_admin', 'admin'],
   },
   {
-    label: 'Proveedores',
-    href: '/dashboard/proveedores',
-    icon: <Truck className="h-5 w-5" />,
+    label: 'Permisos',
+    href: '/dashboard/permisos',
+    icon: <Shield className="h-5 w-5" />,
+    roles: ['super_admin'],
   },
   {
-    label: 'Catálogo',
-    href: '/dashboard/catalogo',
-    icon: <Package className="h-5 w-5" />,
+    label: 'Empresas',
+    href: '/dashboard/empresas',
+    icon: <Building2 className="h-5 w-5" />,
+    roles: ['super_admin', 'admin'],
   },
   {
-    label: 'Solicitudes',
-    href: '/dashboard/solicitudes',
-    icon: <ClipboardList className="h-5 w-5" />,
+    label: 'Áreas',
+    href: '/dashboard/areas',
+    icon: <MapPin className="h-5 w-5" />,
+    roles: ['super_admin', 'admin'],
   },
   {
-    label: 'Aprobaciones',
-    href: '/dashboard/aprobaciones',
-    icon: <CheckSquare className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'aprobador', 'jefe_compras'],
+    label: 'Centros de Costo',
+    href: '/dashboard/centros-costo',
+    icon: <DollarSign className="h-5 w-5" />,
+    roles: ['super_admin', 'admin'],
   },
   {
-    label: 'Compras',
-    href: '/dashboard/compras',
-    icon: <ShoppingCart className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'comprador', 'jefe_compras'],
-  },
-  {
-    label: 'Inventarios',
-    href: '/dashboard/inventarios',
-    icon: <Warehouse className="h-5 w-5" />,
-  },
-  {
-    label: 'Documentos',
-    href: '/dashboard/documentos',
-    icon: <FolderOpen className="h-5 w-5" />,
-  },
-  {
-    label: 'Reportes',
-    href: '/dashboard/reportes',
-    icon: <BarChart3 className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'jefe_compras', 'auditor'],
-  },
-  {
-    label: 'Notificaciones',
-    href: '/dashboard/notificaciones',
-    icon: <Bell className="h-5 w-5" />,
+    label: 'Auditoría',
+    href: '/dashboard/auditoria',
+    icon: <FileSearch className="h-5 w-5" />,
+    roles: ['super_admin', 'auditor'],
   },
 ];
 
@@ -104,7 +147,7 @@ export function Sidebar() {
 
   const filteredItems = navItems.filter((item) => {
     if (!item.roles) return true;
-    return user && item.roles.includes(user.rol.nombre);
+    return user && user.rol && item.roles.includes(user.rol.nombre);
   });
 
   return (
@@ -114,10 +157,15 @@ export function Sidebar() {
       }`}
     >
       <div className="flex h-16 items-center justify-between border-b px-4">
+        {collapsed && (
+          <Link href="/dashboard" className="flex items-center justify-center">
+            <img src="/logo-full.png" alt="SIGEC" className="h-10 w-10 object-contain rounded-lg" />
+          </Link>
+        )}
         {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <FileText className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold text-gray-900">MARDIQUE</span>
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <img src="/logo-full.png" alt="SIGEC Logo" className="h-10 w-10 object-contain rounded-lg" />
+            <span className="text-lg font-bold text-gray-900 dark:text-white">SIGEC</span>
           </Link>
         )}
         <button

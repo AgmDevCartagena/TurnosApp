@@ -2,12 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth-store';
-import { LogOut, User, Bell } from 'lucide-react';
+import { LogOut, User, Bell, Sun, Moon } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { CompanySelector } from '@/components/company-selector';
+import { useTheme } from '@/contexts/theme-context';
 
 export function Header() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -28,14 +31,34 @@ export function Header() {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
-      <div>
+      <div className="flex items-center gap-3">
+        <img src="/logo-full.png" alt="SIGEC Logo" className="h-10 w-10 object-contain rounded-lg" />
         <h2 className="text-lg font-semibold text-gray-900">
-          Gestión de Compras MARDIQUE
+          Gestión de Compras SIGEC
         </h2>
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+        <button className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600 transition-colors">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Asistente IA
+        </button>
+
+        <button
+          onClick={toggleTheme}
+          className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-slate-800 transition-colors"
+          title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
+          )}
+        </button>
+        
+        <button className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-600">
           <Bell className="h-5 w-5" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
         </button>
@@ -52,7 +75,7 @@ export function Header() {
               <p className="text-sm font-medium text-gray-900">
                 {user?.nombre} {user?.apellido}
               </p>
-              <p className="text-xs text-gray-500 capitalize">{user?.rol.nombre.replace('_', ' ')}</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.rol?.nombre.replace('_', ' ')}</p>
             </div>
           </button>
 
@@ -74,6 +97,8 @@ export function Header() {
             </div>
           )}
         </div>
+
+        <CompanySelector />
       </div>
     </header>
   );

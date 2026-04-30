@@ -7,8 +7,12 @@ import {
   updateUsuario,
   deleteUsuario,
   fetchRoles,
+  fetchEmpresas,
+  fetchCentrosCosto,
   type Usuario,
   type Rol,
+  type Empresa,
+  type CentroCosto,
 } from '@/lib/admin-api';
 import {
   Plus,
@@ -24,18 +28,40 @@ import {
 } from 'lucide-react';
 
 interface UsuarioForm {
+  username: string;
   email: string;
   password: string;
   nombre: string;
   apellido: string;
+  cedula: string;
+  empresaId: string;
+  direccion: string;
+  area: string;
+  centroCostoId: string;
   rolId: string;
+  activo: boolean;
 }
 
-const emptyForm: UsuarioForm = { email: '', password: '', nombre: '', apellido: '', rolId: '' };
+const emptyForm: UsuarioForm = { 
+  username: '',
+  email: '', 
+  password: '', 
+  nombre: '', 
+  apellido: '', 
+  cedula: '',
+  empresaId: '',
+  direccion: '',
+  area: '',
+  centroCostoId: '',
+  rolId: '',
+  activo: true
+};
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [centrosCosto, setCentrosCosto] = useState<CentroCosto[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 0 });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -45,6 +71,7 @@ export default function UsuariosPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const loadUsuarios = useCallback(async (page = 1, searchTerm = search) => {
     setLoading(true);
@@ -64,14 +91,34 @@ export default function UsuariosPage() {
       const result = await fetchRoles({ limit: 100 });
       setRoles(result.data);
     } catch {
-      /* roles will be empty */
+      setError('Error al cargar roles');
+    }
+  }, []);
+
+  const loadEmpresas = useCallback(async () => {
+    try {
+      const result = await fetchEmpresas({ page: 1, limit: 100 });
+      setEmpresas(result.data);
+    } catch (err) {
+      console.error('Error al cargar empresas:', err);
+    }
+  }, []);
+
+  const loadCentrosCosto = useCallback(async (empresaId?: string) => {
+    try {
+      const result = await fetchCentrosCosto(empresaId);
+      setCentrosCosto(result);
+    } catch (err) {
+      console.error('Error al cargar centros de costo:', err);
     }
   }, []);
 
   useEffect(() => {
     loadUsuarios(1);
     loadRoles();
-  }, [loadUsuarios, loadRoles]);
+    loadEmpresas();
+    loadCentrosCosto();
+  }, [loadUsuarios, loadRoles, loadEmpresas, loadCentrosCosto]);
 
   const handleSearch = () => {
     loadUsuarios(1, search);
@@ -81,24 +128,60 @@ export default function UsuariosPage() {
     setEditingId(null);
     setForm(emptyForm);
     setError(null);
-    setShowPassword(false);
+    setValidationError(null);
+    
+    // Validar que existan empresas
+    if (empresas.length === 0) {
+      setValidationError('Debe crear al menos una empresa antes de crear usuarios.');
+      return;
+    }
+    
+    // Validar que existan centros de costo
+    if (centrosCosto.length === 0) {
+      setValidationError('Debe crear al menos un centro de costo antes de crear usuarios.');
+      return;
+    }
+    
     setModalOpen(true);
   };
 
   const openEdit = (u: Usuario) => {
     setEditingId(u.id);
-    setForm({ email: u.email, password: '', nombre: u.nombre, apellido: u.apellido, rolId: u.rol.id });
+    setForm({ 
+      username: u.username,
+      email: u.email, 
+      password: '', 
+      nombre: u.nombre, 
+      apellido: u.apellido,
+      cedula: u.cedula || '',
+      empresaId: u.empresas?.[0]?.empresa.id || '',
+      direccion: u.direccion || '',
+      area: u.area || '',
+      centroCostoId: u.centroCostoId || '',
+      rolId: u.rol.id,
+      activo: u.activo
+    });
     setError(null);
     setShowPassword(false);
     setModalOpen(true);
-  };
+};
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
       if (editingId) {
-        const body: any = { nombre: form.nombre, apellido: form.apellido, email: form.email, rolId: form.rolId };
+        const body: any = { 
+          username: form.username,
+          nombre: form.nombre, 
+          apellido: form.apellido, 
+          email: form.email, 
+          cedula: form.cedula,
+          direccion: form.direccion,
+          area: form.area,
+          centroCostoId: form.centroCostoId || undefined,
+          rolId: form.rolId 
+        };
         if (form.password) body.password = form.password;
         await updateUsuario(editingId, body);
       } else {
@@ -127,8 +210,8 @@ export default function UsuariosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
-          <p className="text-sm text-gray-500">Gestión de usuarios del sistema</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Gestión de Usuarios</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Crear, editar y administrar usuarios del sistema</p>
         </div>
         <button
           onClick={openCreate}
@@ -138,6 +221,44 @@ export default function UsuariosPage() {
           Nuevo Usuario
         </button>
       </div>
+
+      {validationError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-4">
+          <div className="flex items-start gap-3">
+            <svg className="h-5 w-5 text-amber-600 dark:text-amber-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-amber-800 dark:text-amber-200">Requisitos previos</h3>
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">{validationError}</p>
+              <div className="mt-3 flex gap-2">
+                {empresas.length === 0 && (
+                  <button
+                    onClick={() => window.location.href = '/dashboard/empresas'}
+                    className="text-sm font-medium text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 underline"
+                  >
+                    Ir a Empresas
+                  </button>
+                )}
+                {centrosCosto.length === 0 && (
+                  <button
+                    onClick={() => window.location.href = '/dashboard/centros-costo'}
+                    className="text-sm font-medium text-amber-800 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 underline"
+                  >
+                    Ir a Centros de Costo
+                  </button>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setValidationError(null)}
+              className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
@@ -163,9 +284,11 @@ export default function UsuariosPage() {
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-gray-50">
             <tr>
-              <th className="px-4 py-3 font-medium text-gray-600">Nombre</th>
+              <th className="px-4 py-3 font-medium text-gray-600">Usuario</th>
               <th className="px-4 py-3 font-medium text-gray-600">Email</th>
               <th className="px-4 py-3 font-medium text-gray-600">Rol</th>
+              <th className="px-4 py-3 font-medium text-gray-600">Empresa</th>
+              <th className="px-4 py-3 font-medium text-gray-600">Área</th>
               <th className="px-4 py-3 font-medium text-gray-600">Estado</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">Acciones</th>
             </tr>
@@ -173,32 +296,61 @@ export default function UsuariosPage() {
           <tbody className="divide-y">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center">
+                <td colSpan={7} className="px-4 py-12 text-center">
                   <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
                 </td>
               </tr>
             ) : usuarios.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                   No se encontraron usuarios
                 </td>
               </tr>
             ) : (
-              usuarios.map((u) => (
+              usuarios.map((u) => {
+                const empresaPrincipal = u.empresas?.[0]?.empresa;
+                const rolUsuario = u.rol || u.empresas?.[0]?.rol;
+                return (
                 <tr key={u.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {u.nombre} {u.apellido}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-semibold text-white">
+                        {u.nombre.charAt(0)}{u.apellido.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{u.nombre} {u.apellido}</p>
+                        <p className="text-xs text-gray-500">Cédula: {u.email.split('@')[0]}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{u.email}</td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 capitalize">
-                      {u.rol.nombre.replace('_', ' ')}
-                    </span>
+                    {rolUsuario ? (
+                      <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 capitalize">
+                        {rolUsuario.nombre.replace('_', ' ')}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-gray-400">Sin rol</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {empresaPrincipal ? (
+                      <span className="text-sm text-gray-900">{empresaPrincipal.nombre}</span>
+                    ) : (
+                      <span className="text-sm text-gray-400">Sin asignar</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.area ? (
+                      <span className="text-sm text-gray-900">{u.area}</span>
+                    ) : (
+                      <span className="text-sm text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        u.activo ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                        u.activo ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-700'
                       }`}
                     >
                       {u.activo ? 'Activo' : 'Inactivo'}
@@ -223,7 +375,8 @@ export default function UsuariosPage() {
                     </div>
                   </td>
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>
@@ -259,106 +412,228 @@ export default function UsuariosPage() {
 
       {/* Modal Crear/Editar */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-800 shadow-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {editingId ? 'Editar Usuario' : 'Nuevo Usuario'}
               </h2>
-              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {error && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
-            )}
+            <div className="p-6">
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              )}
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre *</label>
+                    <input
+                      type="text"
+                      placeholder="Nombre completo"
+                      value={form.nombre}
+                      onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Apellido *</label>
+                    <input
+                      type="text"
+                      placeholder="Apellido"
+                      value={form.apellido}
+                      onChange={(e) => setForm({ ...form, apellido: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Usuario *</label>
+                    <input
+                      type="text"
+                      placeholder="jperez"
+                      value={form.username}
+                      onChange={(e) => setForm({ ...form, username: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Cédula *</label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 12345678"
+                      value={form.cedula}
+                      onChange={(e) => setForm({ ...form, cedula: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Nombre</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Email *</label>
                   <input
-                    type="text"
-                    value={form.nombre}
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    type="email"
+                    placeholder="usuario@empresa.com"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    required
                   />
                 </div>
+
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Apellido</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Dirección</label>
                   <input
                     type="text"
-                    value={form.apellido}
-                    onChange={(e) => setForm({ ...form, apellido: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="Calle 123 #45-67"
+                    value={form.direccion}
+                    onChange={(e) => setForm({ ...form, direccion: e.target.value })}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Empresa *</label>
+                    <select
+                      value={form.empresaId}
+                      onChange={(e) => {
+                        const empresaId = e.target.value;
+                        setForm({ ...form, empresaId, centroCostoId: '' });
+                        if (empresaId) {
+                          loadCentrosCosto(empresaId);
+                        }
+                      }}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    >
+                      <option value="">Seleccionar empresa...</option>
+                      {empresas.map((empresa) => (
+                        <option key={empresa.id} value={empresa.id}>
+                          {empresa.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Contraseña {editingId && '(dejar vacío para no cambiar)'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Área *</label>
+                    <select
+                      value={form.area}
+                      onChange={(e) => setForm({ ...form, area: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    >
+                      <option value="">Seleccionar área...</option>
+                      <option value="Compras">Compras</option>
+                      <option value="Dirección">Dirección</option>
+                      <option value="Operaciones">Operaciones</option>
+                      <option value="RRHH">RRHH</option>
+                      <option value="Administración">Administración</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Contraseña {editingId && '(dejar vacío para no cambiar)'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={form.password}
+                      placeholder="••••••••"
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Rol *</label>
+                    <select
+                      value={form.rolId}
+                      onChange={(e) => setForm({ ...form, rolId: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                    >
+                      <option value="">Seleccionar rol...</option>
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.nombre.replace('_', ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Centro de Costo *</label>
+                    <select
+                      value={form.centroCostoId}
+                      onChange={(e) => setForm({ ...form, centroCostoId: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required
+                      disabled={!form.empresaId}
+                    >
+                      <option value="">{!form.empresaId ? 'Primero seleccione una empresa' : 'Seleccionar centro de costo...'}</option>
+                      {centrosCosto
+                        .filter(cc => !form.empresaId || cc.empresaId === form.empresaId)
+                        .map((cc) => (
+                          <option key={cc.id} value={cc.id}>
+                            {cc.nombre} ({cc.codigo})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>
+                  <select
+                    value={form.activo ? 'true' : 'false'}
+                    onChange={(e) => setForm({ ...form, activo: e.target.value === 'true' })}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                    <option value="true">Activo</option>
+                    <option value="false">Inactivo</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">Rol</label>
-                <select
-                  value={form.rolId}
-                  onChange={(e) => setForm({ ...form, rolId: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              <div className="sticky bottom-0 mt-6 flex justify-end gap-3 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 pt-4 -mx-6 px-6 -mb-6 pb-6">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="rounded-lg border border-gray-300 dark:border-slate-600 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700"
                 >
-                  <option value="">Seleccionar rol...</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.nombre.replace('_', ' ')}
-                    </option>
-                  ))}
-                </select>
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {editingId ? 'Guardar Cambios' : 'Crear Usuario'}
+                </button>
               </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editingId ? 'Guardar Cambios' : 'Crear Usuario'}
-              </button>
             </div>
           </div>
         </div>

@@ -30,6 +30,20 @@ export class ProveedoresController {
     return this.proveedoresService.findAll(query);
   }
 
+  @Get('validate/nit')
+  @ApiOperation({ summary: 'Validar disponibilidad de NIT' })
+  @ApiResponse({ status: 200, description: 'Resultado de validación' })
+  validateNit(@Query('nit') nit: string) {
+    return this.proveedoresService.validateNit(nit);
+  }
+
+  @Get('validate/email')
+  @ApiOperation({ summary: 'Validar disponibilidad de email corporativo' })
+  @ApiResponse({ status: 200, description: 'Resultado de validación' })
+  validateEmail(@Query('email') email: string) {
+    return this.proveedoresService.validateEmail(email);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un proveedor por ID' })
   @ApiResponse({ status: 200, description: 'Proveedor encontrado' })

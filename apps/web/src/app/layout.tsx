@@ -5,8 +5,12 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Gestión de Compras MARDIQUE',
-  description: 'Plataforma Control de Compras MARDIQUE — Suite empresarial de gestión de compras',
+  title: 'SIGEC',
+  description: 'Plataforma Control de Compras— Suite empresarial de gestión de compras',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

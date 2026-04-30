@@ -1,6 +1,6 @@
-import { Injectable, CanActivate, ExecutionContext, SetMetadata } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, SetMetadata, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthenticatedUser } from '../interfaces/jwt-payload.interface';
+import { SessionService } from '../services/session.service';
 
 export const PERMISSIONS_KEY = 'permissions';
 export const RequirePermissions = (...permissions: string[]) =>
@@ -8,9 +8,12 @@ export const RequirePermissions = (...permissions: string[]) =>
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly sessionService: SessionService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredPermissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -20,7 +23,33 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest<{ user: AuthenticatedUser }>();
-    return requiredPermissions.every((perm) => user.permisos.includes(perm));
+    const request = context.switchToHttp().getRequest();
+    const sessionId = request.cookies?.['session_id'];
+
+    if (!sessionId) {
+      throw new ForbiddenException('Sesión no encontrada');
+    }
+
+    const session = await this.sessionService.getSession(sessionId);
+
+    if (!session) {
+      throw new ForbiddenException('Sesión inválida');
+    }
+
+    if (!session.activeCompanyId) {
+      throw new ForbiddenException('Debes seleccionar una empresa');
+    }
+
+    const hasPermissions = requiredPermissions.every((perm) =>
+      session.activePermissions.includes(perm),
+    );
+
+    if (!hasPermissions) {
+      throw new ForbiddenException(
+        `No tienes permiso para realizar esta acción en la empresa actual`,
+      );
+    }
+
+    return true;
   }
 }

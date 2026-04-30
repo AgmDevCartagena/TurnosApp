@@ -11,52 +11,125 @@ datasource db {
 // AUTENTICACIÓN & ADMINISTRACIÓN
 // ============================================
 
+model Empresa {
+  id          String   @id @default(uuid())
+  nombre      String
+  nit         String   @unique
+  razonSocial String   @map("razon_social")
+  direccion   String?
+  telefono    String?
+  email       String?
+  activo      Boolean  @default(true)
+  grupoId     String?  @map("grupo_id") // Para agrupar empresas del mismo holding
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  usuariosEmpresas     UsuarioEmpresaRol[]
+  solicitudes          SolicitudCompra[]
+  cotizaciones         Cotizacion[]
+  ordenes              OrdenCompra[]
+  centrosCosto         CentroCosto[]
+  auditLogs            CompanyAuditLog[]
+  carritos             Carrito[]
+  productosHabilitados ProductoEmpresa[]
+
+  @@index([activo])
+  @@map("empresas")
+}
+
 model Usuario {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
+  id            String  @id @default(uuid())
+  username      String  @unique
+  email         String  @unique
+  password      String?
   nombre        String
   apellido      String
-  activo        Boolean  @default(true)
-  rolId         String
-  rol           Rol      @relation(fields: [rolId], references: [id])
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  cedula        String? // Cédula del usuario
+  direccion     String? // Dirección del usuario
+  area          String? // Área organizacional
+  centroCostoId String? @map("centro_costo_id") // Centro de costo asignado
+  activo        Boolean @default(true)
 
-  solicitudes          SolicitudCompra[]
-  aprobaciones         PasoAprobacion[]
-  ordenesCreadas       OrdenCompra[]        @relation("OrdenCreador")
-  recepcionesHechas    Recepcion[]
-  notificaciones       Notificacion[]
-  documentosSubidos    VersionDocumento[]
-  auditLogs            AuditLog[]
-  proveedoresCreados   Proveedor[]          @relation("ProveedorCreadoPor")
+  // DEPRECATED: Mantener por compatibilidad temporal durante migración
+  rolId String?
+  rol   Rol?    @relation("UsuarioRolLegacy", fields: [rolId], references: [id])
+
+  authProvider String    @default("local") @map("auth_provider")
+  microsoftId  String?   @unique @map("microsoft_id")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  empresas                UsuarioEmpresaRol[]
+  solicitudes             SolicitudCompra[]
+  aprobaciones            PasoAprobacion[]
+  ordenesCreadas          OrdenCompra[]       @relation("OrdenCreador")
+  recepcionesHechas       Recepcion[]
+  notificaciones          Notificacion[]
+  documentosSubidos       VersionDocumento[]
+  auditLogs               AuditLog[]
+  proveedoresCreados      Proveedor[]         @relation("ProveedorCreadoPor")
+  proveedoresActualizados Proveedor[]         @relation("ProveedorActualizadoPor")
+  authAuditLogs           AuthAuditLog[]
+  carritos                Carrito[]
 
   @@map("usuarios")
 }
 
-model Rol {
-  id          String    @id @default(uuid())
-  nombre      String    @unique
-  descripcion String?
-  activo      Boolean   @default(true)
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+model UsuarioEmpresaRol {
+  id        String   @id @default(uuid())
+  usuarioId String   @map("usuario_id")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresaId String   @map("empresa_id")
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  rolId     String   @map("rol_id")
+  rol       Rol      @relation(fields: [rolId], references: [id])
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  usuarios    Usuario[]
-  permisos    PermisoRol[]
+  @@unique([usuarioId, empresaId, rolId])
+  @@index([usuarioId, empresaId, activo])
+  @@index([empresaId, activo])
+  @@map("usuarios_empresas_roles")
+}
+
+model Rol {
+  id          String   @id @default(uuid())
+  codigo      String   @unique
+  nombre      String   @unique
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // DEPRECATED: Mantener por compatibilidad temporal
+  usuariosLegacy Usuario[] @relation("UsuarioRolLegacy")
+
+  usuariosEmpresas UsuarioEmpresaRol[]
+  permisos         PermisoRol[]
 
   @@map("roles")
 }
 
 model Permiso {
-  id       String @id @default(uuid())
-  recurso  String
-  accion   String
+  id          String   @id @default(uuid())
+  codigo      String   @unique // "requests.view", "users.create" - clave funcional RBAC
+  nombre      String // "Ver Solicitudes", "Crear Usuarios" - nombre legible
+  modulo      String // "requests", "users", "dashboard"
+  accion      String // "view", "create", "update", "delete", "approve"
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  roles    PermisoRol[]
+  roles PermisoRol[]
 
-  @@unique([recurso, accion])
+  @@unique([modulo, accion])
+  @@index([modulo])
+  @@index([codigo])
+  @@index([activo])
   @@map("permisos")
 }
 
@@ -68,6 +141,42 @@ model PermisoRol {
 
   @@id([rolId, permisoId])
   @@map("permisos_roles")
+}
+
+// ============================================
+// ATRIBUTOS DINÁMICOS
+// ============================================
+
+model AtributoDinamico {
+  id          String   @id @default(uuid())
+  nombre      String
+  categoria   String // Laptop, Monitor, Periférico, Mobiliario, Servicio, etc.
+  tipoDato    String // TEXTO, NUMERO, LISTA, BOOLEANO
+  valores     String? // JSON array de valores para tipo LISTA
+  obligatorio Boolean  @default(false)
+  activo      Boolean  @default(true)
+  orden       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  valoresAtributo ValorAtributo[]
+
+  @@index([categoria])
+  @@index([activo])
+  @@map("atributos_dinamicos")
+}
+
+model ValorAtributo {
+  id             String           @id @default(uuid())
+  atributoId     String           @map("atributo_id")
+  atributo       AtributoDinamico @relation(fields: [atributoId], references: [id], onDelete: Cascade)
+  bienServicioId String           @map("bien_servicio_id")
+  bienServicio   BienServicio     @relation(fields: [bienServicioId], references: [id], onDelete: Cascade)
+  valor          String // Valor del atributo (texto, número, o clave de lista)
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@unique([atributoId, bienServicioId])
+  @@map("valores_atributo")
 }
 
 // ============================================
@@ -86,29 +195,155 @@ model Categoria {
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
-  bienes      BienServicio[]
+  bienes BienServicio[]
 
   @@map("categorias")
 }
 
 model BienServicio {
+  id             String    @id @default(uuid())
+  nombre         String
+  descripcion    String?
+  categoriaId    String    @map("categoria_id")
+  categoria      Categoria @relation(fields: [categoriaId], references: [id])
+  especsTecnicas Json?     @map("especs_tecnicas")
+  unidadMedida   String    @map("unidad_medida")
+  tipo           String // 'bien' | 'servicio'
+  activo         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  lineasSolicitud  LineaSolicitud[]
+  lineasCotizacion LineaCotizacion[]
+  lineasOrden      LineaOrden[]
+  itemsCarrito     ItemCarrito[]
+  itemsInventario  ItemInventario[]
+  valoresAtributo  ValorAtributo[]
+  Producto         Producto?
+
+  @@map("bienes_servicios")
+}
+
+// Extensión para catálogo e-commerce
+model Producto {
+  id                  String       @id @default(uuid())
+  bienServicioId      String       @unique @map("bien_servicio_id")
+  bienServicio        BienServicio @relation(fields: [bienServicioId], references: [id], onDelete: Cascade)
+  sku                 String       @unique
+  slug                String       @unique
+  nombreCorto         String       @map("nombre_corto")
+  descripcionCorta    String?      @map("descripcion_corta")
+  descripcionLarga    String?      @map("descripcion_larga")
+  marca               String?
+  modelo              String?
+  imagenPrincipal     String?      @map("imagen_principal")
+  imagenesAdicionales String[]     @default([]) @map("imagenes_adicionales")
+  fichatecnicaUrl     String?      @map("ficha_tecnica_url")
+  stockDisponible     Int          @default(0) @map("stock_disponible")
+  stockMinimo         Int          @default(0) @map("stock_minimo")
+  tiempoEntregaDias   Int?         @map("tiempo_entrega_dias")
+  destacado           Boolean      @default(false)
+  nuevo               Boolean      @default(false)
+  enOferta            Boolean      @default(false) @map("en_oferta")
+  precioReferencial   Decimal?     @map("precio_referencial")
+  visibleCatalogo     Boolean      @default(true) @map("visible_catalogo")
+  ordenVisualizacion  Int          @default(0) @map("orden_visualizacion")
+  metadatos           Json?
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  proveedores  ProductoProveedor[]
+  empresas     ProductoEmpresa[]
+  itemsCarrito ItemCarrito[]
+
+  @@index([slug])
+  @@index([sku])
+  @@index([visibleCatalogo, destacado])
+  @@map("productos")
+}
+
+model ProductoProveedor {
   id                String    @id @default(uuid())
-  nombre            String
-  descripcion       String?
-  categoriaId       String    @map("categoria_id")
-  categoria         Categoria @relation(fields: [categoriaId], references: [id])
-  especsTecnicas    Json?     @map("especs_tecnicas")
-  unidadMedida      String    @map("unidad_medida")
-  tipo              String    // 'bien' | 'servicio'
+  productoId        String    @map("producto_id")
+  producto          Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  proveedorId       String    @map("proveedor_id")
+  proveedor         Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  precioNegociado   Decimal   @map("precio_negociado")
+  moneda            String    @default("COP")
+  tiempoEntregaDias Int?      @map("tiempo_entrega_dias")
+  cantidadMinima    Int       @default(1) @map("cantidad_minima")
+  cantidadMaxima    Int?      @map("cantidad_maxima")
+  vigenciaDesde     DateTime  @map("vigencia_desde")
+  vigenciaHasta     DateTime? @map("vigencia_hasta")
   activo            Boolean   @default(true)
+  preferido         Boolean   @default(false)
+  observaciones     String?
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  lineasSolicitud   LineaSolicitud[]
-  lineasOrden       LineaOrden[]
-  itemsInventario   ItemInventario[]
+  @@unique([productoId, proveedorId])
+  @@index([proveedorId, activo])
+  @@index([productoId, activo, preferido])
+  @@map("productos_proveedores")
+}
 
-  @@map("bienes_servicios")
+model ProductoEmpresa {
+  id                 String   @id @default(uuid())
+  productoId         String   @map("producto_id")
+  producto           Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  empresaId          String   @map("empresa_id")
+  empresa            Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  habilitado         Boolean  @default(true)
+  cantidadMaxima     Int?     @map("cantidad_maxima")
+  requiereAprobacion Boolean  @default(false) @map("requiere_aprobacion")
+  observaciones      String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([productoId, empresaId])
+  @@index([empresaId, habilitado])
+  @@map("productos_empresas")
+}
+
+model Carrito {
+  id            String   @id @default(uuid())
+  usuarioId     String   @map("usuario_id")
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresaId     String   @map("empresa_id")
+  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  estado        String   @default("activo") // activo, convertido, abandonado
+  observaciones String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  items ItemCarrito[]
+
+  @@unique([usuarioId, empresaId, estado])
+  @@index([usuarioId, empresaId])
+  @@index([estado])
+  @@map("carritos")
+}
+
+model ItemCarrito {
+  id             String        @id @default(uuid())
+  carritoId      String        @map("carrito_id")
+  carrito        Carrito       @relation(fields: [carritoId], references: [id], onDelete: Cascade)
+  productoId     String        @map("producto_id")
+  producto       Producto      @relation(fields: [productoId], references: [id])
+  proveedorId    String?       @map("proveedor_id")
+  proveedor      Proveedor?    @relation(fields: [proveedorId], references: [id])
+  cantidad       Int           @default(1)
+  precioUnitario Decimal       @map("precio_unitario")
+  moneda         String        @default("COP")
+  observaciones  String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  BienServicio   BienServicio? @relation(fields: [bienServicioId], references: [id])
+  bienServicioId String?
+
+  @@index([carritoId])
+  @@index([productoId])
+  @@map("items_carrito")
 }
 
 // ============================================
@@ -116,49 +351,145 @@ model BienServicio {
 // ============================================
 
 model Proveedor {
-  id                    String    @id @default(uuid())
-  tipoProveedor         String    @default("nacional") @map("tipo_proveedor") // nacional, internacional, mixto
-  tipoPersona           String    @default("juridica") @map("tipo_persona") // natural, juridica
-  razonSocial           String    @map("razon_social")
-  tipoIdentificacion    String    @default("nit") @map("tipo_identificacion") // nit, cc, ce, pasaporte
-  nit                   String    @unique
-  direccion             String
-  departamento          String?
-  ciudad                String?
-  telefono              String
-  emailCorporativo      String    @map("email_corporativo")
-  tipoEmpresa           String?   @map("tipo_empresa") // sas, sa, ltda, eu, persona_natural, otro
-  fechaConstitucion     DateTime? @map("fecha_constitucion")
+  id                 String        @id @default(uuid())
+  codigoProveedor    String        @unique @map("codigo_proveedor") // PROV-000001
+  tipoProveedor      String        @default("nacional") @map("tipo_proveedor") // nacional, internacional, mixto
+  tipoPersona        String        @default("juridica") @map("tipo_persona") // natural, juridica
+  razonSocial        String        @map("razon_social")
+  nombreCompleto     String?       @map("nombre_completo") // Para persona natural
+  tipoIdentificacion String        @default("nit") @map("tipo_identificacion") // nit, cc, ce, pasaporte
+  nit                String        @unique
+  direccion          String
+  paisId             String?       @map("pais_id")
+  pais               Pais?         @relation(fields: [paisId], references: [id])
+  departamentoId     String?       @map("departamento_id")
+  departamento       Departamento? @relation(fields: [departamentoId], references: [id])
+  ciudadId           String?       @map("ciudad_id")
+  ciudad             Ciudad?       @relation(fields: [ciudadId], references: [id])
+  telefono           String
+  emailCorporativo   String        @unique @map("email_corporativo")
+  tipoEmpresa        String?       @map("tipo_empresa") // sas, sa, ltda, eu, persona_natural, otro
+  fechaConstitucion  DateTime?     @map("fecha_constitucion")
 
   // Actividad Económica
-  codigoCiiu            String?   @map("codigo_ciiu")
-  descripcionActividad  String?   @map("descripcion_actividad")
-  certificaciones       String[]  @default([])
-  observaciones         String?
+  codigoCiiu           String?  @map("codigo_ciiu")
+  descripcionActividad String?  @map("descripcion_actividad")
+  certificaciones      String[] @default([])
+  observaciones        String?
 
   // Representante Legal
-  repLegalNombres       String?   @map("rep_legal_nombres")
-  repLegalApellidos     String?   @map("rep_legal_apellidos")
-  repLegalTipoDoc       String?   @map("rep_legal_tipo_doc") // cc, ce, pasaporte
-  repLegalNumDoc        String?   @map("rep_legal_num_doc")
-  repLegalTelefono      String?   @map("rep_legal_telefono")
-  repLegalEmail         String?   @map("rep_legal_email")
+  repLegalNombres   String? @map("rep_legal_nombres")
+  repLegalApellidos String? @map("rep_legal_apellidos")
+  repLegalTipoDoc   String? @map("rep_legal_tipo_doc") // cc, ce, pasaporte
+  repLegalNumDoc    String? @map("rep_legal_num_doc")
+  repLegalTelefono  String? @map("rep_legal_telefono")
+  repLegalEmail     String? @map("rep_legal_email")
+
+  // Datos Tributarios
+  regimenIva            String?   @map("regimen_iva")
+  esAutorretenedorRenta Boolean   @default(false) @map("es_autorretenedor_renta")
+  resolucionRentaNo     String?   @map("resolucion_renta_no")
+  resolucionRentaFecha  DateTime? @map("resolucion_renta_fecha")
+  resolucionRentaPct    Decimal?  @db.Decimal(5, 2) @map("resolucion_renta_pct")
+  esGranContribuyente   Boolean   @default(false) @map("es_gran_contribuyente")
+  resolucionGcNo        String?   @map("resolucion_gc_no")
+  resolucionGcFecha     DateTime? @map("resolucion_gc_fecha")
+  actividadesIca        String[]  @default([]) @map("actividades_ica")
+  codigoIca             String?   @map("codigo_ica")
+  municipioIca          String?   @map("municipio_ica")
+  esAutorretenedorIca   Boolean   @default(false) @map("es_autorretenedor_ica")
+
+  // Experiencia en el Mercado
+  rangoExperiencia       String?   @map("rango_experiencia") // menos_1_anio, de_1_5_anios, mas_5_anios
+  descripcionExperiencia String?   @map("descripcion_experiencia") @db.VarChar(500)
 
   // Contacto principal (legacy compat)
-  contacto              String?
-  email                 String?
+  contacto String?
+  email    String?
 
-  estado                String    @default("activo") // activo, inactivo, suspendido, en_evaluacion, borrador
-  creadoPorId           String?   @map("creado_por_id")
-  creadoPor             Usuario?  @relation("ProveedorCreadoPor", fields: [creadoPorId], references: [id])
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  // Estados
+  estadoOnboarding String @default("borrador") @map("estado_onboarding") // borrador, en_proceso, completado
+  estadoOperativo  String @default("inactivo") @map("estado_operativo") // activo, inactivo, suspendido, en_evaluacion
+  estado           String @default("activo") // Legacy compatibility
 
-  evaluaciones    EvaluacionProveedor[]
-  ordenes         OrdenCompra[]
-  documentos      Documento[]
+  // Auditoría
+  creadoPorId      String?  @map("creado_por_id")
+  creadoPor        Usuario? @relation("ProveedorCreadoPor", fields: [creadoPorId], references: [id])
+  actualizadoPorId String?  @map("actualizado_por_id")
+  actualizadoPor   Usuario? @relation("ProveedorActualizadoPor", fields: [actualizadoPorId], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
+  evaluaciones EvaluacionProveedor[]
+  productos    ProductoProveedor[]
+  cotizaciones Cotizacion[]
+  ordenes      OrdenCompra[]
+  documentos   Documento[]
+  itemsCarrito ItemCarrito[]
+  sucursales         SucursalProveedor[]
+  socios             SocioProveedor[]
+  cuentasBancarias   CuentaBancariaProveedor[]
+  documentosWizard   DocumentoProveedor[]
+
+  @@index([paisId])
+  @@index([departamentoId])
+  @@index([ciudadId])
+  @@index([estadoOnboarding])
+  @@index([estadoOperativo])
   @@map("proveedores")
+}
+
+model SucursalProveedor {
+  id          String    @id @default(uuid())
+  proveedorId String    @map("proveedor_id")
+  proveedor   Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  numero      Int
+  direccion   String
+  ciudad      String
+  pais        String?
+  contacto    String
+  telefono    String
+  fax         String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([proveedorId])
+  @@map("sucursales_proveedores")
+}
+
+model CuentaBancariaProveedor {
+  id              String    @id @default(uuid())
+  proveedorId     String    @map("proveedor_id")
+  proveedor       Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  titularCuenta   String    @map("titular_cuenta")
+  numeroCuenta    String    @map("numero_cuenta")
+  tipoCuenta      String    @map("tipo_cuenta") // ahorros, corriente
+  banco           String
+  ciudad          String
+  condicionPago   String    @map("condicion_pago") // contado, credito_15, credito_mas_15
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([proveedorId, numeroCuenta])
+  @@index([proveedorId])
+  @@map("cuentas_bancarias_proveedores")
+}
+
+model SocioProveedor {
+  id              String    @id @default(uuid())
+  proveedorId     String    @map("proveedor_id")
+  proveedor       Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  tipoDoc         String    @map("tipo_doc") // cc, ce, nit, pasaporte, pep
+  numeroDoc       String    @map("numero_doc")
+  nombreRazon     String    @map("nombre_razon")
+  participacion   Decimal   @db.Decimal(5, 2) // max 100.00
+  tipoParticipacion String  @default("directa") @map("tipo_participacion") // directa, indirecta
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([proveedorId, tipoDoc, numeroDoc])
+  @@index([proveedorId])
+  @@map("socios_proveedores")
 }
 
 model EvaluacionProveedor {
@@ -181,47 +512,53 @@ model EvaluacionProveedor {
 // ============================================
 
 model SolicitudCompra {
-  id              String   @id @default(uuid())
-  numero          String   @unique
-  titulo          String   @default("")
-  solicitanteId   String   @map("solicitante_id")
-  solicitante     Usuario  @relation(fields: [solicitanteId], references: [id])
-  estado          String   @default("borrador") // borrador, enviada, en_aprobacion, aprobada, rechazada, cancelada
-  departamento    String?  // Departamento solicitante
-  categoria       String?  // Categoría de compra
-  prioridad       String   @default("media") // baja, media, alta, urgente
-  centroCostoId   String?  @map("centro_costo_id")
-  centroCosto     CentroCosto? @relation(fields: [centroCostoId], references: [id])
-  fechaRequerida  DateTime?   @map("fecha_requerida")
-  tiempoEntrega   Int?     @map("tiempo_entrega") // días
-  moneda          String   @default("COP") // COP, USD, EUR
-  descripcion     String?  // Descripción general
-  justificacion   String   @default("")
-  totalEstimado   Decimal  @default(0) @map("total_estimado")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id             String       @id @default(uuid())
+  numero         String       @unique
+  titulo         String       @default("")
+  empresaId      String       @map("empresa_id")
+  empresa        Empresa      @relation(fields: [empresaId], references: [id])
+  solicitanteId  String       @map("solicitante_id")
+  solicitante    Usuario      @relation(fields: [solicitanteId], references: [id])
+  estado         String       @default("borrador") // borrador, enviada, en_aprobacion, aprobada, rechazada, cancelada
+  departamento   String? // Departamento solicitante
+  categoria      String? // Categoría de compra
+  prioridad      String       @default("media") // baja, media, alta, urgente
+  centroCostoId  String?      @map("centro_costo_id")
+  centroCosto    CentroCosto? @relation(fields: [centroCostoId], references: [id])
+  fechaRequerida DateTime?    @map("fecha_requerida")
+  tiempoEntrega  Int?         @map("tiempo_entrega") // días
+  moneda         String       @default("COP") // COP, USD, EUR
+  descripcion    String? // Descripción general
+  justificacion  String       @default("")
+  totalEstimado  Decimal      @default(0) @map("total_estimado")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   lineas          LineaSolicitud[]
   flujoAprobacion FlujoAprobacion?
+  cotizaciones    Cotizacion[]
   ordenes         OrdenCompra[]
 
   @@index([estado])
   @@index([solicitanteId])
+  @@index([empresaId])
   @@index([createdAt(sort: Desc)])
   @@map("solicitudes_compra")
 }
 
 model LineaSolicitud {
-  id                String        @id @default(uuid())
-  solicitudId       String        @map("solicitud_id")
-  solicitud         SolicitudCompra @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
-  bienServicioId    String?       @map("bien_servicio_id")
-  bienServicio      BienServicio? @relation(fields: [bienServicioId], references: [id])
-  descripcion       String        @default("")
-  cantidad          Decimal       @default(1)
-  unidadMedida      String        @default("Unidad") @map("unidad_medida")
-  especificaciones  String?
-  precioEstimado    Decimal       @default(0) @map("precio_estimado")
+  id               String          @id @default(uuid())
+  solicitudId      String          @map("solicitud_id")
+  solicitud        SolicitudCompra @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  bienServicioId   String?         @map("bien_servicio_id")
+  bienServicio     BienServicio?   @relation(fields: [bienServicioId], references: [id])
+  descripcion      String          @default("")
+  cantidad         Decimal         @default(1)
+  unidadMedida     String          @default("Unidad") @map("unidad_medida")
+  especificaciones String?
+  precioEstimado   Decimal         @default(0) @map("precio_estimado")
+
+  lineasCotizacion LineaCotizacion[]
 
   @@map("lineas_solicitud")
 }
@@ -231,32 +568,96 @@ model LineaSolicitud {
 // ============================================
 
 model FlujoAprobacion {
-  id            String          @id @default(uuid())
-  solicitudId   String          @unique @map("solicitud_id")
-  solicitud     SolicitudCompra @relation(fields: [solicitudId], references: [id])
-  estadoActual  String          @default("pendiente") @map("estado_actual")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
+  id           String          @id @default(uuid())
+  solicitudId  String          @unique @map("solicitud_id")
+  solicitud    SolicitudCompra @relation(fields: [solicitudId], references: [id])
+  estadoActual String          @default("pendiente") @map("estado_actual")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
 
-  pasos         PasoAprobacion[]
+  pasos PasoAprobacion[]
 
   @@map("flujos_aprobacion")
 }
 
 model PasoAprobacion {
-  id              String          @id @default(uuid())
-  flujoId         String          @map("flujo_id")
-  flujo           FlujoAprobacion @relation(fields: [flujoId], references: [id], onDelete: Cascade)
-  orden           Int
-  aprobadorId     String          @map("aprobador_id")
-  aprobador       Usuario         @relation(fields: [aprobadorId], references: [id])
-  estado          String          @default("pendiente") // pendiente, aprobada, rechazada, escalada
-  comentario      String?
-  fechaDecision   DateTime?       @map("fecha_decision")
-  createdAt       DateTime        @default(now()) @map("created_at")
+  id            String          @id @default(uuid())
+  flujoId       String          @map("flujo_id")
+  flujo         FlujoAprobacion @relation(fields: [flujoId], references: [id], onDelete: Cascade)
+  orden         Int
+  aprobadorId   String          @map("aprobador_id")
+  aprobador     Usuario         @relation(fields: [aprobadorId], references: [id])
+  estado        String          @default("pendiente") // pendiente, aprobada, rechazada, escalada
+  comentario    String?
+  fechaDecision DateTime?       @map("fecha_decision")
+  createdAt     DateTime        @default(now()) @map("created_at")
 
   @@index([aprobadorId, estado])
   @@map("pasos_aprobacion")
+}
+
+// ============================================
+// COTIZACIONES
+// ============================================
+
+model Cotizacion {
+  id               String          @id @default(uuid())
+  numero           String          @unique
+  empresaId        String          @map("empresa_id")
+  empresa          Empresa         @relation(fields: [empresaId], references: [id])
+  solicitudId      String          @map("solicitud_id")
+  solicitud        SolicitudCompra @relation(fields: [solicitudId], references: [id])
+  proveedorId      String          @map("proveedor_id")
+  proveedor        Proveedor       @relation(fields: [proveedorId], references: [id])
+  estado           String          @default("borrador") // borrador, enviada, recibida, aceptada, rechazada, vencida
+  fechaSolicitud   DateTime?       @map("fecha_solicitud")
+  fechaRespuesta   DateTime?       @map("fecha_respuesta")
+  fechaVencimiento DateTime?       @map("fecha_vencimiento")
+  tiempoEntrega    Int?            @map("tiempo_entrega") // días
+  condicionesPago  String?         @map("condiciones_pago")
+  garantia         String?
+  validezOferta    Int?            @map("validez_oferta") // días
+  observaciones    String?
+  subtotal         Decimal         @default(0)
+  impuestos        Decimal         @default(0)
+  descuento        Decimal         @default(0)
+  total            Decimal         @default(0)
+  moneda           String          @default("COP")
+  calificacion     Decimal?        @db.Decimal(3, 2) // 0.00 a 5.00
+  historico        Int             @default(0) // número de compras previas
+  documentoAdjunto String?         @map("documento_adjunto")
+  seleccionada     Boolean         @default(false)
+  motivoRechazo    String?         @map("motivo_rechazo")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  lineas LineaCotizacion[]
+
+  @@index([solicitudId])
+  @@index([proveedorId])
+  @@index([estado])
+  @@index([createdAt(sort: Desc)])
+  @@map("cotizaciones")
+}
+
+model LineaCotizacion {
+  id               String          @id @default(uuid())
+  cotizacionId     String          @map("cotizacion_id")
+  cotizacion       Cotizacion      @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  lineaSolicitudId String?         @map("linea_solicitud_id")
+  lineaSolicitud   LineaSolicitud? @relation(fields: [lineaSolicitudId], references: [id])
+  descripcion      String
+  cantidad         Decimal         @default(1)
+  unidadMedida     String          @default("Unidad") @map("unidad_medida")
+  precioUnitario   Decimal         @default(0) @map("precio_unitario")
+  descuento        Decimal         @default(0)
+  impuesto         Decimal         @default(0)
+  total            Decimal         @default(0)
+  observaciones    String?
+  BienServicio     BienServicio?   @relation(fields: [bienServicioId], references: [id])
+  bienServicioId   String?
+
+  @@map("lineas_cotizacion")
 }
 
 // ============================================
@@ -264,58 +665,61 @@ model PasoAprobacion {
 // ============================================
 
 model OrdenCompra {
-  id                  String          @id @default(uuid())
-  numero              String          @unique
-  solicitudId         String          @map("solicitud_id")
-  solicitud           SolicitudCompra @relation(fields: [solicitudId], references: [id])
-  proveedorId         String          @map("proveedor_id")
-  proveedor           Proveedor       @relation(fields: [proveedorId], references: [id])
-  creadorId           String          @map("creador_id")
-  creador             Usuario         @relation("OrdenCreador", fields: [creadorId], references: [id])
-  estado              String          @default("borrador") // borrador, emitida, enviada_proveedor, parcialmente_recibida, recibida, cerrada, cancelada
-  condicionesPago     String          @map("condiciones_pago")
-  fechaEmision        DateTime?       @map("fecha_emision")
-  fechaEntregaEstimada DateTime?      @map("fecha_entrega_estimada")
-  observaciones       String?
-  subtotal            Decimal         @default(0)
-  impuestos           Decimal         @default(0)
-  total               Decimal         @default(0)
-  createdAt           DateTime        @default(now()) @map("created_at")
-  updatedAt           DateTime        @updatedAt @map("updated_at")
+  id                   String          @id @default(uuid())
+  numero               String          @unique
+  empresaId            String          @map("empresa_id")
+  empresa              Empresa         @relation(fields: [empresaId], references: [id])
+  solicitudId          String          @map("solicitud_id")
+  solicitud            SolicitudCompra @relation(fields: [solicitudId], references: [id])
+  proveedorId          String          @map("proveedor_id")
+  proveedor            Proveedor       @relation(fields: [proveedorId], references: [id])
+  creadorId            String          @map("creador_id")
+  creador              Usuario         @relation("OrdenCreador", fields: [creadorId], references: [id])
+  estado               String          @default("borrador") // borrador, emitida, enviada_proveedor, parcialmente_recibida, recibida, cerrada, cancelada
+  condicionesPago      String          @map("condiciones_pago")
+  fechaEmision         DateTime?       @map("fecha_emision")
+  fechaEntregaEstimada DateTime?       @map("fecha_entrega_estimada")
+  observaciones        String?
+  subtotal             Decimal         @default(0)
+  impuestos            Decimal         @default(0)
+  total                Decimal         @default(0)
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
 
-  lineas              LineaOrden[]
-  recepciones         Recepcion[]
+  lineas      LineaOrden[]
+  recepciones Recepcion[]
 
   @@index([estado])
   @@index([proveedorId])
+  @@index([empresaId])
   @@index([fechaEmision(sort: Desc)])
   @@map("ordenes_compra")
 }
 
 model LineaOrden {
-  id              String       @id @default(uuid())
-  ordenId         String       @map("orden_id")
-  orden           OrdenCompra  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
-  bienServicioId  String       @map("bien_servicio_id")
-  bienServicio    BienServicio @relation(fields: [bienServicioId], references: [id])
-  cantidad        Decimal
-  unidadMedida    String       @map("unidad_medida")
-  precioUnitario  Decimal      @map("precio_unitario")
-  descuento       Decimal      @default(0)
-  subtotal        Decimal      @default(0)
+  id             String       @id @default(uuid())
+  ordenId        String       @map("orden_id")
+  orden          OrdenCompra  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  bienServicioId String       @map("bien_servicio_id")
+  bienServicio   BienServicio @relation(fields: [bienServicioId], references: [id])
+  cantidad       Decimal
+  unidadMedida   String       @map("unidad_medida")
+  precioUnitario Decimal      @map("precio_unitario")
+  descuento      Decimal      @default(0)
+  subtotal       Decimal      @default(0)
 
   @@map("lineas_orden")
 }
 
 model Recepcion {
-  id              String      @id @default(uuid())
-  ordenCompraId   String      @map("orden_compra_id")
-  ordenCompra     OrdenCompra @relation(fields: [ordenCompraId], references: [id])
-  fechaRecepcion  DateTime    @default(now()) @map("fecha_recepcion")
-  recibidoPorId   String      @map("recibido_por_id")
-  recibidoPor     Usuario     @relation(fields: [recibidoPorId], references: [id])
-  observaciones   String?
-  createdAt       DateTime    @default(now()) @map("created_at")
+  id             String      @id @default(uuid())
+  ordenCompraId  String      @map("orden_compra_id")
+  ordenCompra    OrdenCompra @relation(fields: [ordenCompraId], references: [id])
+  fechaRecepcion DateTime    @default(now()) @map("fecha_recepcion")
+  recibidoPorId  String      @map("recibido_por_id")
+  recibidoPor    Usuario     @relation(fields: [recibidoPorId], references: [id])
+  observaciones  String?
+  createdAt      DateTime    @default(now()) @map("created_at")
 
   @@map("recepciones")
 }
@@ -324,8 +728,25 @@ model Recepcion {
 // INVENTARIOS
 // ============================================
 
+model Area {
+  id               String   @id @default(uuid())
+  empresaId        String   @map("empresa_id")
+  codigo           String   @unique
+  nombre           String
+  jefeAreaId       String?  @map("jefe_area_id")
+  presupuestoAnual Decimal? @map("presupuesto_anual")
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([empresaId])
+  @@map("areas")
+}
+
 model CentroCosto {
   id          String   @id @default(uuid())
+  empresaId   String   @map("empresa_id")
+  empresa     Empresa  @relation(fields: [empresaId], references: [id])
   nombre      String
   codigo      String   @unique
   descripcion String?
@@ -336,19 +757,20 @@ model CentroCosto {
   solicitudes     SolicitudCompra[]
   itemsInventario ItemInventario[]
 
+  @@index([empresaId])
   @@map("centros_costo")
 }
 
 model ItemInventario {
-  id                String       @id @default(uuid())
-  bienServicioId    String       @map("bien_servicio_id")
-  bienServicio      BienServicio @relation(fields: [bienServicioId], references: [id])
-  centroCostoId     String       @map("centro_costo_id")
-  centroCosto       CentroCosto  @relation(fields: [centroCostoId], references: [id])
-  cantidad          Decimal      @default(0)
-  ultimaActualizacion DateTime   @default(now()) @map("ultima_actualizacion")
+  id                  String       @id @default(uuid())
+  bienServicioId      String       @map("bien_servicio_id")
+  bienServicio        BienServicio @relation(fields: [bienServicioId], references: [id])
+  centroCostoId       String       @map("centro_costo_id")
+  centroCosto         CentroCosto  @relation(fields: [centroCostoId], references: [id])
+  cantidad            Decimal      @default(0)
+  ultimaActualizacion DateTime     @default(now()) @map("ultima_actualizacion")
 
-  movimientos       MovimientoInventario[]
+  movimientos MovimientoInventario[]
 
   @@unique([bienServicioId, centroCostoId])
   @@index([bienServicioId])
@@ -357,49 +779,91 @@ model ItemInventario {
 }
 
 model MovimientoInventario {
-  id              String         @id @default(uuid())
-  itemInventarioId String        @map("item_inventario_id")
-  itemInventario  ItemInventario @relation(fields: [itemInventarioId], references: [id])
-  tipo            String         // entrada, salida, ajuste
-  cantidad        Decimal
-  referencia      String?        // ID de recepción u otro documento
-  observaciones   String?
-  createdAt       DateTime       @default(now()) @map("created_at")
+  id               String         @id @default(uuid())
+  itemInventarioId String         @map("item_inventario_id")
+  itemInventario   ItemInventario @relation(fields: [itemInventarioId], references: [id])
+  tipo             String // entrada, salida, ajuste
+  cantidad         Decimal
+  referencia       String? // ID de recepción u otro documento
+  observaciones    String?
+  createdAt        DateTime       @default(now()) @map("created_at")
 
   @@map("movimientos_inventario")
 }
 
 // ============================================
+// ============================================
+// DOCUMENTOS REQUERIDOS PROVEEDOR (WIZARD)
+// ============================================
+
+model TipoDocumentoRequerido {
+  id               String   @id @default(uuid())
+  nombre           String
+  descripcion      String?
+  obligatorio      Boolean  @default(true)
+  aplicaPersona    String   @default("ambos") @map("aplica_persona") // natural, juridica, ambos
+  aplicaProveedor  String   @default("todos") @map("aplica_proveedor") // nacional, internacional, todos
+  requiereVigencia Boolean  @default(false) @map("requiere_vigencia")
+  activo           Boolean  @default(true)
+  orden            Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  documentosProveedor DocumentoProveedor[]
+
+  @@map("tipos_documentos_requeridos")
+}
+
+model DocumentoProveedor {
+  id               String                 @id @default(uuid())
+  proveedorId      String                 @map("proveedor_id")
+  proveedor        Proveedor              @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  tipoDocumentoId  String                 @map("tipo_documento_id")
+  tipoDocumento    TipoDocumentoRequerido @relation(fields: [tipoDocumentoId], references: [id])
+  nombre           String
+  url              String?
+  fechaExpedicion  DateTime?              @map("fecha_expedicion")
+  fechaVencimiento DateTime?              @map("fecha_vencimiento")
+  estado           String                 @default("cargado") // cargado, vencido
+  observaciones    String?
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+
+  @@unique([proveedorId, tipoDocumentoId])
+  @@index([proveedorId])
+  @@map("documentos_proveedores")
+}
+
 // DOCUMENTOS
 // ============================================
 
 model Documento {
-  id            String   @id @default(uuid())
-  nombre        String
-  tipo          String   // rut, camara_comercio, poliza, contrato, factura, cotizacion, otro
-  entidadRef    String   @map("entidad_ref") // 'proveedor', 'orden_compra', etc.
-  entidadId     String   @map("entidad_id")
-  proveedorId   String?  @map("proveedor_id")
-  proveedor     Proveedor? @relation(fields: [proveedorId], references: [id])
-  vencimiento   DateTime?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id          String     @id @default(uuid())
+  nombre      String
+  tipo        String // rut, camara_comercio, poliza, contrato, factura, cotizacion, otro
+  entidadRef  String     @map("entidad_ref") // 'proveedor', 'orden_compra', etc.
+  entidadId   String     @map("entidad_id")
+  proveedorId String?    @map("proveedor_id")
+  proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
+  vencimiento DateTime?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  versiones     VersionDocumento[]
+  versiones VersionDocumento[]
 
   @@index([entidadRef, entidadId])
   @@map("documentos")
 }
 
 model VersionDocumento {
-  id            String    @id @default(uuid())
-  documentoId   String    @map("documento_id")
-  documento     Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
-  version       Int
-  url           String
-  subidoPorId   String    @map("subido_por_id")
-  subidoPor     Usuario   @relation(fields: [subidoPorId], references: [id])
-  fechaSubida   DateTime  @default(now()) @map("fecha_subida")
+  id          String    @id @default(uuid())
+  documentoId String    @map("documento_id")
+  documento   Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  version     Int
+  url         String
+  subidoPorId String    @map("subido_por_id")
+  subidoPor   Usuario   @relation(fields: [subidoPorId], references: [id])
+  fechaSubida DateTime  @default(now()) @map("fecha_subida")
 
   @@map("versiones_documentos")
 }
@@ -409,15 +873,15 @@ model VersionDocumento {
 // ============================================
 
 model Notificacion {
-  id              String   @id @default(uuid())
-  tipo            String   // aprobacion_pendiente, solicitud_aprobada, orden_creada, documento_vencido, etc.
-  destinatarioId  String   @map("destinatario_id")
-  destinatario    Usuario  @relation(fields: [destinatarioId], references: [id])
-  titulo          String
-  mensaje         String
-  leida           Boolean  @default(false)
-  metadata        Json?
-  createdAt       DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid())
+  tipo           String // aprobacion_pendiente, solicitud_aprobada, orden_creada, documento_vencido, etc.
+  destinatarioId String   @map("destinatario_id")
+  destinatario   Usuario  @relation(fields: [destinatarioId], references: [id])
+  titulo         String
+  mensaje        String
+  leida          Boolean  @default(false)
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([destinatarioId, leida])
   @@map("notificaciones")
@@ -428,20 +892,114 @@ model Notificacion {
 // ============================================
 
 model AuditLog {
-  id            String   @id @default(uuid())
-  accion        String
-  entidad       String
-  entidadId     String   @map("entidad_id")
-  usuarioId     String   @map("usuario_id")
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
-  datosAntes    Json?    @map("datos_antes")
-  datosDespues  Json?    @map("datos_despues")
-  ip            String?
-  userAgent     String?  @map("user_agent")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid())
+  accion       String
+  entidad      String
+  entidadId    String   @map("entidad_id")
+  usuarioId    String   @map("usuario_id")
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id])
+  datosAntes   Json?    @map("datos_antes")
+  datosDespues Json?    @map("datos_despues")
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([entidad, entidadId])
   @@index([usuarioId])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+model AuthAuditLog {
+  id           String   @id @default(uuid())
+  evento       String // login_success, login_failed, logout, etc.
+  usuarioId    String?  @map("usuario_id")
+  email        String?
+  authProvider String?  @map("auth_provider")
+  exitoso      Boolean
+  razon        String?
+  ip           String?
+  userAgent    String?  @map("user_agent")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([evento, createdAt(sort: Desc)])
+  @@index([usuarioId])
+  @@map("auth_audit_logs")
+}
+
+// ============================================
+// UBICACIONES GEOGRÁFICAS
+// ============================================
+
+model Pais {
+  id            String   @id @default(uuid())
+  codigo        String   @unique // CO, US, MX, etc.
+  nombre        String
+  nombreOficial String?  @map("nombre_oficial")
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  departamentos Departamento[]
+  proveedores   Proveedor[]
+
+  @@index([codigo])
+  @@map("paises")
+}
+
+model Departamento {
+  id        String   @id @default(uuid())
+  paisId    String   @map("pais_id")
+  pais      Pais     @relation(fields: [paisId], references: [id])
+  codigo    String // ANT, CUN, VAL, etc.
+  nombre    String
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ciudades    Ciudad[]
+  proveedores Proveedor[]
+
+  @@unique([paisId, codigo])
+  @@index([paisId])
+  @@map("departamentos")
+}
+
+model Ciudad {
+  id             String       @id @default(uuid())
+  departamentoId String       @map("departamento_id")
+  departamento   Departamento @relation(fields: [departamentoId], references: [id])
+  codigo         String // 05001, 11001, etc.
+  nombre         String
+  activo         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  proveedores Proveedor[]
+
+  @@unique([departamentoId, codigo])
+  @@index([departamentoId])
+  @@map("ciudades")
+}
+
+model CompanyAuditLog {
+  id                String   @id @default(uuid())
+  evento            String // company_selected, company_changed, company_access_denied, etc.
+  usuarioId         String   @map("usuario_id")
+  empresaId         String?  @map("empresa_id")
+  empresa           Empresa? @relation(fields: [empresaId], references: [id])
+  empresaAnteriorId String?  @map("empresa_anterior_id")
+  exitoso           Boolean
+  razon             String?
+  ip                String?
+  userAgent         String?  @map("user_agent")
+  metadata          Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([evento, createdAt(sort: Desc)])
+  @@index([usuarioId, empresaId])
+  @@map("company_audit_logs")
 }

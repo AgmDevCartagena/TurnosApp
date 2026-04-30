@@ -14,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.secret'),
+      secretOrKey: configService.get<string>('JWT_SECRET') || process.env.JWT_SECRET,
     });
   }
 
@@ -23,6 +23,21 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user) {
       throw new UnauthorizedException('Usuario no válido');
     }
+    
+    // Agregar activeCompany si existe
+    if (user.empresas && user.empresas.length > 0) {
+      const primeraEmpresa = user.empresas[0];
+      if (primeraEmpresa) {
+        return {
+          ...user,
+          activeCompany: {
+            id: primeraEmpresa.id,
+            nombre: primeraEmpresa.nombre,
+          },
+        };
+      }
+    }
+    
     return user;
   }
 }
