@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchCotizacionesBySolicitud, seleccionarCotizacion, type Cotizacion } from '@/lib/cotizaciones-api';
-import { ArrowLeft, Download, Star, Clock, DollarSign, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Star, Clock, CheckCircle2, FileText } from 'lucide-react';
 
 export default function ComparativoPage() {
   const params = useParams();

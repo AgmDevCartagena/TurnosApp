@@ -361,7 +361,7 @@ export default function SucursalesPage() {
                 {sucursales.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
-                      No hay sucursales registradas. Haga clic en "Agregar Sucursal" para comenzar.
+                      No hay sucursales registradas. Haga clic en &quot;Agregar Sucursal&quot; para comenzar.
                     </td>
                   </tr>
                 ) : (
@@ -549,7 +549,7 @@ export default function SucursalesPage() {
                       type="tel"
                       value={form.telefono}
                       onChange={e =>
-                        handleFormChange('telefono', e.target.value.replace(/[^\d\s\+\-()]/g, ''))
+                        handleFormChange('telefono', e.target.value.replace(/[^\d\s+()-]/g, ''))
                       }
                       placeholder="+57 300 000 0000"
                       maxLength={20}
@@ -569,7 +569,7 @@ export default function SucursalesPage() {
                   type="tel"
                   value={form.fax}
                   onChange={e =>
-                    handleFormChange('fax', e.target.value.replace(/[^\d\s\+\-()]/g, ''))
+                    handleFormChange('fax', e.target.value.replace(/[^\d\s+()-]/g, ''))
                   }
                   placeholder="Número de fax"
                   maxLength={20}

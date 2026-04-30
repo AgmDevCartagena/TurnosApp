@@ -130,7 +130,7 @@ export default function AtributosPage() {
     if (!acc[atributo.categoria]) {
       acc[atributo.categoria] = [];
     }
-    acc[atributo.categoria].push(atributo);
+    acc[atributo.categoria]!.push(atributo);
     return acc;
   }, {} as Record<string, AtributoDinamico[]>);
 

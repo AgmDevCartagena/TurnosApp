@@ -15,7 +15,7 @@ export function Can({
   children, 
   fallback = null 
 }: CanProps) {
-  const { hasPermission, hasAnyPermission, hasAllPermissions, isSuperAdmin } = usePermissions();
+  const { hasAnyPermission, hasAllPermissions, isSuperAdmin } = usePermissions();
 
   if (isSuperAdmin) {
     return <>{children}</>;

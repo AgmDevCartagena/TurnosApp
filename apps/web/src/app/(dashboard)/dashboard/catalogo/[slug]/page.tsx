@@ -162,7 +162,7 @@ export default function ProductDetailPage() {
             </p>
             {producto.proveedores && producto.proveedores.length > 0 && (
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                Proveedor: {producto.proveedores[0].proveedor?.razonSocial}
+                Proveedor: {producto.proveedores[0]?.proveedor?.razonSocial}
               </p>
             )}
           </div>

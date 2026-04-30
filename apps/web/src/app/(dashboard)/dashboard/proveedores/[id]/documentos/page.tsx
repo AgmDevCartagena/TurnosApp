@@ -65,8 +65,8 @@ export default function DocumentosPage() {
 
   const [tiposRequeridos, setTiposRequeridos] = useState<TipoDocumento[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoProveedor[]>([]);
-  const [tipoPersona, setTipoPersona] = useState('juridica');
-  const [tipoProveedor, setTipoProveedor] = useState('nacional');
+  const [, setTipoPersona] = useState('juridica');
+  const [, setTipoProveedor] = useState('nacional');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

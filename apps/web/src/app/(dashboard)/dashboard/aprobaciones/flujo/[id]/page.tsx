@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchFlujo, aprobarPaso, rechazarPaso, type FlujoAprobacion } from '@/lib/aprobaciones-api';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, User, MessageSquare, Calendar } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, MessageSquare, Calendar } from 'lucide-react';
 
 export default function FlujoAprobacionPage() {
   const params = useParams();
@@ -87,7 +87,7 @@ export default function FlujoAprobacionPage() {
       escalada: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Escalada' },
     };
 
-    const badge = badges[estado] || badges.pendiente;
+    const badge = badges[estado] ?? { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Pendiente' };
     return (
       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}>
         {badge.label}

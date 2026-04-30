@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, ShoppingCart, Grid, List } from 'lucide-react';
+import { Filter, ShoppingCart, Grid, List } from 'lucide-react';
 import { fetchProducts, fetchCategories, fetchBrands, addToCart, type Producto, type Categoria } from '@/lib/catalog-api';
-import { useAuthStore } from '@/lib/auth-store';
 
 export default function CatalogoPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [marcas, setMarcas] = useState<string[]>([]);

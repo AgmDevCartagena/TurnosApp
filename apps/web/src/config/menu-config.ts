@@ -8,7 +8,6 @@ import {
   CheckSquare,
   Package,
   Warehouse,
-  BarChart3,
   Truck,
   Settings,
   Sliders,

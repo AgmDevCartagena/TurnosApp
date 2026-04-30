@@ -1,42 +1,46 @@
 import { useAuthStore } from '@/lib/auth-store';
 
 export function usePermissions() {
-  const { permissions, isSuperAdmin, hasPermission, hasAnyPermission, hasAllPermissions } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
+  const permissions = user?.permisos ?? [];
+  const isSuperAdmin = user?.rol.nombre === 'super_admin';
+  const hasAnyPermission = (perms: string[]) => perms.some(permission => hasPermission(permission));
+  const hasAllPermissions = (perms: string[]) => perms.every(permission => hasPermission(permission));
 
   return {
-    permissions: permissions || [],
-    isSuperAdmin: isSuperAdmin || false,
+    permissions,
+    isSuperAdmin,
     hasPermission: (permission: string) => {
       if (isSuperAdmin) return true;
-      return hasPermission ? hasPermission(permission) : false;
+      return hasPermission(permission);
     },
     hasAnyPermission: (perms: string[]) => {
       if (isSuperAdmin) return true;
-      return hasAnyPermission ? hasAnyPermission(perms) : false;
+      return hasAnyPermission(perms);
     },
     hasAllPermissions: (perms: string[]) => {
       if (isSuperAdmin) return true;
-      return hasAllPermissions ? hasAllPermissions(perms) : false;
+      return hasAllPermissions(perms);
     },
     canView: (module: string) => {
       if (isSuperAdmin) return true;
-      return hasPermission ? hasPermission(`${module}.view`) : false;
+      return hasPermission(`${module}.view`);
     },
     canCreate: (module: string) => {
       if (isSuperAdmin) return true;
-      return hasPermission ? hasPermission(`${module}.create`) : false;
+      return hasPermission(`${module}.create`);
     },
     canUpdate: (module: string) => {
       if (isSuperAdmin) return true;
-      return hasPermission ? hasPermission(`${module}.update`) : false;
+      return hasPermission(`${module}.update`);
     },
     canDelete: (module: string) => {
       if (isSuperAdmin) return true;
-      return hasPermission ? hasPermission(`${module}.delete`) : false;
+      return hasPermission(`${module}.delete`);
     },
     canApprove: (module: string) => {
       if (isSuperAdmin) return true;
-      return hasPermission ? hasPermission(`${module}.approve`) : false;
+      return hasPermission(`${module}.approve`);
     },
   };
 }

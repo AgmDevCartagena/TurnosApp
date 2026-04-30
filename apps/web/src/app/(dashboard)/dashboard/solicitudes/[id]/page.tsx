@@ -10,7 +10,6 @@ import {
   Calendar,
   Clock,
   User,
-  Building2,
   Tag,
   DollarSign,
   AlertTriangle,

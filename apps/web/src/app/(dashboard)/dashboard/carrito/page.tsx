@@ -9,7 +9,6 @@ import {
   removeCartItem,
   clearCart,
   type Carrito,
-  type ItemCarrito,
 } from '@/lib/catalog-api';
 
 export default function CarritoPage() {

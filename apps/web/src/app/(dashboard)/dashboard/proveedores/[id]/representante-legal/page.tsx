@@ -390,7 +390,7 @@ export default function RepresentanteLegalPage() {
                       onChange={e =>
                         handleChange(
                           'telefono',
-                          e.target.value.replace(/[^\d\s\+\-()]/g, ''),
+                          e.target.value.replace(/[^\d\s+()-]/g, ''),
                         )
                       }
                       placeholder="+57 300 000 0000"

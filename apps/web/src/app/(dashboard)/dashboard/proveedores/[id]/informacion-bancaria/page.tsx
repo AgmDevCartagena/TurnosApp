@@ -376,7 +376,7 @@ export default function InformacionBancariaPage() {
                     <td colSpan={7} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2 text-gray-400">
                         <CreditCard className="h-8 w-8" />
-                        <p className="text-sm">No hay cuentas registradas. Haga clic en "Agregar Cuenta" para comenzar.</p>
+                        <p className="text-sm">No hay cuentas registradas. Haga clic en &quot;Agregar Cuenta&quot; para comenzar.</p>
                       </div>
                     </td>
                   </tr>

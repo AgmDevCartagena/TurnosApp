@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchMisAprobacionesPendientes, aprobarPaso, rechazarPaso, type FlujoAprobacion } from '@/lib/aprobaciones-api';
-import { CheckCircle2, XCircle, Clock, AlertCircle, ChevronRight, MessageSquare } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, ChevronRight } from 'lucide-react';
 
 export default function AprobacionesPage() {
   const router = useRouter();
@@ -84,7 +84,7 @@ export default function AprobacionesPage() {
       urgente: { bg: 'bg-red-100', text: 'text-red-800', label: 'Urgente' },
     };
 
-    const badge = badges[prioridad || 'media'] || badges.media;
+    const badge = badges[prioridad || 'media'] ?? { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Media' };
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.bg} ${badge.text}`}>
         <AlertCircle className="h-3 w-3" />
@@ -131,6 +131,8 @@ export default function AprobacionesPage() {
           {aprobaciones.map((flujo) => {
             const paso = flujo.pasos[0];
             const solicitud = flujo.solicitud;
+
+            if (!paso) return null;
 
             return (
               <div

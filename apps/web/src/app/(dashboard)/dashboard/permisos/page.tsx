@@ -108,7 +108,7 @@ export default function PermisosPage() {
       const permiso = await fetchPermiso(id);
       setSelectedPermiso(permiso);
       setDetailModalOpen(true);
-    } catch (err) {
+    } catch {
       setError('Error al cargar detalle del permiso');
     }
   };

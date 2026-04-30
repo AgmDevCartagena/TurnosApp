@@ -146,7 +146,7 @@ export default function SociosPage() {
     if (!form.tipoDoc) errs.tipoDoc = 'Tipo de documento es obligatorio';
     if (!form.numeroDoc.trim()) {
       errs.numeroDoc = 'Número de identificación es obligatorio';
-    } else if (!/^[\d\-]+$/.test(form.numeroDoc.trim())) {
+    } else if (!/^[\d-]+$/.test(form.numeroDoc.trim())) {
       errs.numeroDoc = 'Solo se permiten dígitos y guiones';
     }
     if (!form.nombreRazon.trim()) errs.nombreRazon = 'Nombre / Razón Social es obligatorio';
@@ -370,7 +370,7 @@ export default function SociosPage() {
                     <td colSpan={6} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2 text-gray-400">
                         <Users className="h-8 w-8" />
-                        <p className="text-sm">No hay socios registrados. Haga clic en "Agregar Socio" para comenzar.</p>
+                        <p className="text-sm">No hay socios registrados. Haga clic en &quot;Agregar Socio&quot; para comenzar.</p>
                       </div>
                     </td>
                   </tr>
@@ -515,7 +515,7 @@ export default function SociosPage() {
                   <input
                     type="text"
                     value={form.numeroDoc}
-                    onChange={e => handleChange('numeroDoc', e.target.value.replace(/[^\d\-]/g, ''))}
+                    onChange={e => handleChange('numeroDoc', e.target.value.replace(/[^\d-]/g, ''))}
                     placeholder="Solo dígitos y guiones"
                     maxLength={30}
                     className={`${inputBase} font-mono ${modalErrors.numeroDoc ? inputErr : inputOk}`}
