@@ -31,6 +31,7 @@ async function main() {
         update: {},
         create: {
           codigo,
+          nombre: `${accion} en ${recurso}`,
           modulo: recurso,
           recurso,
           accion,
@@ -291,6 +292,7 @@ async function main() {
       data: {
         numero: 'SOL-2026-0001',
         titulo: 'Compra de equipos de cómputo para oficina',
+        empresa: { connect: { id: empresaPrincipal.id } },
         solicitante: { connect: { id: admin.id } },
         estado: 'aprobada',
         departamento: 'Tecnología',
@@ -318,6 +320,7 @@ async function main() {
       data: {
         numero: 'SOL-2026-0002',
         titulo: 'Suministros de oficina trimestre Q1',
+        empresa: { connect: { id: empresaPrincipal.id } },
         solicitante: { connect: { id: admin.id } },
         estado: 'enviada',
         departamento: 'Administración',
@@ -347,6 +350,7 @@ async function main() {
       data: {
         numero: 'SOL-2026-0003',
         titulo: 'Servicio de mantenimiento aires acondicionados',
+        empresa: { connect: { id: empresaPrincipal.id } },
         solicitante: { connect: { id: admin.id } },
         estado: 'borrador',
         departamento: 'Operaciones',
@@ -372,6 +376,7 @@ async function main() {
       data: {
         numero: 'SOL-2026-0004',
         titulo: 'Licencias Microsoft 365 Business Premium',
+        empresa: { connect: { id: empresaPrincipal.id } },
         solicitante: { connect: { id: admin.id } },
         estado: 'en_aprobacion',
         departamento: 'Tecnología',
