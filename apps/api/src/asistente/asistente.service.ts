@@ -99,7 +99,7 @@ export class AsistenteService {
       return { pregunta, intent: 'menor_precio', respuesta: 'No hay cotizaciones registradas para comparar precios.', datos: [] };
     }
 
-    const top = datos[0];
+    const top = datos[0]!;
     return {
       pregunta,
       intent: 'menor_precio',
@@ -145,7 +145,7 @@ export class AsistenteService {
       return { pregunta, intent: 'mas_rapido', respuesta: 'No hay datos de tiempo de entrega registrados.', datos: [] };
     }
 
-    const top = datos[0];
+    const top = datos[0]!;
     return {
       pregunta,
       intent: 'mas_rapido',
@@ -161,7 +161,7 @@ export class AsistenteService {
     const ordenes = await this.prisma.ordenCompra.findMany({
       where,
       select: {
-        totalOrden: true,
+        total: true,
         proveedor: { select: { id: true, codigoProveedor: true, razonSocial: true, nombreCompleto: true } },
       },
     });
@@ -173,7 +173,7 @@ export class AsistenteService {
       if (!mapa.has(key)) mapa.set(key, { proveedor: ord.proveedor, totalOrdenes: 0, totalValor: 0 });
       const r = mapa.get(key)!;
       r.totalOrdenes++;
-      r.totalValor += Number(ord.totalOrden);
+      r.totalValor += Number(ord.total);
     }
 
     const datos = [...mapa.values()]
@@ -191,7 +191,7 @@ export class AsistenteService {
       return { pregunta, intent: 'mas_vendido', respuesta: 'No hay órdenes de compra registradas aún.', datos: [] };
     }
 
-    const top = datos[0];
+    const top = datos[0]!;
     return {
       pregunta,
       intent: 'mas_vendido',
