@@ -17,6 +17,8 @@ export interface Solicitud {
   titulo: string;
   solicitanteId: string;
   solicitante: { id: string; nombre: string; apellido: string; email: string };
+  empresaId: string;
+  empresa: { id: string; nombre: string } | null;
   estado: string;
   departamento: string | null;
   categoria: string | null;
@@ -54,6 +56,7 @@ export interface PaginatedResponse<T> {
 
 export interface CreateSolicitudBody {
   titulo: string;
+  empresaId: string;
   departamento?: string;
   categoria?: string;
   prioridad?: string;

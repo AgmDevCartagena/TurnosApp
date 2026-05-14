@@ -61,6 +61,9 @@ export class SolicitudesService {
           solicitante: {
             select: { id: true, nombre: true, apellido: true, email: true },
           },
+          empresa: {
+            select: { id: true, nombre: true },
+          },
           centroCosto: {
             select: { id: true, nombre: true, codigo: true },
           },
@@ -133,6 +136,7 @@ export class SolicitudesService {
         numero,
         titulo: rest.titulo,
         solicitante: { connect: { id: userId } },
+        empresa: { connect: { id: rest.empresaId } },
         estado: rest.estado || 'borrador',
         departamento: rest.departamento,
         categoria: rest.categoria,

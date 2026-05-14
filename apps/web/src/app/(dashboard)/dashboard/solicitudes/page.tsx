@@ -12,6 +12,8 @@ import {
   type CreateSolicitudBody,
   type LineaSolicitud,
 } from '@/lib/solicitudes-api';
+import { fetchEmpresas, fetchCentrosCosto, type Empresa, type CentroCosto } from '@/lib/admin-api';
+import { parseApiError } from '@/lib/parse-api-error';
 import {
   Search,
   Plus,
@@ -133,14 +135,19 @@ export default function SolicitudesPage() {
 
   const router = useRouter();
 
+  // Catalog state
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [centrosCosto, setCentrosCosto] = useState<CentroCosto[]>([]);
+
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
   // Form state
-  const [form, setForm] = useState<CreateSolicitudBody>({
+  const emptyForm: CreateSolicitudBody = {
     titulo: '',
+    empresaId: '',
     departamento: '',
     categoria: '',
     prioridad: 'media',
@@ -152,7 +159,19 @@ export default function SolicitudesPage() {
     justificacion: '',
     estado: 'borrador',
     lineas: [{ ...emptyLinea }],
-  });
+  };
+  const [form, setForm] = useState<CreateSolicitudBody>(emptyForm);
+
+  // Load catalogs once
+  useEffect(() => {
+    fetchEmpresas({ page: 1, limit: 100 }).then((r) => setEmpresas(r.data)).catch(() => {});
+  }, []);
+
+  // When empresa changes, reload centros de costo
+  useEffect(() => {
+    if (!form.empresaId) { setCentrosCosto([]); return; }
+    fetchCentrosCosto(form.empresaId).then(setCentrosCosto).catch(() => {});
+  }, [form.empresaId]);
 
   // ─── Fetch solicitudes ─────────────────────────────
 
@@ -188,21 +207,8 @@ export default function SolicitudesPage() {
   // ─── Modal helpers ─────────────────────────────────
 
   const resetForm = () => {
-    setForm({
-      titulo: '',
-      departamento: '',
-      categoria: '',
-      prioridad: 'media',
-      centroCostoId: '',
-      fechaRequerida: '',
-      tiempoEntrega: undefined,
-      moneda: 'COP',
-      descripcion: '',
-      justificacion: '',
-      estado: 'borrador',
-      lineas: [{ ...emptyLinea }],
-    });
-    setFormError(null);
+    setForm(emptyForm);
+    setFormErrors([]);
   };
 
   const openModal = () => {
@@ -240,21 +246,16 @@ export default function SolicitudesPage() {
   // ─── Submit ────────────────────────────────────────
 
   const handleSubmit = async (estado: 'borrador' | 'enviada') => {
-    if (!form.titulo.trim()) {
-      setFormError('El título es obligatorio');
-      return;
-    }
-    if (!form.justificacion.trim()) {
-      setFormError('La justificación es obligatoria');
-      return;
-    }
-    if (form.lineas.some((l) => !l.descripcion.trim())) {
-      setFormError('Todos los ítems deben tener descripción');
-      return;
-    }
+    const clientErrors: string[] = [];
+    if (!form.titulo.trim()) clientErrors.push('El título de la solicitud es obligatorio.');
+    if (!form.empresaId) clientErrors.push('Debe seleccionar una empresa.');
+    if (!form.justificacion.trim()) clientErrors.push('La justificación es obligatoria.');
+    if (!form.departamento) clientErrors.push('Debe seleccionar un área.');
+    if (form.lineas.some((l) => !l.descripcion.trim())) clientErrors.push('Todos los ítems deben tener descripción.');
+    if (clientErrors.length) { setFormErrors(clientErrors); return; }
 
     setSaving(true);
-    setFormError(null);
+    setFormErrors([]);
     try {
       const body: CreateSolicitudBody = {
         ...form,
@@ -266,8 +267,9 @@ export default function SolicitudesPage() {
       await createSolicitud(body);
       closeModal();
       load();
-    } catch (err: any) {
-      setFormError(err?.response?.data?.message || 'Error al crear la solicitud');
+    } catch (err: unknown) {
+      const parsed = parseApiError(err, 'Error al crear la solicitud.');
+      setFormErrors(parsed.allMessages.length ? parsed.allMessages : [parsed.summary]);
     } finally {
       setSaving(false);
     }
@@ -516,10 +518,16 @@ export default function SolicitudesPage() {
 
             {/* Body */}
             <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
-              {formError && (
-                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {formError}
+              {formErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                    <ul className="space-y-0.5">
+                      {formErrors.map((msg, i) => (
+                        <li key={i} className="text-sm text-red-700">{msg}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
 
@@ -537,31 +545,54 @@ export default function SolicitudesPage() {
                 />
               </div>
 
-              {/* Row: Departamento + Centro de Costo */}
+              {/* Empresa */}
+              <div>
+                <label className={labelCls}>
+                  Empresa <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={form.empresaId}
+                  onChange={(e) => setForm((f) => ({ ...f, empresaId: e.target.value, centroCostoId: '' }))}
+                  className={selectCls}
+                >
+                  <option value="">Seleccionar empresa</option>
+                  {empresas.map((e) => (
+                    <option key={e.id} value={e.id}>{e.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row: Área + Centro de Costo */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>
-                    Departamento <span className="text-red-500">*</span>
+                    Área <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.departamento}
                     onChange={(e) => setForm((f) => ({ ...f, departamento: e.target.value }))}
                     className={selectCls}
                   >
-                    <option value="">Seleccionar departamento</option>
+                    <option value="">Seleccionar área</option>
                     {departamentos.map((d) => (
                       <option key={d} value={d}>{d}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className={labelCls}>Centro de Costo</label>
+                  <label className={labelCls}>
+                    Centro de Costo <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={form.centroCostoId}
                     onChange={(e) => setForm((f) => ({ ...f, centroCostoId: e.target.value }))}
                     className={selectCls}
+                    disabled={!form.empresaId}
                   >
-                    <option value="">Seleccionar centro de costo</option>
+                    <option value="">{form.empresaId ? 'Seleccionar centro de costo' : 'Seleccione empresa primero'}</option>
+                    {centrosCosto.map((cc) => (
+                      <option key={cc.id} value={cc.id}>{cc.nombre} ({cc.codigo})</option>
+                    ))}
                   </select>
                 </div>
               </div>

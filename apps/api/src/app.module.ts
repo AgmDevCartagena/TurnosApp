@@ -24,6 +24,7 @@ import { CuentasBancariasProveedoresModule } from './cuentas-bancarias-proveedor
 import { TiposDocumentoRequeridoModule } from './tipos-documento-requerido/tipos-documento-requerido.module';
 import { DocumentosProveedoresModule } from './documentos-proveedores/documentos-proveedores.module';
 import { HealthModule } from './health/health.module';
+import { AsistenteModule } from './asistente/asistente.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { HealthModule } from './health/health.module';
     InventariosModule,
     EmpresasModule,
     HealthModule,
+    AsistenteModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],

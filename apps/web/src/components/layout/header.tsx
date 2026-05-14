@@ -6,12 +6,14 @@ import { LogOut, User, Bell, Sun, Moon } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { CompanySelector } from '@/components/company-selector';
 import { useTheme } from '@/contexts/theme-context';
+import { ChatbotPanel } from '@/components/chatbot/chatbot-panel';
 
 export function Header() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,12 +41,16 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600 transition-colors">
+        <button
+          onClick={() => setChatOpen((o) => !o)}
+          className="flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600 transition-colors"
+        >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           Asistente IA
         </button>
+        {chatOpen && <ChatbotPanel onClose={() => setChatOpen(false)} />}
 
         <button
           onClick={toggleTheme}
