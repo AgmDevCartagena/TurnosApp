@@ -23,6 +23,7 @@ import { SociosProveedoresModule } from './socios-proveedores/socios-proveedores
 import { CuentasBancariasProveedoresModule } from './cuentas-bancarias-proveedores/cuentas-bancarias-proveedores.module';
 import { TiposDocumentoRequeridoModule } from './tipos-documento-requerido/tipos-documento-requerido.module';
 import { DocumentosProveedoresModule } from './documentos-proveedores/documentos-proveedores.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { DocumentosProveedoresModule } from './documentos-proveedores/documentos
     ReportesModule,
     InventariosModule,
     EmpresasModule,
+    HealthModule,
   ],
   providers: [PrismaService],
   exports: [PrismaService],
