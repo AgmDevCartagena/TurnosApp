@@ -5,27 +5,29 @@ const prisma = new PrismaClient();
 async function seedUbicacionesColombia() {
   console.log('🌎 Iniciando seed de ubicaciones de Colombia...');
 
-  // Verificar si ya existe Colombia
-  const colombiaExistente = await prisma.pais.findUnique({
-    where: { codigo: 'CO' },
-  });
+  // Upsert Colombia
+  let colombia = await prisma.pais.findUnique({ where: { codigo: 'CO' } });
 
-  if (colombiaExistente) {
-    console.log('✅ Colombia ya existe en la base de datos');
-    return;
+  if (!colombia) {
+    colombia = await prisma.pais.create({
+      data: {
+        codigo: 'CO',
+        nombre: 'Colombia',
+        nombreOficial: 'República de Colombia',
+        activo: true,
+      },
+    });
+    console.log('✅ País Colombia creado');
+  } else {
+    console.log('✅ País Colombia ya existe');
   }
 
-  // Crear Colombia
-  const colombia = await prisma.pais.create({
-    data: {
-      codigo: 'CO',
-      nombre: 'Colombia',
-      nombreOficial: 'República de Colombia',
-      activo: true,
-    },
-  });
-
-  console.log('✅ País Colombia creado');
+  // Si ya hay departamentos no hace falta repetir el seed
+  const deptosExistentes = await prisma.departamento.count({ where: { paisId: colombia.id } });
+  if (deptosExistentes > 0) {
+    console.log(`✅ Ya existen ${deptosExistentes} departamentos. Seed omitido.`);
+    return;
+  }
 
   // Departamentos principales de Colombia
   const departamentos = [
