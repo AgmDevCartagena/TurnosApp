@@ -9,10 +9,14 @@ import {
   fetchRoles,
   fetchEmpresas,
   fetchCentrosCosto,
+  fetchAreas,
+  asignarEmpresaUsuario,
+  desasignarEmpresaUsuario,
   type Usuario,
   type Rol,
   type Empresa,
   type CentroCosto,
+  type Area,
 } from '@/lib/admin-api';
 import {
   Plus,
@@ -64,16 +68,21 @@ export default function UsuariosPage() {
   const [roles, setRoles] = useState<Rol[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [centrosCosto, setCentrosCosto] = useState<CentroCosto[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10, totalPages: 0 });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [form, setForm] = useState<UsuarioForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [savingEmpresa, setSavingEmpresa] = useState(false);
+  const [newEmpresaId, setNewEmpresaId] = useState('');
+  const [newEmpresaRolId, setNewEmpresaRolId] = useState('');
 
   const loadUsuarios = useCallback(async (page = 1, searchTerm = search) => {
     setLoading(true);
@@ -115,12 +124,22 @@ export default function UsuariosPage() {
     }
   }, []);
 
+  const loadAreas = useCallback(async (empresaId?: string) => {
+    try {
+      const result = await fetchAreas(empresaId);
+      setAreas(result);
+    } catch (err) {
+      console.error('Error al cargar áreas:', err);
+    }
+  }, []);
+
   useEffect(() => {
     loadUsuarios(1);
     loadRoles();
     loadEmpresas();
     loadCentrosCosto();
-  }, [loadUsuarios, loadRoles, loadEmpresas, loadCentrosCosto]);
+    loadAreas();
+  }, [loadUsuarios, loadRoles, loadEmpresas, loadCentrosCosto, loadAreas]);
 
   const handleSearch = () => {
     loadUsuarios(1, search);
@@ -149,6 +168,8 @@ export default function UsuariosPage() {
 
   const openEdit = (u: Usuario) => {
     setEditingId(u.id);
+    setEditingUser(u);
+    const primaryEmpresaId = u.empresas?.[0]?.empresa.id || '';
     setForm({ 
       username: u.username,
       email: u.email, 
@@ -156,19 +177,36 @@ export default function UsuariosPage() {
       nombre: u.nombre, 
       apellido: u.apellido,
       cedula: u.cedula || '',
-      empresaId: u.empresas?.[0]?.empresa.id || '',
+      empresaId: primaryEmpresaId,
       direccion: u.direccion || '',
       area: u.area || '',
       centroCostoId: u.centroCostoId || '',
-      rolId: u.rol.id,
+      rolId: u.rol?.id || u.empresas?.[0]?.rol?.id || '',
       activo: u.activo
     });
+    if (primaryEmpresaId) {
+      loadCentrosCosto(primaryEmpresaId);
+      loadAreas(primaryEmpresaId);
+    }
+    setNewEmpresaId('');
+    setNewEmpresaRolId('');
     setErrors([]);
     setShowPassword(false);
     setModalOpen(true);
-};
+  };
 
   const handleSave = async () => {
+    const clientErrors: string[] = [];
+    if (!form.nombre.trim()) clientErrors.push('El nombre es obligatorio.');
+    if (!form.apellido.trim()) clientErrors.push('El apellido es obligatorio.');
+    if (!form.username.trim()) clientErrors.push('El nombre de usuario es obligatorio.');
+    if (!form.cedula.trim()) clientErrors.push('La cédula es obligatoria.');
+    if (!form.email.trim()) clientErrors.push('El email es obligatorio.');
+    if (!editingId && !form.password.trim()) clientErrors.push('La contraseña es obligatoria.');
+    if (!form.empresaId) clientErrors.push('Debe seleccionar una empresa.');
+    if (!form.rolId) clientErrors.push('Debe seleccionar un rol.');
+    if (clientErrors.length) { setErrors(clientErrors); return; }
+
     setSaving(true);
     setErrors([]);
     try {
@@ -189,7 +227,7 @@ export default function UsuariosPage() {
         await updateUsuario(editingId, body);
       } else {
         const { activo: _activo, ...createPayload } = form;
-        await createUsuario(createPayload);
+        await createUsuario({ ...createPayload, cedula: createPayload.cedula || '' });
       }
       setModalOpen(false);
       loadUsuarios(meta.page);
@@ -324,7 +362,7 @@ export default function UsuariosPage() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{u.nombre} {u.apellido}</p>
-                        <p className="text-xs text-gray-500">Cédula: {u.email.split('@')[0]}</p>
+                        <p className="text-xs text-gray-500">Cédula: {u.cedula || '—'}</p>
                       </div>
                     </div>
                   </td>
@@ -523,9 +561,10 @@ export default function UsuariosPage() {
                       value={form.empresaId}
                       onChange={(e) => {
                         const empresaId = e.target.value;
-                        setForm({ ...form, empresaId, centroCostoId: '' });
+                        setForm({ ...form, empresaId, centroCostoId: '', area: '' });
                         if (empresaId) {
                           loadCentrosCosto(empresaId);
+                          loadAreas(empresaId);
                         }
                       }}
                       className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -541,19 +580,19 @@ export default function UsuariosPage() {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Área *</label>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Área</label>
                     <select
                       value={form.area}
                       onChange={(e) => setForm({ ...form, area: e.target.value })}
                       className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                      required
+                      disabled={!form.empresaId}
                     >
-                      <option value="">Seleccionar área...</option>
-                      <option value="Compras">Compras</option>
-                      <option value="Dirección">Dirección</option>
-                      <option value="Operaciones">Operaciones</option>
-                      <option value="RRHH">RRHH</option>
-                      <option value="Administración">Administración</option>
+                      <option value="">{form.empresaId ? 'Seleccionar área...' : 'Seleccione empresa primero'}</option>
+                      {areas
+                        .filter(a => !form.empresaId || a.empresaId === form.empresaId)
+                        .map((a) => (
+                          <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -618,6 +657,82 @@ export default function UsuariosPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* Multi-empresa (solo en edición) */}
+                {editingId && editingUser && (
+                  <div className="rounded-lg border border-gray-200 dark:border-slate-600 p-4">
+                    <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Empresas asociadas</p>
+                    <div className="space-y-2 mb-3">
+                      {(editingUser.empresas ?? []).map((asig) => (
+                        <div key={asig.empresa.id} className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-slate-700 px-3 py-2 text-sm">
+                          <span className="text-gray-900 dark:text-white font-medium">{asig.empresa.nombre}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 mr-auto ml-3">{asig.rol?.nombre}</span>
+                          <button
+                            type="button"
+                            disabled={savingEmpresa || (editingUser.empresas?.length ?? 0) <= 1}
+                            onClick={async () => {
+                              if (!confirm(`\u00bfDesasignar de ${asig.empresa.nombre}?`)) return;
+                              setSavingEmpresa(true);
+                              try {
+                                await desasignarEmpresaUsuario(editingId, asig.empresa.id);
+                                const updated = { ...editingUser, empresas: editingUser.empresas?.filter(e => e.empresa.id !== asig.empresa.id) };
+                                setEditingUser(updated as Usuario);
+                                loadUsuarios(meta.page);
+                              } catch { setErrors(['Error al desasignar empresa']); }
+                              finally { setSavingEmpresa(false); }
+                            }}
+                            className="ml-2 rounded p-1 text-red-400 hover:text-red-600 disabled:opacity-30"
+                            title={(editingUser.empresas?.length ?? 0) <= 1 ? 'Debe quedar al menos una empresa' : 'Desasignar'}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={newEmpresaId}
+                        onChange={(e) => setNewEmpresaId(e.target.value)}
+                        className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-2 py-2 text-xs"
+                      >
+                        <option value="">+ Empresa</option>
+                        {empresas
+                          .filter(e => !(editingUser.empresas ?? []).some(a => a.empresa.id === e.id))
+                          .map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                      </select>
+                      <select
+                        value={newEmpresaRolId}
+                        onChange={(e) => setNewEmpresaRolId(e.target.value)}
+                        className="rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white px-2 py-2 text-xs"
+                      >
+                        <option value="">Rol</option>
+                        {roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!newEmpresaId || !newEmpresaRolId || savingEmpresa}
+                      onClick={async () => {
+                        setSavingEmpresa(true);
+                        try {
+                          await asignarEmpresaUsuario({ usuarioId: editingId, empresaId: newEmpresaId, rolId: newEmpresaRolId });
+                          const empresa = empresas.find(e => e.id === newEmpresaId);
+                          const rol = roles.find(r => r.id === newEmpresaRolId);
+                          const updated = { ...editingUser, empresas: [...(editingUser.empresas ?? []), { empresa: { id: newEmpresaId, nombre: empresa?.nombre ?? '' }, rol: { id: newEmpresaRolId, nombre: rol?.nombre ?? '' } }] };
+                          setEditingUser(updated as Usuario);
+                          setNewEmpresaId(''); setNewEmpresaRolId('');
+                          loadUsuarios(meta.page);
+                        } catch (err: unknown) {
+                          const parsed = parseApiError(err, 'Error al asignar empresa.');
+                          setErrors(parsed.allMessages.length ? parsed.allMessages : [parsed.summary]);
+                        } finally { setSavingEmpresa(false); }
+                      }}
+                      className="mt-2 w-full rounded-lg border border-dashed border-primary py-1.5 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-40"
+                    >
+                      {savingEmpresa ? 'Guardando...' : 'Asignar empresa'}
+                    </button>
+                  </div>
+                )}
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Estado</label>

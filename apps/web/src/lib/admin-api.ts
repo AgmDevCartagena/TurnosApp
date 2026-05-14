@@ -285,7 +285,7 @@ export async function asignarEmpresaUsuario(body: {
 }
 
 export async function desasignarEmpresaUsuario(usuarioId: string, empresaId: string) {
-  const { data } = await apiClient.delete(`/admin/empresas/${empresaId}/usuarios/${usuarioId}`);
+  const { data } = await apiClient.delete(`/admin/empresas/desasignar-usuario/${usuarioId}/${empresaId}`);
   return data.data ?? data;
 }
 

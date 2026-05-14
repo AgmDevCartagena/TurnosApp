@@ -98,9 +98,14 @@ export class AdministracionService {
       where: { id },
       select: {
         id: true,
+        username: true,
         email: true,
         nombre: true,
         apellido: true,
+        cedula: true,
+        direccion: true,
+        area: true,
+        centroCostoId: true,
         activo: true,
         createdAt: true,
         updatedAt: true,
@@ -114,6 +119,14 @@ export class AdministracionService {
                 permiso: { select: { id: true, codigo: true, nombre: true, modulo: true, accion: true } },
               },
             },
+          },
+        },
+        empresas: {
+          select: {
+            id: true,
+            activo: true,
+            empresa: { select: { id: true, nombre: true } },
+            rol: { select: { id: true, nombre: true } },
           },
         },
       },
@@ -143,6 +156,16 @@ export class AdministracionService {
 
     if (existingEmail) {
       throw new ConflictException('El email ya está registrado');
+    }
+
+    // Validar cédula única
+    if (dto.cedula) {
+      const existingCedula = await this.prisma.usuario.findFirst({
+        where: { cedula: dto.cedula },
+      });
+      if (existingCedula) {
+        throw new ConflictException('La cédula ya está registrada en el sistema');
+      }
     }
 
     // Validar que la empresa existe
@@ -213,6 +236,15 @@ export class AdministracionService {
       });
       if (existing) {
         throw new ConflictException('El email ya está en uso');
+      }
+    }
+
+    if (dto.cedula) {
+      const existingCedula = await this.prisma.usuario.findFirst({
+        where: { cedula: dto.cedula, NOT: { id } },
+      });
+      if (existingCedula) {
+        throw new ConflictException('La cédula ya está registrada en el sistema');
       }
     }
 
