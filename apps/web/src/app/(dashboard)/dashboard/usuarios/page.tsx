@@ -25,7 +25,9 @@ import {
   X,
   Eye,
   EyeOff,
+  AlertCircle,
 } from 'lucide-react';
+import { parseApiError } from '@/lib/parse-api-error';
 
 interface UsuarioForm {
   username: string;
@@ -69,7 +71,7 @@ export default function UsuariosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<UsuarioForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -80,7 +82,7 @@ export default function UsuariosPage() {
       setUsuarios(result.data);
       setMeta(result.meta);
     } catch {
-      setError('Error al cargar usuarios');
+      setErrors(['Error al cargar usuarios']);
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,7 @@ export default function UsuariosPage() {
       const result = await fetchRoles({ limit: 100 });
       setRoles(result.data);
     } catch {
-      setError('Error al cargar roles');
+      setErrors(['Error al cargar roles']);
     }
   }, []);
 
@@ -127,7 +129,7 @@ export default function UsuariosPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
-    setError(null);
+    setErrors([]);
     setValidationError(null);
     
     // Validar que existan empresas
@@ -161,36 +163,39 @@ export default function UsuariosPage() {
       rolId: u.rol.id,
       activo: u.activo
     });
-    setError(null);
+    setErrors([]);
     setShowPassword(false);
     setModalOpen(true);
 };
 
   const handleSave = async () => {
     setSaving(true);
-    setError(null);
+    setErrors([]);
     try {
       if (editingId) {
-        const body: any = { 
+        const body: any = {
           username: form.username,
-          nombre: form.nombre, 
-          apellido: form.apellido, 
-          email: form.email, 
+          nombre: form.nombre,
+          apellido: form.apellido,
+          email: form.email,
           cedula: form.cedula,
           direccion: form.direccion,
           area: form.area,
           centroCostoId: form.centroCostoId || undefined,
-          rolId: form.rolId 
+          rolId: form.rolId,
+          activo: form.activo,
         };
         if (form.password) body.password = form.password;
         await updateUsuario(editingId, body);
       } else {
-        await createUsuario(form);
+        const { activo: _activo, ...createPayload } = form;
+        await createUsuario(createPayload);
       }
       setModalOpen(false);
       loadUsuarios(meta.page);
-    } catch (err: any) {
-      setError(err?.response?.data?.error?.message || err?.response?.data?.message || 'Error al guardar');
+    } catch (err: unknown) {
+      const parsed = parseApiError(err, 'Error al guardar el usuario.');
+      setErrors(parsed.allMessages.length ? parsed.allMessages : [parsed.summary]);
     } finally {
       setSaving(false);
     }
@@ -202,7 +207,7 @@ export default function UsuariosPage() {
       await deleteUsuario(id);
       loadUsuarios(meta.page);
     } catch {
-      setError('Error al desactivar usuario');
+      setErrors(['Error al desactivar usuario']);
     }
   };
 
@@ -424,8 +429,17 @@ export default function UsuariosPage() {
             </div>
 
             <div className="p-6">
-              {error && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              {errors.length > 0 && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                    <ul className="space-y-0.5">
+                      {errors.map((msg, i) => (
+                        <li key={i} className="text-sm text-red-700">{msg}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               )}
 
               <div className="space-y-4">

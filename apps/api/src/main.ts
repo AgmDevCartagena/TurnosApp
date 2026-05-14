@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { translateConstraintMessage, getFieldLabel } from './common/utils/validation.utils';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -29,12 +31,28 @@ async function bootstrap() {
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
 
+  app.useGlobalFilters(new AllExceptionsFilter());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: (errors) => {
+        const formattedErrors = errors.map((err) => ({
+          field: err.property,
+          label: getFieldLabel(err.property),
+          messages: Object.values(err.constraints ?? {}).map((msg) =>
+            translateConstraintMessage(msg, err.property),
+          ),
+        }));
+        return new BadRequestException({
+          statusCode: 400,
+          message: 'La información enviada no es válida.',
+          errors: formattedErrors,
+        });
+      },
     }),
   );
 
