@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, MaxLength, IsUUID, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, MaxLength, IsUUID, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUsuarioDto {
@@ -63,4 +63,9 @@ export class CreateUsuarioDto {
   @IsUUID('4', { message: 'rolId debe ser un UUID válido' })
   @IsNotEmpty()
   rolId: string;
+
+  @ApiPropertyOptional({ example: true })
+  @IsBoolean()
+  @IsOptional()
+  activo?: boolean;
 }

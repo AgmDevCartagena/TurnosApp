@@ -174,6 +174,7 @@ export class AdministracionService {
         nombre: dto.nombre,
         apellido: dto.apellido,
         rolId: dto.rolId,
+        activo: dto.activo ?? true,
         empresas: {
           create: {
             empresaId: dto.empresaId,
