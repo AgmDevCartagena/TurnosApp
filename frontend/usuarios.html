@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - Admin</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1100px; margin: 20px auto; background: #fff; border-radius: 18px; box-shadow: 0 8px 32px rgba(102,126,234,0.15); padding: 36px 32px; }
+        h1 { text-align: center; color: #667eea; margin-bottom: 30px; font-size: 2.2em; }
+        .user-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .user-table th, .user-table td { padding: 14px 10px; border-bottom: 1px solid #eee; text-align: left; font-size: 0.95em; }
+        .user-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-weight: 600; }
+        .user-table tr:hover { background: #f0f4ff; }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .actions button { padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: transform 0.2s, box-shadow 0.2s; }
+        .actions button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .edit-btn { background: #667eea; color: #fff; }
+        .delete-btn { background: #e53e3e; color: #fff; }
+        .change-btn { background: #38a169; color: #fff; }
+        .form-section { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 16px; padding: 28px; margin-bottom: 28px; border: 2px solid #667eea20; }
+        .form-section h2 { color: #764ba2; text-align: center; margin-bottom: 24px; font-size: 1.5em; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 600; color: #667eea; margin-bottom: 8px; font-size: 0.95em; }
+        .form-group input, .form-group select { padding: 12px 14px; border-radius: 10px; border: 2px solid #ddd; font-size: 1em; transition: border-color 0.3s, box-shadow 0.3s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+        
+        /* Checkboxes personalizados para módulos y áreas */
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+        .checkbox-item { display: flex; align-items: center; background: #fff; border: 2px solid #ddd; border-radius: 10px; padding: 10px 16px; cursor: pointer; transition: all 0.3s; }
+        .checkbox-item:hover { border-color: #667eea; background: #f0f4ff; }
+        .checkbox-item.selected { border-color: #667eea; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+        .checkbox-item input { display: none; }
+        .checkbox-item span { font-weight: 500; font-size: 0.95em; }
+        .checkbox-item .icon { margin-right: 8px; font-size: 1.2em; }
+        
+        .form-section button[type="submit"] { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); color: white; padding: 14px 0; border: none; border-radius: 12px; cursor: pointer; font-size: 1.1em; font-weight: 600; box-shadow: 0 4px 15px rgba(102,126,234,0.3); margin-top: 20px; transition: transform 0.2s, box-shadow 0.2s; width: 100%; }
+        .form-section button[type="submit"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+        .form-section .cancel-btn { background: #ccc; color: #333; margin-top: 10px; }
+        .form-section .cancel-btn:hover { background: #bbb; }
+        .msg { text-align: center; font-size: 1.1em; margin-bottom: 18px; padding: 12px; border-radius: 10px; }
+        .msg.success { background: #d4edda; color: #155724; }
+        .msg.error { background: #f8d7da; color: #721c24; }
+        
+        .back-btn { display: inline-block; margin-bottom: 20px; padding: 10px 20px; background: rgba(255,255,255,0.2); border: 2px solid #667eea; color: #667eea; border-radius: 10px; text-decoration: none; font-weight: 600; transition: all 0.3s; }
+        .back-btn:hover { background: #667eea; color: #fff; }
+        
+        @media (max-width: 768px) { 
+            .form-grid { grid-template-columns: 1fr; }
+            .actions { flex-direction: column; }
+            .actions button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard.html" class="back-btn">← Volver al Dashboard</a>
+        <h1>👥 Gestión de Usuarios</h1>
+        <div id="msg" class="msg" style="display:none;"></div>
+        
+        <!-- Formulario para crear nuevo usuario -->
+        <div class="form-section" id="formCrearUsuario">
+            <h2>➕ Crear Nuevo Usuario</h2>
+            <form id="formNuevoUsuario">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>👤 Nombre completo:</label>
+                        <input type="text" name="nombre" placeholder="Ej: Juan Pérez" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🔑 Usuario:</label>
+                        <input type="text" name="username" placeholder="Ej: jperez" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🔒 Contraseña:</label>
+                        <input type="password" name="password" placeholder="Mínimo 4 caracteres" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🎭 Rol:</label>
+                        <select name="rol">
+                            <option value="usuario">Usuario</option>
+                            <option value="admin">Administrador</option>
+                            <option value="consulta">Solo Consulta</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>📦 Módulos permitidos:</label>
+                    <div class="checkbox-group" id="modulosGroup">
+                        <label class="checkbox-item" data-value="turnos">
+                            <input type="checkbox" name="modulos" value="turnos">
+                            <span class="icon">📅</span>
+                            <span>Turnos</span>
+                        </label>
+                        <label class="checkbox-item" data-value="nomina">
+                            <input type="checkbox" name="modulos" value="nomina">
+                            <span class="icon">💰</span>
+                            <span>Nómina</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>🏢 Áreas permitidas:</label>
+                    <div class="checkbox-group" id="areasGroup">
+                        <label class="checkbox-item" data-value="ADMINISTRACION">
+                            <input type="checkbox" name="areas" value="ADMINISTRACION">
+                            <span class="icon">🏛️</span>
+                            <span>Administración</span>
+                        </label>
+                        <label class="checkbox-item" data-value="CENTRO DE CONTROL">
+                            <input type="checkbox" name="areas" value="CENTRO DE CONTROL">
+                            <span class="icon">🎛️</span>
+                            <span>Centro de Control</span>
+                        </label>
+                        <label class="checkbox-item" data-value="OPERACIONES">
+                            <input type="checkbox" name="areas" value="OPERACIONES">
+                            <span class="icon">⚙️</span>
+                            <span>Operaciones</span>
+                        </label>
+                        <label class="checkbox-item" data-value="CONDUCTORES">
+                            <input type="checkbox" name="areas" value="CONDUCTORES">
+                            <span class="icon">🚌</span>
+                            <span>Conductores</span>
+                        </label>
+                        <label class="checkbox-item" data-value="MANTENIMIENTO">
+                            <input type="checkbox" name="areas" value="MANTENIMIENTO">
+                            <span class="icon">🔧</span>
+                            <span>Mantenimiento</span>
+                        </label>
+                        <label class="checkbox-item" data-value="TAQUILLEROS">
+                            <input type="checkbox" name="areas" value="TAQUILLEROS">
+                            <span class="icon">🎫</span>
+                            <span>Taquilleros</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit">✅ Crear Usuario</button>
+            </form>
+        </div>
+        
+        <div id="formEditarUsuario" class="form-section" style="display:none;"></div>
+        
+        <h2 style="color:#764ba2;text-align:center;margin-top:30px;margin-bottom:20px;">📋 Usuarios Registrados</h2>
+        <table class="user-table" id="tablaUsuarios">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Usuario</th>
+                    <th>Rol</th>
+                    <th>Módulos</th>
+                    <th>Áreas</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <script>
+        let usuarios = [];
+        let usuarioEditando = null;
+        
+        // Inicializar checkboxes visuales
+        function initCheckboxes() {
+            document.querySelectorAll('.checkbox-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    const checkbox = this.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                    this.classList.toggle('selected', checkbox.checked);
+                });
+            });
+        }
+        
+        function getSelectedModulos(container = document) {
+            const checkboxes = container.querySelectorAll('input[name="modulos"]:checked, input[name="modulosPermitidos"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+        
+        function getSelectedAreas(container = document) {
+            const checkboxes = container.querySelectorAll('input[name="areas"]:checked, input[name="areasPermitidas"]:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+        
+        function showMsg(text, type) {
+            const msgEl = document.getElementById('msg');
+            msgEl.textContent = text;
+            msgEl.className = 'msg ' + type;
+            msgEl.style.display = 'block';
+            setTimeout(() => { msgEl.style.display = 'none'; }, 5000);
+        }
+        
+        async function cargarUsuarios() {
+            try {
+                const res = await fetch('/api/auth/usuarios');
+                const data = await res.json();
+                if (data.success) {
+                    usuarios = data.usuarios;
+                    renderTabla();
+                } else {
+                    showMsg(data.error || 'Error al cargar usuarios.', 'error');
+                }
+            } catch (err) {
+                showMsg('Error de red o servidor.', 'error');
+            }
+        }
+        
+        function formatAreas(areas) {
+            const icons = {
+                'ADMINISTRACION': '🏛️',
+                'CENTRO_CONTROL': '🎛️',
+                'CENTRO DE CONTROL': '🎛️',
+                'OPERACIONES': '⚙️',
+                'CONDUCTORES': '🚌',
+                'MANTENIMIENTO': '🔧',
+                'TAQUILLEROS': '🎫'
+            };
+            return (areas || []).map(a => icons[a] || a).join(' ');
+        }
+        
+        function formatModulos(modulos) {
+            const icons = { 'turnos': '📅', 'nomina': '💰' };
+            return (modulos || []).map(m => icons[m] || '').join(' ');
+        }
+        
+        function renderTabla() {
+            const tbody = document.querySelector('#tablaUsuarios tbody');
+            tbody.innerHTML = '';
+            usuarios.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${u.nombre}</strong></td>
+                    <td>${u.username}</td>
+                    <td><span style="background:${u.rol==='admin'?'#667eea':u.rol==='consulta'?'#38a169':'#764ba2'};color:#fff;padding:4px 10px;border-radius:12px;font-size:0.85em;">${u.rol}</span></td>
+                    <td style="font-size:1.3em;">${formatModulos(u.modulosPermitidos)}</td>
+                    <td style="font-size:1.3em;">${formatAreas(u.areasPermitidas)}</td>
+                    <td class="actions">
+                        <button class="edit-btn" onclick="editarUsuario('${u._id}')">✏️ Editar</button>
+                        <button class="change-btn" onclick="cambiarContrasena('${u._id}')">🔑 Contraseña</button>
+                        <button class="delete-btn" onclick="eliminarUsuario('${u._id}')">🗑️ Eliminar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function generarCheckboxesHTML(tipo, seleccionados, name) {
+            const modulos = [
+                { value: 'turnos', icon: '📅', label: 'Turnos' },
+                { value: 'nomina', icon: '💰', label: 'Nómina' }
+            ];
+            const areas = [
+                { value: 'ADMINISTRACION', icon: '🏛️', label: 'Administración' },
+                { value: 'CENTRO DE CONTROL', icon: '🎛️', label: 'Centro de Control' },
+                { value: 'OPERACIONES', icon: '⚙️', label: 'Operaciones' },
+                { value: 'CONDUCTORES', icon: '🚌', label: 'Conductores' },
+                { value: 'MANTENIMIENTO', icon: '🔧', label: 'Mantenimiento' },
+                { value: 'TAQUILLEROS', icon: '🎫', label: 'Taquilleros' }
+            ];
+            const items = tipo === 'modulos' ? modulos : areas;
+            return items.map(item => {
+                // Verificar si el área está seleccionada (considerando ambos formatos)
+                let checked = (seleccionados || []).includes(item.value);
+                // Compatibilidad para CENTRO_CONTROL vs CENTRO DE CONTROL
+                if (!checked && item.value === 'CENTRO DE CONTROL') {
+                    checked = (seleccionados || []).includes('CENTRO_CONTROL');
+                }
+                return `<label class="checkbox-item ${checked ? 'selected' : ''}" data-value="${item.value}">
+                    <input type="checkbox" name="${name}" value="${item.value}" ${checked ? 'checked' : ''}>
+                    <span class="icon">${item.icon}</span>
+                    <span>${item.label}</span>
+                </label>`;
+            }).join('');
+        }
+        
+        window.editarUsuario = function(id) {
+            usuarioEditando = usuarios.find(u => u._id === id);
+            if (!usuarioEditando) return;
+            const formDiv = document.getElementById('formEditarUsuario');
+            formDiv.innerHTML = `
+                <h2>✏️ Editar Usuario: ${usuarioEditando.nombre}</h2>
+                <form id='formEdit'>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>👤 Nombre completo:</label>
+                            <input type='text' name='nombre' value='${usuarioEditando.nombre}' required>
+                        </div>
+                        <div class="form-group">
+                            <label>🔑 Usuario:</label>
+                            <input type='text' name='username' value='${usuarioEditando.username}' required>
+                        </div>
+                        <div class="form-group">
+                            <label>🎭 Rol:</label>
+                            <select name='rol'>
+                                <option value='usuario' ${usuarioEditando.rol==='usuario'?'selected':''}>Usuario</option>
+                                <option value='admin' ${usuarioEditando.rol==='admin'?'selected':''}>Administrador</option>
+                                <option value='consulta' ${usuarioEditando.rol==='consulta'?'selected':''}>Solo Consulta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top:20px;">
+                        <label>📦 Módulos permitidos:</label>
+                        <div class="checkbox-group">${generarCheckboxesHTML('modulos', usuarioEditando.modulosPermitidos, 'modulosPermitidos')}</div>
+                    </div>
+                    <div class="form-group" style="margin-top:20px;">
+                        <label>🏢 Áreas permitidas:</label>
+                        <div class="checkbox-group">${generarCheckboxesHTML('areas', usuarioEditando.areasPermitidas, 'areasPermitidas')}</div>
+                    </div>
+                    <button type='submit'>💾 Guardar Cambios</button>
+                    <button type='button' class='cancel-btn' onclick='cancelarEdicion()'>❌ Cancelar</button>
+                </form>
+            `;
+            formDiv.style.display = 'block';
+            initCheckboxes();
+            
+            document.getElementById('formEdit').onsubmit = async function(e) {
+                e.preventDefault();
+                const fd = new FormData(this);
+                const data = {
+                    nombre: fd.get('nombre'),
+                    username: fd.get('username'),
+                    rol: fd.get('rol'),
+                    modulosPermitidos: getSelectedModulos(formDiv),
+                    areasPermitidas: getSelectedAreas(formDiv)
+                };
+                try {
+                    const res = await fetch(`/api/auth/usuarios/${usuarioEditando._id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        showMsg('✅ Usuario actualizado correctamente.', 'success');
+                        formDiv.style.display = 'none';
+                        cargarUsuarios();
+                    } else {
+                        showMsg(result.error || 'Error al actualizar usuario.', 'error');
+                    }
+                } catch (err) {
+                    showMsg('Error de red o servidor.', 'error');
+                }
+            };
+        };
+        
+        window.cancelarEdicion = function() {
+            document.getElementById('formEditarUsuario').style.display = 'none';
+        };
+        
+        window.cambiarContrasena = function(id) {
+            const usuario = usuarios.find(u => u._id === id);
+            if (!usuario) return;
+            const formDiv = document.getElementById('formEditarUsuario');
+            formDiv.innerHTML = `
+                <h2>🔐 Cambiar Contraseña</h2>
+                <form id='formPass'>
+                    <div class="form-group">
+                        <label>Nueva contraseña para <strong>${usuario.username}</strong>:</label>
+                        <input type='password' name='password' placeholder="Mínimo 4 caracteres" required>
+                    </div>
+                    <button type='submit'>🔑 Cambiar Contraseña</button>
+                    <button type='button' class='cancel-btn' onclick='cancelarEdicion()'>❌ Cancelar</button>
+                </form>
+            `;
+            formDiv.style.display = 'block';
+            
+            document.getElementById('formPass').onsubmit = async function(e) {
+                e.preventDefault();
+                const fd = new FormData(this);
+                try {
+                    const res = await fetch(`/api/auth/usuarios/${usuario._id}/password`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: fd.get('password') })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        showMsg('✅ Contraseña actualizada correctamente.', 'success');
+                        formDiv.style.display = 'none';
+                    } else {
+                        showMsg(result.error || 'Error al cambiar contraseña.', 'error');
+                    }
+                } catch (err) {
+                    showMsg('Error de red o servidor.', 'error');
+                }
+            };
+        };
+        
+        window.eliminarUsuario = async function(id) {
+            if (!confirm('⚠️ ¿Seguro que deseas eliminar este usuario? Esta acción no se puede deshacer.')) return;
+            try {
+                const res = await fetch(`/api/auth/usuarios/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (result.success) {
+                    showMsg('✅ Usuario eliminado correctamente.', 'success');
+                    cargarUsuarios();
+                } else {
+                    showMsg(result.error || 'Error al eliminar usuario.', 'error');
+                }
+            } catch (err) {
+                showMsg('Error de red o servidor.', 'error');
+            }
+        };
+        
+        // Lógica para crear nuevo usuario
+        document.getElementById('formNuevoUsuario').onsubmit = async function(e) {
+            e.preventDefault();
+            const form = this;
+            const formSection = document.getElementById('formCrearUsuario');
+            const data = {
+                nombre: form.nombre.value,
+                username: form.username.value,
+                password: form.password.value,
+                rol: form.rol.value,
+                modulosPermitidos: getSelectedModulos(formSection),
+                areasPermitidas: getSelectedAreas(formSection)
+            };
+            try {
+                const res = await fetch('/api/auth/usuarios', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showMsg('✅ Usuario creado exitosamente.', 'success');
+                    form.reset();
+                    // Resetear checkboxes visuales
+                    document.querySelectorAll('#formCrearUsuario .checkbox-item').forEach(item => {
+                        item.classList.remove('selected');
+                        item.querySelector('input').checked = false;
+                    });
+                    cargarUsuarios();
+                } else {
+                    showMsg(result.error || 'Error al crear usuario.', 'error');
+                }
+            } catch (err) {
+                showMsg('Error de red o servidor.', 'error');
+            }
+        };
+        
+        // Inicializar al cargar
+        initCheckboxes();
+        cargarUsuarios();
+    </script>
+</body>
+</html>

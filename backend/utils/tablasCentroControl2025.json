@@ -1,0 +1,48 @@
+{
+  "año": 2025,
+  "descripcion": "Tablas de descanso para Centro de Control - Noviembre y Diciembre 2025",
+  "tablas": {
+    "noviembre": {
+      "mes": 11,
+      "TABLA_1": {
+        "nombre": "Tabla 1",
+        "color": "morado",
+        "emoji": "🟣",
+        "dias": [3, 8, 9, 14, 15, 20, 21, 26, 27]
+      },
+      "TABLA_2": {
+        "nombre": "Tabla 2",
+        "color": "azul",
+        "emoji": "🔵",
+        "dias": [6, 7, 12, 13, 18, 19, 24, 25, 30]
+      },
+      "TABLA_3": {
+        "nombre": "Tabla 3",
+        "color": "marron",
+        "emoji": "🟤",
+        "dias": [4, 5, 10, 11, 16, 22, 23, 28, 29]
+      }
+    },
+    "diciembre": {
+      "mes": 12,
+      "TABLA_1": {
+        "nombre": "Tabla 1",
+        "color": "morado",
+        "emoji": "🟣",
+        "dias": [2, 3, 8, 9, 14, 15, 20, 21, 26, 27]
+      },
+      "TABLA_2": {
+        "nombre": "Tabla 2",
+        "color": "azul",
+        "emoji": "🔵",
+        "dias": [1, 6, 7, 12, 13, 18, 19, 24, 25, 30, 31]
+      },
+      "TABLA_3": {
+        "nombre": "Tabla 3",
+        "color": "marron",
+        "emoji": "🟤",
+        "dias": [4, 5, 10, 11, 16, 17, 22, 23, 28, 29]
+      }
+    }
+  }
+}

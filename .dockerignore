@@ -1,0 +1,51 @@
+# Archivos de Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de logs
+logs/
+*.log
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Archivos de build (se copian manualmente en Dockerfile)
+frontend/node_modules/
+frontend/nomina-react/node_modules/
+frontend/turnos-react/node_modules/
+frontend/nomina-react/dist/
+frontend/turnos-react/dist/
+
+# Carpeta de nómina antigua
+Nomina/
+
+# Archivos HTML antiguos (ya están en React)
+frontend/turnos.html
+frontend/index.html.old
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.override.yml

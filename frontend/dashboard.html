@@ -1,0 +1,369 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión Empresarial - UT PEREIRA AVANZA</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; padding-bottom: 80px; }
+        .container { max-width: 1200px; width: 100%; }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: white;
+            margin-bottom: 50px;
+            gap: 20px;
+        }
+        .header-title { flex: 1; text-align: center; min-width: 0; }
+        .header-title h1 { font-size: 2.4em; margin-bottom: 8px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .header-title p { font-size: 1.1em; opacity: 0.9; }
+        .header-user { flex-shrink: 0; text-align: right; color: white; }
+        .modules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; margin-bottom: 40px; }
+        .module-card { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease, box-shadow 0.3s ease; cursor: pointer; text-decoration: none; color: inherit; display: block; }
+        .module-card:hover { transform: translateY(-10px); box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3); }
+        .module-icon { font-size: 4em; margin-bottom: 20px; text-align: center; }
+        .module-title { font-size: 2em; color: #333; margin-bottom: 15px; text-align: center; font-weight: 600; }
+        .module-description { color: #666; line-height: 1.6; text-align: center; margin-bottom: 20px; }
+        .module-features { list-style: none; margin-top: 20px; }
+        .module-features li { padding: 8px 0; color: #555; display: flex; align-items: center; }
+        .module-features li:before { content: "✓"; color: #667eea; font-weight: bold; margin-right: 10px; font-size: 1.2em; }
+        .module-button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 15px 30px; border-radius: 10px; font-size: 1.1em; cursor: pointer; width: 100%; margin-top: 20px; transition: opacity 0.3s ease; }
+        .module-button:hover { opacity: 0.9; }
+        .info-section { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); margin-top: 30px; }
+        .info-section h2 { color: #333; margin-bottom: 20px; text-align: center; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px; }
+        .info-item { text-align: center; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .info-item strong { display: block; color: #667eea; font-size: 1.2em; margin-bottom: 10px; }
+        @media (max-width: 768px) {
+            .header { flex-direction: column; align-items: stretch; text-align: center; }
+            .header-title h1 { font-size: 1.8em; }
+            .header-user { text-align: center; }
+            .modules-grid { grid-template-columns: 1fr; }
+        }
+        /* Modal de cambio de contraseña */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { background: white; border-radius: 16px; padding: 30px 35px; min-width: 350px; max-width: 450px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); animation: modalIn 0.25s ease; }
+        @keyframes modalIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-box h2 { margin-bottom: 22px; color: #333; text-align: center; font-size: 1.4em; }
+        .modal-box label { display: block; margin-bottom: 6px; color: #555; font-weight: 500; }
+        .modal-box input[type="password"] { width: 100%; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1em; margin-bottom: 16px; transition: border-color 0.2s; }
+        .modal-box input[type="password"]:focus { border-color: #667eea; outline: none; }
+        .modal-btns { display: flex; gap: 12px; margin-top: 10px; }
+        .modal-btns button { flex: 1; padding: 12px 0; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .modal-btns .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .modal-btns .btn-primary:hover { opacity: 0.9; }
+        .modal-btns .btn-secondary { background: #e0e0e0; color: #333; }
+        .modal-btns .btn-secondary:hover { background: #ccc; }
+        .modal-error { color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 6px; margin-bottom: 12px; text-align: center; display: none; }
+        .modal-success { color: #388e3c; background: #e8f5e9; padding: 10px; border-radius: 6px; margin-bottom: 12px; text-align: center; display: none; }
+        .user-actions { display: flex; flex-direction: row; gap: 10px; margin-top: 12px; }
+        .user-actions button { 
+            padding: 10px 18px; 
+            background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 100%); 
+            border: 1px solid rgba(255,255,255,0.4); 
+            color: white; 
+            border-radius: 25px; 
+            cursor: pointer; 
+            font-size: 0.85em; 
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .user-actions button:hover { 
+            background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.2) 100%); 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .user-actions button:active {
+            transform: translateY(0);
+        }
+        .user-actions .btn-password {
+            background: linear-gradient(135deg, #ffd54f 0%, #ffb300 100%);
+            border: none;
+            color: #333;
+        }
+        .user-actions .btn-password:hover {
+            background: linear-gradient(135deg, #ffe082 0%, #ffc107 100%);
+            box-shadow: 0 6px 20px rgba(255,193,7,0.3);
+        }
+        .user-actions .btn-logout {
+            background: linear-gradient(135deg, rgba(255,82,82,0.8) 0%, rgba(211,47,47,0.8) 100%);
+            border: none;
+        }
+        .user-actions .btn-logout:hover {
+            background: linear-gradient(135deg, rgba(255,82,82,1) 0%, rgba(211,47,47,1) 100%);
+            box-shadow: 0 6px 20px rgba(211,47,47,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-user" id="header-user"></div>
+            <div class="header-title">
+                <h1>🏢 Sistema de Gestión Empresarial</h1>
+                <p id="nombre-empresa">Cargando...</p>
+            </div>
+            <div class="header-user" id="header-user-right"></div>
+        </div>
+        <div class="modules-grid">
+            <a href="/turnos" class="module-card" id="modulo-turnos">
+                <div class="module-icon">📅</div>
+                <h2 class="module-title">Módulo de Turnos</h2>
+                <p class="module-description">Gestión completa de turnos y horarios laborales para todas las áreas operativas.</p>
+                <ul class="module-features">
+                    <li>Asignación de turnos por área</li>
+                    <li>Cronogramas detallados día por día</li>
+                    <li>Historial completo de turnos</li>
+                    <li>Gestión de festivos y descansos</li>
+                    <li>Reportes y consultas</li>
+                </ul>
+                <button class="module-button">Acceder a Turnos</button>
+            </a>
+            <a href="/nomina" class="module-card" id="modulo-nomina">
+                <div class="module-icon">💰</div>
+                <h2 class="module-title">Módulo de Nómina</h2>
+                <p class="module-description">Cálculo automático de nómina con prestaciones sociales y deducciones.</p>
+                <ul class="module-features">
+                    <li>Cálculo de salarios por área</li>
+                    <li>Recargos nocturnos y dominicales</li>
+                    <li>Horas extras y festivos</li>
+                    <li>Deducciones automáticas</li>
+                    <li>Exportación a PDF y Excel</li>
+                </ul>
+                <button class="module-button">Acceder a Nómina</button>
+            </a>
+            <a href="/empresas.html" class="module-card" id="modulo-empresas" style="display:none;">
+                <div class="module-icon">🏢</div>
+                <h2 class="module-title">Gestión de Empresas</h2>
+                <p class="module-description">Crea y administra empresas del sistema. Activa módulos, cambia estados y gestiona el aislamiento de datos.</p>
+                <ul class="module-features">
+                    <li>Crear y editar empresas</li>
+                    <li>Activar / desactivar empresas</li>
+                    <li>Configurar módulos por empresa</li>
+                    <li>Ver estadísticas por empresa</li>
+                </ul>
+                <button class="module-button">Gestionar Empresas</button>
+            </a>
+            <a href="/usuarios.html" class="module-card" id="modulo-usuarios" style="display:none;">
+                <div class="module-icon">👥</div>
+                <h2 class="module-title">Gestión de Usuarios</h2>
+                <p class="module-description">Administra usuarios del sistema: crea, edita, elimina y cambia contraseñas.</p>
+                <ul class="module-features">
+                    <li>Crear y editar usuarios</li>
+                    <li>Asignar módulos y áreas</li>
+                    <li>Cambiar contraseña</li>
+                    <li>Eliminar usuario</li>
+                    <li>Solo para administradores</li>
+                </ul>
+                <button class="module-button">Acceder a Gestión de Usuarios</button>
+            </a>
+        </div>
+        <div class="info-section">
+            <h2>🏢 Áreas Operativas</h2>
+            <div class="info-grid" id="areas-operativas-grid">
+                <!-- Las áreas se mostrarán dinámicamente según permisos -->
+            </div>
+        </div>
+        <footer style="position:fixed; left:0; bottom:0; width:100%; background:linear-gradient(90deg,#764ba2 60%,#667eea 100%); color:#fff; text-align:center; padding:12px 0 8px 0; font-size:1em; font-weight:500; letter-spacing:0.5px; z-index:100; box-shadow:0 -2px 16px rgba(0,0,0,0.10);">
+            <span style="color:#ffe066;">© 2026 Innovar</span> - <span style="color:#fff;">Sistema Integrado de Gestión v2.0</span><br>
+            <span style="color:#ffe066;">Módulo de Turnos + Módulo de Nómina</span>
+        </footer>
+    </div>
+    
+    <!-- Modal de cambio de contraseña -->
+    <div class="modal-overlay" id="modal-password">
+        <div class="modal-box">
+            <h2>🔐 Cambiar Contraseña</h2>
+            <div class="modal-error" id="modal-error"></div>
+            <div class="modal-success" id="modal-success"></div>
+            <form id="form-password">
+                <label for="passwordActual">Contraseña Actual</label>
+                <input type="password" id="passwordActual" name="passwordActual" required autocomplete="current-password">
+                <label for="passwordNueva">Nueva Contraseña</label>
+                <input type="password" id="passwordNueva" name="passwordNueva" required autocomplete="new-password">
+                <label for="confirmarPassword">Confirmar Nueva Contraseña</label>
+                <input type="password" id="confirmarPassword" name="confirmarPassword" required autocomplete="new-password">
+                <div class="modal-btns">
+                    <button type="button" class="btn-secondary" onclick="cerrarModalPassword()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let usuarioSesion = null;
+        async function verificarAutenticacion() {
+            try {
+                const response = await fetch('/api/auth/verificar-sesion');
+                const data = await response.json();
+                if (!data.autenticado) { window.location.href = '/login.html'; return; }
+                usuarioSesion = data.usuario;
+                configurarModulos();
+                mostrarNombreUsuario();
+            } catch (error) { console.error('Error al verificar sesión:', error); window.location.href = '/login.html'; }
+        }
+        function configurarModulos() {
+            const modulosPermitidos = usuarioSesion.modulosPermitidos || [];
+            
+            // Configurar módulo de turnos
+            const moduloTurnos = document.getElementById('modulo-turnos');
+            if (!modulosPermitidos.includes('turnos')) {
+                moduloTurnos.style.opacity = '0.5';
+                moduloTurnos.style.pointerEvents = 'none';
+                moduloTurnos.style.filter = 'grayscale(1)';
+                moduloTurnos.querySelector('.module-button').textContent = 'No disponible';
+                moduloTurnos.querySelector('.module-button').style.background = '#ccc';
+            }
+            
+            // Configurar módulo de nómina
+            const moduloNomina = document.getElementById('modulo-nomina');
+            if (!modulosPermitidos.includes('nomina')) {
+                moduloNomina.style.opacity = '0.5';
+                moduloNomina.style.pointerEvents = 'none';
+                moduloNomina.style.filter = 'grayscale(1)';
+                moduloNomina.querySelector('.module-button').textContent = 'No disponible';
+                moduloNomina.querySelector('.module-button').style.background = '#ccc';
+            }
+            
+            // Mostrar módulo de empresas solo para super_admin
+            if (usuarioSesion.rol === 'super_admin') {
+                document.getElementById('modulo-empresas').style.display = 'block';
+            }
+
+            // Mostrar módulo de usuarios para admin y super_admin
+            const rolesAdmin = ['admin', 'super_admin'];
+            if (rolesAdmin.includes(usuarioSesion.rol)) {
+                document.getElementById('modulo-usuarios').style.display = 'block';
+            }
+            
+            // Mostrar solo áreas permitidas
+            const areasPermitidas = usuarioSesion.areasPermitidas || [];
+            const todasAreas = [
+                { key: 'ADMINISTRACION', label: 'Administrativos', desc: 'Horario personalizado<br>Con descansos' },
+                { key: 'CENTRO_CONTROL', label: 'Centro de Control', desc: 'Horario personalizado<br>Con descansos' },
+                { key: 'OPERACIONES', label: 'Operaciones', desc: 'Horario personalizado<br>Con descansos' },
+                { key: 'CONDUCTORES', label: 'Conductores', desc: 'Horario personalizado<br>Con descansos' },
+                { key: 'MANTENIMIENTO', label: 'Mantenimiento', desc: 'Horario personalizado<br>Con descansos' }
+            ];
+            const grid = document.getElementById('areas-operativas-grid');
+            grid.innerHTML = '';
+            todasAreas.forEach(area => {
+                if (areasPermitidas.includes(area.key)) {
+                    const div = document.createElement('div');
+                    div.className = 'info-item';
+                    div.innerHTML = `<strong>${area.label}</strong><p>${area.desc}</p>`;
+                    grid.appendChild(div);
+                }
+            });
+            if (grid.innerHTML === '') {
+                grid.innerHTML = '<div class="info-item" style="color:#667eea;">Todas las áreas disponibles</div>';
+            }
+        }
+        function mostrarNombreUsuario() {
+            // Mostrar nombre de empresa en el subtítulo
+            const subtitulo = document.getElementById('nombre-empresa');
+            if (usuarioSesion.rol === 'super_admin') {
+                subtitulo.textContent = '🌐 Vista Global — Super Administrador';
+            } else if (usuarioSesion.nombreEmpresa) {
+                subtitulo.textContent = usuarioSesion.nombreEmpresa;
+            } else {
+                subtitulo.textContent = 'Sistema de Gestión';
+            }
+
+            const rolLabel = usuarioSesion.rol === 'super_admin' ? 'Super Admin' : usuarioSesion.rol;
+            const userInfo = document.getElementById('header-user-right');
+            userInfo.innerHTML = `
+                <div style="font-size: 1em; font-weight: bold; white-space: nowrap;">${usuarioSesion.nombre}</div>
+                <div style="font-size: 0.85em; opacity: 0.8; text-transform: capitalize; margin-bottom: 8px;">${rolLabel}</div>
+                <div class="user-actions">
+                    <button class="btn-password" onclick="abrirModalPassword()">🔐 Cambiar Contraseña</button>
+                    <button class="btn-logout" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>
+                </div>
+            `;
+        }
+        
+        function abrirModalPassword() {
+            document.getElementById('modal-password').classList.add('active');
+            document.getElementById('form-password').reset();
+            document.getElementById('modal-error').style.display = 'none';
+            document.getElementById('modal-success').style.display = 'none';
+        }
+        
+        function cerrarModalPassword() {
+            document.getElementById('modal-password').classList.remove('active');
+        }
+        
+        document.getElementById('form-password').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const errorDiv = document.getElementById('modal-error');
+            const successDiv = document.getElementById('modal-success');
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            const passwordActual = document.getElementById('passwordActual').value;
+            const passwordNueva = document.getElementById('passwordNueva').value;
+            const confirmarPassword = document.getElementById('confirmarPassword').value;
+            
+            if (passwordNueva !== confirmarPassword) {
+                errorDiv.textContent = 'Las contraseñas nuevas no coinciden';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (passwordNueva.length < 4) {
+                errorDiv.textContent = 'La contraseña debe tener al menos 4 caracteres';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/mi-password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ passwordActual, passwordNueva, confirmarPassword })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    successDiv.textContent = '✓ Contraseña actualizada correctamente';
+                    successDiv.style.display = 'block';
+                    document.getElementById('form-password').reset();
+                    setTimeout(() => cerrarModalPassword(), 2000);
+                } else {
+                    errorDiv.textContent = data.error || 'Error al cambiar contraseña';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Error de conexión';
+                errorDiv.style.display = 'block';
+            }
+        });
+        
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modal-password').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) {
+                cerrarModalPassword();
+            }
+        });
+        async function cerrarSesion() {
+            try { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login.html'; }
+            catch (error) { console.error('Error al cerrar sesión:', error); window.location.href = '/login.html'; }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            verificarAutenticacion();
+        });
+        document.querySelectorAll('.module-button').forEach(btn => {
+            btn.addEventListener('click', (e) => { e.stopPropagation(); });
+        });
+    </script>
+</body>
+</html>

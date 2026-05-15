@@ -1,0 +1,58 @@
+services:
+  # Servicio de MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: turnos_mongodb
+    restart: unless-stopped
+    ports:
+      - "27018:27017"  # Usar puerto 27018 externamente para evitar conflictos con MongoDB local
+    environment:
+      MONGO_INITDB_DATABASE: turnos_app
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - turnos-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio de la aplicación Node.js
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: turnos_app
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGO_URI=mongodb://mongodb:27017/turnos_app
+      - SESSION_SECRET=sistema_gestion_secret_production_2025
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - turnos-network
+    volumes:
+      - ./backend/utils:/app/utils
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/auth/verificar-sesion"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  turnos-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
