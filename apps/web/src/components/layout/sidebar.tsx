@@ -28,7 +28,9 @@ interface NavItem {
   label: string;
   href: string;
   icon: React.ReactNode;
-  roles?: string[];
+  modulos?: string[];
+  isHeader?: boolean;
+  headerModulos?: string[];
 }
 
 const navItems: NavItem[] = [
@@ -41,99 +43,104 @@ const navItems: NavItem[] = [
     label: 'Catálogo',
     href: '/dashboard/catalogo',
     icon: <Package className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'solicitante'],
+    modulos: ['catalogo'],
   },
   {
     label: 'Proveedores',
     href: '/dashboard/proveedores',
     icon: <Users className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['proveedores'],
   },
   {
     label: 'Solicitudes',
     href: '/dashboard/solicitudes',
     icon: <ClipboardList className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'solicitante'],
+    modulos: ['solicitudes'],
   },
   {
     label: 'Aprobaciones',
     href: '/dashboard/aprobaciones',
     icon: <CheckSquare className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'aprobador', 'jefe_compras'],
+    modulos: ['aprobaciones'],
   },
   {
     label: 'Cotizaciones',
     href: '/dashboard/cotizaciones',
     icon: <FileText className="h-5 w-5" />,
+    modulos: ['compras'],
   },
   {
     label: 'Órdenes de Compra',
     href: '/dashboard/ordenes',
     icon: <ShoppingCart className="h-5 w-5" />,
-    roles: ['super_admin', 'admin', 'comprador', 'jefe_compras'],
+    modulos: ['compras'],
   },
   {
     label: 'Recepción',
     href: '/dashboard/recepcion',
     icon: <PackageOpen className="h-5 w-5" />,
+    modulos: ['inventarios', 'compras'],
   },
   {
     label: 'Seguimiento',
     href: '/dashboard/seguimiento',
     icon: <BarChart3 className="h-5 w-5" />,
+    modulos: ['reportes', 'compras'],
   },
   {
     label: 'Parametrización',
     href: '#',
     icon: <></>,
+    isHeader: true,
+    headerModulos: ['usuarios', 'roles', 'configuracion', 'catalogo'],
   },
   {
     label: 'Atributos',
     href: '/dashboard/atributos',
     icon: <FolderOpen className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['catalogo', 'configuracion'],
   },
   {
     label: 'Usuarios',
     href: '/dashboard/usuarios',
     icon: <Users className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['usuarios'],
   },
   {
     label: 'Roles',
     href: '/dashboard/roles',
     icon: <Shield className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['roles'],
   },
   {
     label: 'Permisos',
     href: '/dashboard/permisos',
     icon: <Shield className="h-5 w-5" />,
-    roles: ['super_admin'],
+    modulos: ['roles'],
   },
   {
     label: 'Empresas',
     href: '/dashboard/empresas',
     icon: <Building2 className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['configuracion'],
   },
   {
     label: 'Áreas',
     href: '/dashboard/areas',
     icon: <MapPin className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['configuracion'],
   },
   {
     label: 'Centros de Costo',
     href: '/dashboard/centros-costo',
     icon: <DollarSign className="h-5 w-5" />,
-    roles: ['super_admin', 'admin'],
+    modulos: ['configuracion'],
   },
   {
     label: 'Auditoría',
     href: '/dashboard/auditoria',
     icon: <FileSearch className="h-5 w-5" />,
-    roles: ['super_admin', 'auditor'],
+    modulos: ['reportes'],
   },
 ];
 
@@ -142,9 +149,20 @@ export function Sidebar() {
   const { user } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
 
+  const hasModuleAccess = (modulos: string[]): boolean => {
+    if (!user?.permisos?.length) return false;
+    return modulos.some((mod) => user.permisos.some((p) => p.startsWith(mod + '.')));
+  };
+
   const filteredItems = navItems.filter((item) => {
-    if (!item.roles) return true;
-    return user && user.rol && item.roles.includes(user.rol.nombre);
+    if (!user) return false;
+    if (item.isHeader) {
+      return item.headerModulos ? hasModuleAccess(item.headerModulos) : false;
+    }
+    if (item.modulos) {
+      return hasModuleAccess(item.modulos);
+    }
+    return true;
   });
 
   return (

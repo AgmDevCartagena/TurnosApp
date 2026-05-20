@@ -188,10 +188,18 @@ export class AutenticacionService {
     const usuario = await this.prisma.usuario.findUnique({
       where: { id: userId },
       include: {
-        rol: {
+        empresas: {
+          where: { activo: true },
           include: {
-            permisos: {
-              include: { permiso: true },
+            empresa: {
+              select: { id: true, nombre: true, activo: true },
+            },
+            rol: {
+              include: {
+                permisos: {
+                  include: { permiso: true },
+                },
+              },
             },
           },
         },
