@@ -206,7 +206,7 @@ end`};t.events.push(["putFont",function(l){(function(h){var f=h.font,c=h.out,g=h
                 <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e0e0e0; text-align: center; color: #666; font-size: 11px;">
                     <p style="margin: 5px 0;">Este desprendible es un documento informativo del periodo calculado.</p>
                     <p style="margin: 5px 0;">Generado automáticamente el ${n}</p>
-                    <p style="margin: 5px 0; font-style: italic; color: #1e3a5f; font-weight: bold;">Sistema de Nómina - UT Pereira Avanza</p>
+                    <p style="margin: 5px 0; font-style: italic; color: #1e3a5f; font-weight: bold;">Sistema de Nómina - INNOVAR</p>
                 </div>
             </div>
         </div>

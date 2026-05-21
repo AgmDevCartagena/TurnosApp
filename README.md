@@ -1,6 +1,6 @@
 # 🏢 Sistema Integrado de Gestión Empresarial
 
-**Desarrollado para:** UT PEREIRA AVANZA  
+**Desarrollado para:** INNOVAR  
 **Versión:** 2.0.0 | **Fecha:** 18 de febrero de 2026
 
 ---
@@ -466,7 +466,7 @@ Base de Datos:
 
 ## 👥 Equipo
 
-**Desarrollado para:** UT PEREIRA AVANZA  
+**Desarrollado para:** INNOVAR  
 **Versión:** 2.0.0  
 **Fecha de Actualización:** 18 de febrero de 2026  
 **Estado:** ✅ Producción
@@ -486,7 +486,7 @@ Base de Datos:
 
 ## 📄 Licencia
 
-Uso exclusivo - UT PEREIRA AVANZA
+Uso exclusivo - INNOVAR
 
 ---
 

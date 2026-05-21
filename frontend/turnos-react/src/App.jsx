@@ -13,7 +13,7 @@ function App() {
       <div className="container">
         <div className="header">
           <h1>📅 Módulo de Turnos</h1>
-          <p>Sistema de Gestión de Turnos - UT PEREIRA AVANZA</p>
+          <p>Sistema de Gestión de Turnos - INNOVAR</p>
         </div>
 
         <a href="/dashboard.html" className="back-button">

@@ -10,7 +10,7 @@ function App() {
       <div className="container">
         <div className="header">
           <h1>📊 Módulo de Nómina</h1>
-          <p>Sistema de Cálculo de Nómina - UT PEREIRA AVANZA</p>
+          <p>Sistema de Cálculo de Nómina - INNOVAR</p>
         </div>
 
         <a href="/dashboard.html" className="back-button">

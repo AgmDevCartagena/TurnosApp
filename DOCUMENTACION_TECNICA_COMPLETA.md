@@ -2,7 +2,7 @@
 
 **Versión:** 2.0.0
 **Fecha de Actualización:** 26 de Noviembre de 2025
-**Desarrollado para:** UT PEREIRA AVANZA
+**Desarrollado para:** INNOVAR
 
 ---
 

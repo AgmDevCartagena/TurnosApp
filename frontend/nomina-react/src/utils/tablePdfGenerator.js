@@ -121,7 +121,7 @@ export function exportarNominaPDF(resultados, area, periodo) {
             pdf.setFontSize(8);
             pdf.setTextColor(150, 150, 150);
             pdf.text(
-                `Sistema de Nómina - UT Pereira Avanza | Página ${i} de ${pageCount}`,
+                `Sistema de Nómina - INNOVAR | Página ${i} de ${pageCount}`,
                 pdf.internal.pageSize.getWidth() / 2,
                 pdf.internal.pageSize.getHeight() - 10,
                 { align: 'center' }

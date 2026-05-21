@@ -1,7 +1,7 @@
 # 🚀 Guía de Instalación, Configuración y Primeros Pasos
 
 **Versión:** 2.0.0  
-**Para:** UT PEREIRA AVANZA
+**Para:** INNOVAR
 
 ---
 

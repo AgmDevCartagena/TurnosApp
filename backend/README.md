@@ -223,8 +223,8 @@ node scripts/limpiezaCompleta.js
 
 ## 👥 Autor
 
-Sistema desarrollado para UT PEREIRA AVANZA
+Sistema desarrollado para INNOVAR
 
 ## 📄 Licencia
 
-Uso interno - UT PEREIRA AVANZA
+Uso interno - INNOVAR

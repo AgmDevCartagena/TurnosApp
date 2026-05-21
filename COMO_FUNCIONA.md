@@ -2,7 +2,7 @@
 
 **Versión:** 2.0.0  
 **Última actualización:** 18 de febrero de 2026  
-**Sistema:** UT PEREIRA AVANZA
+**Sistema:** INNOVAR
 
 ---
 
