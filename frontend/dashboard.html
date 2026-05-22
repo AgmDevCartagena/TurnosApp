@@ -113,7 +113,7 @@
             </div>
             <div class="header-user" id="header-user-right"></div>
         </div>
-        <div id="dashboard-resumen" style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin:12px 0 20px;font-size:0.95em;color:#667eea;"></div>
+        <div id="dashboard-resumen" style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:14px 0 22px;"></div>
         <div class="modules-grid">
             <a href="/turnos" class="module-card" id="modulo-turnos">
                 <div class="module-icon">📅</div>
@@ -368,9 +368,21 @@
                     const el = document.getElementById('dashboard-resumen');
                     if (el) {
                         el.innerHTML = `
-                            <span>👥 Empleados: <strong>${data.resumen.totalEmpleados}</strong></span>
-                            <span>📅 Turnos: <strong>${data.resumen.totalTurnos}</strong></span>
-                            <span>🔑 Usuarios: <strong>${data.resumen.totalUsuarios}</strong></span>
+                            <div style="background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.5);border-radius:12px;padding:10px 22px;display:flex;flex-direction:column;align-items:center;min-width:110px;">
+                                <span style="font-size:1.6rem;">👥</span>
+                                <span style="font-size:1.5rem;font-weight:800;color:#ffffff;line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,0.4);">${data.resumen.totalEmpleados}</span>
+                                <span style="font-size:0.82rem;font-weight:600;color:#e8e8ff;letter-spacing:0.04em;text-transform:uppercase;">Empleados</span>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.5);border-radius:12px;padding:10px 22px;display:flex;flex-direction:column;align-items:center;min-width:110px;">
+                                <span style="font-size:1.6rem;">📅</span>
+                                <span style="font-size:1.5rem;font-weight:800;color:#ffffff;line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,0.4);">${data.resumen.totalTurnos}</span>
+                                <span style="font-size:0.82rem;font-weight:600;color:#e8e8ff;letter-spacing:0.04em;text-transform:uppercase;">Turnos</span>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.5);border-radius:12px;padding:10px 22px;display:flex;flex-direction:column;align-items:center;min-width:110px;">
+                                <span style="font-size:1.6rem;">🔑</span>
+                                <span style="font-size:1.5rem;font-weight:800;color:#ffffff;line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,0.4);">${data.resumen.totalUsuarios}</span>
+                                <span style="font-size:0.82rem;font-weight:600;color:#e8e8ff;letter-spacing:0.04em;text-transform:uppercase;">Usuarios</span>
+                            </div>
                         `;
                     }
                 }
