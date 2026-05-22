@@ -103,15 +103,5 @@ router.get('/festivos', (req, res) => {
   res.json(festivos);
 });
 
-// Endpoint temporal para debug - consultar documento por ID
-router.get('/debug/:id', async (req, res) => {
-  try {
-    const turnosService = require('../services/turnosService');
-    const turno = await turnosService.obtenerTurnoPorId(req.params.id);
-    res.json(turno);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 module.exports = router;

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const UsuarioSchema = new mongoose.Schema({
   username: {
@@ -52,5 +53,21 @@ const UsuarioSchema = new mongoose.Schema({
 
 // Índice para búsqueda rápida
 UsuarioSchema.index({ username: 1 });
+
+// Hash automático de contraseña antes de guardar
+UsuarioSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  try {
+    this.password = await bcrypt.hash(this.password, 12);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Comparación segura de contraseña
+UsuarioSchema.methods.comparePassword = function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
 module.exports = mongoose.model('Usuario', UsuarioSchema);

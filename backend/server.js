@@ -10,11 +10,25 @@ const turnosRoutes = require('./routes/turnos');
 const nominaRoutes = require('./routes/nominaRoutes');
 const authRoutes = require('./routes/auth');
 const empresasRoutes = require('./routes/empresas');
+const dashboardRoutes = require('./routes/dashboard');
 const { requireAuth, requireModulo } = require('./middlewares/auth');
 const { requireTenant } = require('./middlewares/tenant');
 
 const app = express();
-app.use(cors());
+
+// CORS: orígenes permitidos configurables por variable de entorno
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir peticiones sin origen (mismo servidor, Postman en dev, etc.)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`Origen no permitido por CORS: ${origin}`));
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Configuración de sesiones para módulo de nómina
@@ -51,12 +65,13 @@ mongoose.connect(MONGO_URI, {
 }).then(() => console.log('✅ MongoDB conectado'))
   .catch(err => {
     console.error('❌ Error MongoDB:', err);
-    process.exit(1);
+    if (process.env.NODE_ENV !== 'test') process.exit(1);
   });
 
 // API Routes - Sistema modular
 app.use('/api/auth', authRoutes);
 app.use('/api/empresas', empresasRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/turnos', requireAuth, requireTenant, requireModulo('turnos'), turnosRoutes);
 app.use('/api/nomina', requireAuth, requireTenant, requireModulo('nomina'), nominaRoutes);
 
@@ -160,38 +175,37 @@ app.get('/nomina/*', (req, res) => {
   res.sendFile(path.join(nominaBuildPath, 'index.html'));
 });
 
-const PORT = process.env.PORT || 3001;
-const server = app.listen(PORT, () => {
-  console.log('\n╔════════════════════════════════════════════════════╗');
-  console.log('║   SISTEMA INTEGRADO DE GESTIÓN EMPRESARIAL        ║');
-  console.log('╠════════════════════════════════════════════════════╣');
-  console.log(`║  🚀 Servidor: http://localhost:${PORT}                 ║`);
-  console.log('║  📊 Módulos disponibles:                           ║');
-  console.log(`║     • Turnos: http://localhost:${PORT}/turnos          ║`);
-  console.log(`║     • Nómina: http://localhost:${PORT}/nomina          ║`);
-  console.log('║  📡 API:                                           ║');
-  console.log(`║     • /api/turnos - Gestión de turnos              ║`);
-  console.log(`║     • /api/nomina - Gestión de nómina              ║`);
-  console.log('║  📊 Base de datos: MongoDB conectada               ║');
-  console.log('╚════════════════════════════════════════════════════╝\n');
-});
+module.exports = app;
 
-// Manejar errores del servidor
-server.on('error', (error) => {
-  console.error('❌ Error del servidor:', error.message);
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Puerto ${PORT} ya está en uso`);
-  }
-});
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 3001;
+  const server = app.listen(PORT, () => {
+    console.log('\n╔════════════════════════════════════════════════════╗');
+    console.log('║   SISTEMA INTEGRADO DE GESTIÓN EMPRESARIAL        ║');
+    console.log('╠════════════════════════════════════════════════════╣');
+    console.log(`║  🚀 Servidor: http://localhost:${PORT}                 ║`);
+    console.log('║  📊 Módulos disponibles:                           ║');
+    console.log(`║     • Turnos: http://localhost:${PORT}/turnos          ║`);
+    console.log(`║     • Nómina: http://localhost:${PORT}/nomina          ║`);
+    console.log('║  📡 API:                                           ║');
+    console.log(`║     • /api/turnos - Gestión de turnos              ║`);
+    console.log(`║     • /api/nomina - Gestión de nómina              ║`);
+    console.log('║  📊 Base de datos: MongoDB conectada               ║');
+    console.log('╚════════════════════════════════════════════════════╝\n');
+  });
 
-// Manejar cierre graceful del servidor
+  server.on('error', (error) => {
+    console.error('❌ Error del servidor:', error.message);
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Puerto ${process.env.PORT || 3001} ya está en uso`);
+    }
+  });
+}
+
 process.on('SIGINT', () => {
   console.log('\n🛑 Cerrando servidor...');
-  server.close(() => {
-    console.log('✅ Servidor cerrado');
-    mongoose.disconnect().then(() => {
-      console.log('✅ MongoDB desconectado');
-      process.exit(0);
-    });
+  mongoose.disconnect().then(() => {
+    console.log('✅ MongoDB desconectado');
+    process.exit(0);
   });
 });

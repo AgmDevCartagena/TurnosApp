@@ -11,30 +11,34 @@
  * Usa supertest para simular requests HTTP completos.
  */
 
+process.env.NODE_ENV = 'test';
+process.env.MONGO_URI = process.env.MONGO_TEST_URI || 'mongodb://localhost:27018/turnos_app_test';
+
 const mongoose = require('mongoose');
 const request = require('supertest');
 
 let app;
 let Empresa, Usuario;
 
-const MONGO_TEST_URI = process.env.MONGO_TEST_URI || 'mongodb://localhost:27017/turnos_app_test';
-
 beforeAll(async () => {
-  await mongoose.connect(MONGO_TEST_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
+  app = require('../../server');
+
+  // Esperar a que mongoose esté conectado (server.js conecta en su módulo)
+  if (mongoose.connection.readyState !== 1) {
+    await new Promise((resolve, reject) => {
+      mongoose.connection.once('connected', resolve);
+      mongoose.connection.once('error', reject);
+    });
+  }
+
+  Empresa = require('../../models/Empresa');
+  Usuario = require('../../models/Usuario');
 
   // Limpiar colecciones de test
   const collections = mongoose.connection.collections;
   for (const key in collections) {
     await collections[key].deleteMany({});
   }
-
-  Empresa = require('../../models/Empresa');
-  Usuario = require('../../models/Usuario');
-
-  app = require('../../server');
 });
 
 afterAll(async () => {
@@ -121,10 +125,12 @@ describe('Login con contexto de empresa', () => {
 });
 
 describe('Aislamiento de datos: usuarios', () => {
-  const agentA = request.agent(app);
-  const agentB = request.agent(app);
+  let agentA;
+  let agentB;
 
   beforeAll(async () => {
+    agentA = request.agent(app);
+    agentB = request.agent(app);
     await agentA.post('/api/auth/login').send({ username: 'admin_test_a', password: 'password_a' });
     await agentB.post('/api/auth/login').send({ username: 'admin_test_b', password: 'password_b' });
   });

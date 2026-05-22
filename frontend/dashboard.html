@@ -113,6 +113,7 @@
             </div>
             <div class="header-user" id="header-user-right"></div>
         </div>
+        <div id="dashboard-resumen" style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;margin:12px 0 20px;font-size:0.95em;color:#667eea;"></div>
         <div class="modules-grid">
             <a href="/turnos" class="module-card" id="modulo-turnos">
                 <div class="module-icon">📅</div>
@@ -358,8 +359,26 @@
             try { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login.html'; }
             catch (error) { console.error('Error al cerrar sesión:', error); window.location.href = '/login.html'; }
         }
+        async function cargarResumenDashboard() {
+            try {
+                const res = await fetch('/api/dashboard/resumen');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.success && data.resumen) {
+                    const el = document.getElementById('dashboard-resumen');
+                    if (el) {
+                        el.innerHTML = `
+                            <span>👥 Empleados: <strong>${data.resumen.totalEmpleados}</strong></span>
+                            <span>📅 Turnos: <strong>${data.resumen.totalTurnos}</strong></span>
+                            <span>🔑 Usuarios: <strong>${data.resumen.totalUsuarios}</strong></span>
+                        `;
+                    }
+                }
+            } catch (e) { /* silencioso si no hay datos */ }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            verificarAutenticacion();
+            verificarAutenticacion().then(() => cargarResumenDashboard());
         });
         document.querySelectorAll('.module-button').forEach(btn => {
             btn.addEventListener('click', (e) => { e.stopPropagation(); });

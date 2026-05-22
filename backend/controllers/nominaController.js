@@ -841,7 +841,7 @@ exports.calcularNominaPorTodasLasAreas = async (req, res) => {
 // -------------------------------------------------------------
 exports.obtenerAreas = async (req, res) => {
     try {
-        const areas = await obtenerAreasDisponibles();
+        const areas = await obtenerAreasDisponibles(req.empresaId);
 
         res.json({
             ok: true,

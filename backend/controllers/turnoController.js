@@ -182,7 +182,7 @@ exports.crearEmpleadosCSV = async (req, res) => {
     console.log(' DEBUG CSV - Datos recibidos:', req.body);
     const { empleados } = req.body;
     console.log(' DEBUG CSV - Array empleados:', empleados?.length || 'undefined');
-    const resultados = await empleadosService.procesarEmpleadosCSV(empleados);
+    const resultados = await empleadosService.procesarEmpleadosCSV(empleados, req.empresaId);
 
     res.json({
       mensaje: 'Importación CSV completada',
@@ -1192,9 +1192,9 @@ function generarCronogramaManualOperaciones(fechaInicio, fechaFin, festivos, con
 }
 
 /**
- * Genera cronograma automático para Operaciones con tabla de descanso
+ * @deprecated Reemplazada por la declaración posterior. Conservada por compatibilidad histórica.
  */
-function generarCronogramaOperaciones(fechaInicio, fechaFin, festivos, turno, tablaDescanso, tablasCCData) {
+function generarCronogramaOperacionesLegacy(fechaInicio, fechaFin, festivos, turno, tablaDescanso, tablasCCData) {
   const cronograma = [];
   const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -2692,7 +2692,8 @@ function generarCronogramaMantenimientoAuto(fechaInicio, fechaFin, festivos, tur
 
 exports.obtenerAreas = async (req, res) => {
   try {
-    let areas = await Empleado.distinct('area');
+    const filtroEmpresa = req.empresaId ? { empresaId: req.empresaId } : {};
+    let areas = await Empleado.distinct('area', filtroEmpresa);
 
     console.log('🔍 DEBUG obtenerAreas:');
     console.log('  - Áreas en BD:', areas);
@@ -3583,8 +3584,10 @@ exports.cargaMasivaEmpleados = async (req, res) => {
           continue;
         }
 
-        // Verificar si ya existe por documento
-        const existe = await Empleado.findOne({ documento: emp.documento });
+        // Verificar si ya existe por documento en la misma empresa
+        const filtroDup = { documento: emp.documento };
+        if (req.empresaId) filtroDup.empresaId = req.empresaId;
+        const existe = await Empleado.findOne(filtroDup);
         if (existe) {
           console.log(`Empleado ya existe: ${emp.documento}`);
           errores++;
@@ -3598,7 +3601,8 @@ exports.cargaMasivaEmpleados = async (req, res) => {
           area: areaUpper,
           salario: emp.salario || 0,
           fechaIngreso: emp.fechaIngreso,
-          fechaCumpleanos: emp.fechaCumpleanos
+          fechaCumpleanos: emp.fechaCumpleanos,
+          empresaId: req.empresaId || null
         });
 
         await nuevoEmpleado.save();

@@ -56,11 +56,12 @@ async function initDB() {
   }
 
   // ── 3. Crear admin de empresa si no existe ───────────────────────────────
+  const adminInitPassword = process.env.ADMIN_INIT_PASSWORD || 'Admin2025!';
   const admin = await Usuario.findOne({ username: 'admin' });
   if (!admin) {
     await Usuario.create({
       username: 'admin',
-      password: 'admin',
+      password: adminInitPassword,
       nombre: 'Administrador',
       rol: 'admin',
       modulosPermitidos: ['turnos', 'nomina'],

@@ -15,7 +15,6 @@ const EmpleadoSchema = new mongoose.Schema({
   documento: { 
     type: String, 
     required: [true, 'El documento es requerido'],
-    unique: true,
     trim: true,
     maxlength: [20, 'El documento no puede exceder 20 caracteres']
   },

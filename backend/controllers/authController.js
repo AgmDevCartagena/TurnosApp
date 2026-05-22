@@ -18,7 +18,8 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
     }
 
-    if (usuario.password !== password) {
+    const passwordValida = await usuario.comparePassword(password);
+    if (!passwordValida) {
       return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -257,7 +258,8 @@ exports.cambiarMiContrasena = async (req, res) => {
     }
     const usuario = await Usuario.findById(req.session.usuario.id);
     if (!usuario) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-    if (usuario.password !== passwordActual) {
+    const passwordValida = await usuario.comparePassword(passwordActual);
+    if (!passwordValida) {
       return res.status(401).json({ success: false, error: 'La contraseña actual es incorrecta' });
     }
     usuario.password = passwordNueva;

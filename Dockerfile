@@ -23,10 +23,11 @@ RUN mkdir -p ./public
 COPY frontend/nomina-build/ ./public/nomina-build/
 COPY frontend/turnos-build/ ./public/turnos-build/
 
-# Copiar páginas HTML estáticas (login, dashboard y usuarios)
+# Copiar páginas HTML estáticas
 COPY frontend/login.html ./public/
 COPY frontend/dashboard.html ./public/
 COPY frontend/usuarios.html ./public/
+COPY frontend/empresas.html ./public/
 COPY frontend/index.html ./public/
 
 # Exponer el puerto

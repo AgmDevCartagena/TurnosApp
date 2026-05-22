@@ -51,7 +51,7 @@ async function crearEmpleado(datosEmpleado, empresaId = null) {
 /**
  * Procesa datos CSV y crea múltiples empleados con validaciones completas
  */
-async function procesarEmpleadosCSV(empleados) {
+async function procesarEmpleadosCSV(empleados, empresaId = null) {
   if (!empleados || !Array.isArray(empleados)) {
     throw new Error('Se requiere un array de empleados');
   }
@@ -100,9 +100,9 @@ async function procesarEmpleadosCSV(empleados) {
         continue;
       }
 
-      // Verificar duplicados
+      // Verificar duplicados (scoped a la empresa del usuario)
       const filtroDup = { documento: documentoLimpio };
-      if (empleados._empresaId) filtroDup.empresaId = empleados._empresaId;
+      if (empresaId) filtroDup.empresaId = empresaId;
       const empleadoExistente = await Empleado.findOne(filtroDup);
       if (empleadoExistente) {
         resultados.duplicados.push({
@@ -127,6 +127,7 @@ async function procesarEmpleadosCSV(empleados) {
         Object.assign(datosEmpleado, procesarDatosTaquillero(emp));
       }
 
+      if (empresaId) datosEmpleado.empresaId = empresaId;
       const nuevoEmpleado = new Empleado(datosEmpleado);
       await nuevoEmpleado.save();
       

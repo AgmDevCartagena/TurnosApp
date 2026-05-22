@@ -6,6 +6,7 @@ const authController = require('../controllers/authController');
 router.post('/login', authController.login);
 router.post('/logout', authController.logout);
 router.get('/verificar-sesion', authController.verificarSesion);
+router.get('/me', authController.verificarSesion);
 
 // Cambiar contraseña propia (cualquier usuario logueado)
 router.put('/mi-password', authController.cambiarMiContrasena);

@@ -299,10 +299,11 @@ async function buscarTurnosAgrupadosPorArea(fechaInicio, fechaFin, empresaId = n
 /**
  * Obtiene áreas disponibles en el sistema
  */
-async function obtenerAreasDisponibles() {
+async function obtenerAreasDisponibles(empresaId = null) {
   try {
-    const areas = await Turno.distinct('turnoActual.area');
-    return areas.filter(area => area); // Filtrar valores nulos o undefined
+    const filtro = empresaId ? { empresaId } : {};
+    const areas = await Turno.distinct('turnoActual.area', filtro);
+    return areas.filter(area => area);
   } catch (error) {
     console.error('Error en obtenerAreasDisponibles:', error);
     throw error;
