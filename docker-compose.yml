@@ -33,7 +33,7 @@ services:
       - PORT=3001
       - MONGO_URI=mongodb://mongodb:27017/turnos_app
       - SESSION_SECRET=sistema_gestion_secret_production_2025
-      - ALLOWED_ORIGINS=http://localhost:3001
+      - ALLOWED_ORIGINS=http://localhost:3001,http://10.250.10.9:3001
       - ADMIN_INIT_PASSWORD=Admin2025!
     depends_on:
       mongodb:
