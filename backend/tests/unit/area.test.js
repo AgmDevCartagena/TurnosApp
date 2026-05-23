@@ -6,15 +6,16 @@
 
 process.env.NODE_ENV = 'test';
 
-const mongoose = require('mongoose');
-
 // ── Mock de Area con comportamiento real de validación ────────────────────────
 jest.mock('../../models/Area', () => {
+  let idCounter = 0;
   const instances = [];
+
+  function makeId() { return `mockid_${++idCounter}`; }
 
   function MockArea(data) {
     Object.assign(this, {
-      _id: new mongoose.Types.ObjectId(),
+      _id: makeId(),
       estado: 'activa',
       codigo: '',
       descripcion: '',
@@ -70,6 +71,7 @@ jest.mock('../../models/Area', () => {
   return MockArea;
 });
 
+const mongoose = require('mongoose');
 const Area = require('../../models/Area');
 
 beforeEach(() => Area._clear());
