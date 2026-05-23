@@ -73,9 +73,11 @@ exports.obtenerEmpresa = async (req, res) => {
  */
 exports.crearEmpresa = async (req, res) => {
   try {
-    const { nombre, nit, razonSocial, colorTema, dominio, modulosHabilitados } = req.body;
+    const { nombre, nit, razonSocial, colorTema, dominio, modulosHabilitados, adminUsuario } = req.body;
 
     if (!nombre) return res.status(400).json({ success: false, error: 'El nombre es requerido' });
+
+    const modulos = modulosHabilitados || ['turnos', 'nomina'];
 
     const empresa = await Empresa.create({
       nombre: nombre.trim(),
@@ -83,12 +85,47 @@ exports.crearEmpresa = async (req, res) => {
       razonSocial: razonSocial || '',
       colorTema: colorTema || '#667eea',
       dominio: dominio || null,
-      modulosHabilitados: modulosHabilitados || ['turnos', 'nomina']
+      modulosHabilitados: modulos
     });
 
     await registrarAuditoria(req, 'CREAR_EMPRESA', 'Empresa', empresa._id, { nombre: empresa.nombre });
-    res.status(201).json({ success: true, empresa });
+
+    let usuarioAdmin = null;
+    if (adminUsuario && adminUsuario.username && adminUsuario.password) {
+      const usernameNorm = adminUsuario.username.toLowerCase().trim();
+      const existe = await Usuario.findOne({ username: usernameNorm });
+      if (existe) {
+        await Empresa.findByIdAndDelete(empresa._id);
+        return res.status(400).json({ success: false, error: `El usuario '${usernameNorm}' ya existe` });
+      }
+      if (adminUsuario.password.length < 4) {
+        await Empresa.findByIdAndDelete(empresa._id);
+        return res.status(400).json({ success: false, error: 'La contraseña del admin debe tener al menos 4 caracteres' });
+      }
+      usuarioAdmin = await Usuario.create({
+        username: usernameNorm,
+        password: adminUsuario.password,
+        nombre: adminUsuario.nombre || `Admin ${nombre.trim()}`,
+        rol: 'admin',
+        modulosPermitidos: modulos,
+        areasPermitidas: [],
+        empresaId: empresa._id,
+        activo: true
+      });
+      await registrarAuditoria(req, 'CREAR_USUARIO', 'Usuario', usuarioAdmin._id, {
+        username: usuarioAdmin.username, empresaId: empresa._id
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      empresa,
+      adminUsuario: usuarioAdmin
+        ? { username: usuarioAdmin.username, nombre: usuarioAdmin.nombre, rol: usuarioAdmin.rol }
+        : null
+    });
   } catch (error) {
+    console.error('Error al crear empresa:', error);
     res.status(500).json({ success: false, error: 'Error al crear empresa' });
   }
 };

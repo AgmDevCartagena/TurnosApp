@@ -213,6 +213,29 @@
           <option value="suspendida">Suspendida</option>
         </select>
       </div>
+
+      <!-- Sección admin: solo visible al crear nueva empresa -->
+      <div id="seccion-admin" style="border-top:1px solid #eee;margin-top:16px;padding-top:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <strong style="font-size:0.9em;color:#555;">👤 Usuario Administrador</strong>
+          <span style="font-size:0.78em;color:#aaa;">(opcional — se crea vinculado a esta empresa)</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nombre del admin</label>
+            <input id="admin-nombre" type="text" placeholder="Ej: Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label>Usuario (login)</label>
+            <input id="admin-username" type="text" placeholder="Ej: admin_empresa">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input id="admin-password" type="password" placeholder="Mínimo 4 caracteres">
+        </div>
+        <p style="font-size:0.78em;color:#aaa;margin-top:-8px;">Si dejas usuario o contraseña vacíos, no se creará el administrador ahora.</p>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="cerrarModal()">Cancelar</button>
@@ -345,6 +368,10 @@
     document.getElementById('mod-turnos').checked = true;
     document.getElementById('mod-nomina').checked = true;
     document.getElementById('campo-estado-group').style.display = 'none';
+    document.getElementById('seccion-admin').style.display = 'block';
+    document.getElementById('admin-nombre').value = '';
+    document.getElementById('admin-username').value = '';
+    document.getElementById('admin-password').value = '';
     ocultarModalAlerta();
     document.getElementById('modal-empresa').classList.add('open');
   }
@@ -365,6 +392,7 @@
     document.getElementById('mod-nomina').checked = (e.modulosHabilitados || []).includes('nomina');
     document.getElementById('campo-estado').value = e.estado || 'activa';
     document.getElementById('campo-estado-group').style.display = 'block';
+    document.getElementById('seccion-admin').style.display = 'none';
     ocultarModalAlerta();
     document.getElementById('modal-empresa').classList.add('open');
   }
@@ -394,6 +422,16 @@
 
     if (modoEdicion) {
       payload.estado = document.getElementById('campo-estado').value;
+    } else {
+      const adminUsername = document.getElementById('admin-username').value.trim();
+      const adminPassword = document.getElementById('admin-password').value;
+      if (adminUsername && adminPassword) {
+        payload.adminUsuario = {
+          username: adminUsername,
+          password: adminPassword,
+          nombre: document.getElementById('admin-nombre').value.trim()
+        };
+      }
     }
 
     const id = document.getElementById('campo-id').value;
@@ -414,7 +452,11 @@
       if (!res.ok) throw new Error(data.error || 'Error al guardar');
 
       cerrarModal();
-      mostrarAlerta(modoEdicion ? '✅ Empresa actualizada' : '✅ Empresa creada exitosamente', 'success');
+      let msgExito = modoEdicion ? '✅ Empresa actualizada' : '✅ Empresa creada exitosamente';
+      if (!modoEdicion && data.adminUsuario) {
+        msgExito += ` · Admin creado: ${data.adminUsuario.username}`;
+      }
+      mostrarAlerta(msgExito, 'success');
       await cargarEmpresas();
     } catch (e) {
       mostrarModalAlerta(e.message);

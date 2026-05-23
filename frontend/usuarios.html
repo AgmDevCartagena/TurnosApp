@@ -3,448 +3,476 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestión de Usuarios - Admin</title>
+    <title>Gestión de Usuarios</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
-        .container { max-width: 1100px; margin: 20px auto; background: #fff; border-radius: 18px; box-shadow: 0 8px 32px rgba(102,126,234,0.15); padding: 36px 32px; }
-        h1 { text-align: center; color: #667eea; margin-bottom: 30px; font-size: 2.2em; }
-        .user-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        .user-table th, .user-table td { padding: 14px 10px; border-bottom: 1px solid #eee; text-align: left; font-size: 0.95em; }
-        .user-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; font-weight: 600; }
-        .user-table tr:hover { background: #f0f4ff; }
-        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-        .actions button { padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: transform 0.2s, box-shadow 0.2s; }
-        .actions button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .edit-btn { background: #667eea; color: #fff; }
-        .delete-btn { background: #e53e3e; color: #fff; }
-        .change-btn { background: #38a169; color: #fff; }
-        .form-section { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 16px; padding: 28px; margin-bottom: 28px; border: 2px solid #667eea20; }
-        .form-section h2 { color: #764ba2; text-align: center; margin-bottom: 24px; font-size: 1.5em; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .form-group { display: flex; flex-direction: column; }
-        .form-group label { font-weight: 600; color: #667eea; margin-bottom: 8px; font-size: 0.95em; }
-        .form-group input, .form-group select { padding: 12px 14px; border-radius: 10px; border: 2px solid #ddd; font-size: 1em; transition: border-color 0.3s, box-shadow 0.3s; }
-        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
-        
-        /* Checkboxes personalizados para módulos y áreas */
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-        .checkbox-item { display: flex; align-items: center; background: #fff; border: 2px solid #ddd; border-radius: 10px; padding: 10px 16px; cursor: pointer; transition: all 0.3s; }
-        .checkbox-item:hover { border-color: #667eea; background: #f0f4ff; }
-        .checkbox-item.selected { border-color: #667eea; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
-        .checkbox-item input { display: none; }
-        .checkbox-item span { font-weight: 500; font-size: 0.95em; }
-        .checkbox-item .icon { margin-right: 8px; font-size: 1.2em; }
-        
-        .form-section button[type="submit"] { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); color: white; padding: 14px 0; border: none; border-radius: 12px; cursor: pointer; font-size: 1.1em; font-weight: 600; box-shadow: 0 4px 15px rgba(102,126,234,0.3); margin-top: 20px; transition: transform 0.2s, box-shadow 0.2s; width: 100%; }
-        .form-section button[type="submit"]:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
-        .form-section .cancel-btn { background: #ccc; color: #333; margin-top: 10px; }
-        .form-section .cancel-btn:hover { background: #bbb; }
-        .msg { text-align: center; font-size: 1.1em; margin-bottom: 18px; padding: 12px; border-radius: 10px; }
-        .msg.success { background: #d4edda; color: #155724; }
-        .msg.error { background: #f8d7da; color: #721c24; }
-        
-        .back-btn { display: inline-block; margin-bottom: 20px; padding: 10px 20px; background: rgba(255,255,255,0.2); border: 2px solid #667eea; color: #667eea; border-radius: 10px; text-decoration: none; font-weight: 600; transition: all 0.3s; }
-        .back-btn:hover { background: #667eea; color: #fff; }
-        
-        @media (max-width: 768px) { 
-            .form-grid { grid-template-columns: 1fr; }
-            .actions { flex-direction: column; }
-            .actions button { width: 100%; }
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+        .header h1 { font-size: 1.5em; }
+        .header p  { font-size: 0.9em; opacity: 0.85; margin-top: 2px; }
+        .header-actions { display: flex; gap: 10px; }
+        .btn { padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all .2s; }
+        .btn-primary { background: white; color: #667eea; }
+        .btn-primary:hover { background: #e8eaf6; }
+        .btn-back { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-back:hover { background: rgba(255,255,255,0.25); }
+
+        .content { max-width: 1100px; margin: 32px auto; padding: 0 20px; }
+
+        .msg { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display: none; font-size: 0.9em; font-weight: 500; }
+        .msg.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+        .msg.error   { background: #fce4ec; color: #c62828; border: 1px solid #f48fb1; }
+
+        /* ── Card ── */
+        .card { background: white; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 28px; }
+        .card-header { padding: 20px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .card-header h2 { font-size: 1.1em; color: #333; }
+
+        /* ── Tabla ── */
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8f9ff; color: #555; font-size: 0.82em; text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px; text-align: left; }
+        td { padding: 14px 16px; border-top: 1px solid #f0f0f0; vertical-align: middle; font-size: 0.92em; color: #333; }
+        tr:hover td { background: #fafbff; }
+
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 600; color: white; }
+        .badge-admin     { background: #667eea; }
+        .badge-super_admin { background: #764ba2; }
+        .badge-usuario   { background: #43a047; }
+        .badge-consulta  { background: #757575; }
+        .badge-gestor_turnos { background: #e67e22; }
+        .badge-gestor_nomina { background: #16a085; }
+
+        .btn-sm { padding: 5px 11px; font-size: 0.8em; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; transition: all .15s; }
+        .btn-edit   { background: #e8eaf6; color: #3949ab; }
+        .btn-edit:hover { background: #c5cae9; }
+        .btn-pass   { background: #e8f5e9; color: #2e7d32; }
+        .btn-pass:hover { background: #c8e6c9; }
+        .btn-del    { background: #fce4ec; color: #c62828; }
+        .btn-del:hover { background: #f8bbd0; }
+
+        /* ── Modal ── */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; justify-content: center; align-items: flex-start; padding-top: 40px; overflow-y: auto; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; border-radius: 16px; width: 580px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideIn .2s ease; margin-bottom: 40px; }
+        @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { padding: 22px 24px 16px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { font-size: 1.1em; color: #333; }
+        .modal-close { background: none; border: none; font-size: 1.4em; cursor: pointer; color: #999; }
+        .modal-close:hover { color: #333; }
+        .modal-body { padding: 22px 24px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 0.85em; font-weight: 600; color: #555; margin-bottom: 6px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9em; transition: border .2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.12); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+        /* ── Checkboxes ── */
+        .check-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .check-pill { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border: 2px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 0.85em; font-weight: 600; color: #666; transition: all .2s; user-select: none; }
+        .check-pill:hover { border-color: #667eea; color: #667eea; }
+        .check-pill.active { border-color: #667eea; background: #667eea; color: white; }
+        .check-pill input { display: none; }
+
+        .btn-cancel { background: #f0f0f0; color: #555; }
+        .btn-cancel:hover { background: #e0e0e0; }
+        .btn-save { background: linear-gradient(135deg,#667eea,#764ba2); color: white; }
+        .btn-save:hover { opacity: 0.9; }
+
+        .modal-alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; display: none; font-size: 0.88em; background: #fce4ec; color: #c62828; border: 1px solid #f48fb1; }
+
+        .empty-state { text-align: center; padding: 50px 20px; color: #aaa; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <a href="/dashboard.html" class="back-btn">← Volver al Dashboard</a>
+<div class="header">
+    <div>
         <h1>👥 Gestión de Usuarios</h1>
-        <div id="msg" class="msg" style="display:none;"></div>
-        
-        <!-- Formulario para crear nuevo usuario -->
-        <div class="form-section" id="formCrearUsuario">
-            <h2>➕ Crear Nuevo Usuario</h2>
-            <form id="formNuevoUsuario">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>👤 Nombre completo:</label>
-                        <input type="text" name="nombre" placeholder="Ej: Juan Pérez" required>
-                    </div>
-                    <div class="form-group">
-                        <label>🔑 Usuario:</label>
-                        <input type="text" name="username" placeholder="Ej: jperez" required>
-                    </div>
-                    <div class="form-group">
-                        <label>🔒 Contraseña:</label>
-                        <input type="password" name="password" placeholder="Mínimo 4 caracteres" required>
-                    </div>
-                    <div class="form-group">
-                        <label>🎭 Rol:</label>
-                        <select name="rol">
-                            <option value="usuario">Usuario</option>
-                            <option value="admin">Administrador</option>
-                            <option value="consulta">Solo Consulta</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-group" style="margin-top: 20px;">
-                    <label>📦 Módulos permitidos:</label>
-                    <div class="checkbox-group" id="modulosGroup">
-                        <label class="checkbox-item" data-value="turnos">
-                            <input type="checkbox" name="modulos" value="turnos">
-                            <span class="icon">📅</span>
-                            <span>Turnos</span>
-                        </label>
-                        <label class="checkbox-item" data-value="nomina">
-                            <input type="checkbox" name="modulos" value="nomina">
-                            <span class="icon">💰</span>
-                            <span>Nómina</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="form-group" style="margin-top: 20px;">
-                    <label>🏢 Áreas permitidas:</label>
-                    <div class="checkbox-group" id="areasGroup">
-                        <label class="checkbox-item" data-value="ADMINISTRACION">
-                            <input type="checkbox" name="areas" value="ADMINISTRACION">
-                            <span class="icon">🏛️</span>
-                            <span>Administración</span>
-                        </label>
-                        <label class="checkbox-item" data-value="CENTRO DE CONTROL">
-                            <input type="checkbox" name="areas" value="CENTRO DE CONTROL">
-                            <span class="icon">🎛️</span>
-                            <span>Centro de Control</span>
-                        </label>
-                        <label class="checkbox-item" data-value="OPERACIONES">
-                            <input type="checkbox" name="areas" value="OPERACIONES">
-                            <span class="icon">⚙️</span>
-                            <span>Operaciones</span>
-                        </label>
-                        <label class="checkbox-item" data-value="CONDUCTORES">
-                            <input type="checkbox" name="areas" value="CONDUCTORES">
-                            <span class="icon">🚌</span>
-                            <span>Conductores</span>
-                        </label>
-                        <label class="checkbox-item" data-value="MANTENIMIENTO">
-                            <input type="checkbox" name="areas" value="MANTENIMIENTO">
-                            <span class="icon">🔧</span>
-                            <span>Mantenimiento</span>
-                        </label>
-                        <label class="checkbox-item" data-value="TAQUILLEROS">
-                            <input type="checkbox" name="areas" value="TAQUILLEROS">
-                            <span class="icon">🎫</span>
-                            <span>Taquilleros</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <button type="submit">✅ Crear Usuario</button>
-            </form>
-        </div>
-        
-        <div id="formEditarUsuario" class="form-section" style="display:none;"></div>
-        
-        <h2 style="color:#764ba2;text-align:center;margin-top:30px;margin-bottom:20px;">📋 Usuarios Registrados</h2>
-        <table class="user-table" id="tablaUsuarios">
-            <thead>
-                <tr>
-                    <th>Nombre</th>
-                    <th>Usuario</th>
-                    <th>Rol</th>
-                    <th>Módulos</th>
-                    <th>Áreas</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <p id="info-usuario">Cargando...</p>
     </div>
-    <script>
-        let usuarios = [];
-        let usuarioEditando = null;
-        
-        // Inicializar checkboxes visuales
-        function initCheckboxes() {
-            document.querySelectorAll('.checkbox-item').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    const checkbox = this.querySelector('input[type="checkbox"]');
-                    checkbox.checked = !checkbox.checked;
-                    this.classList.toggle('selected', checkbox.checked);
-                });
-            });
-        }
-        
-        function getSelectedModulos(container = document) {
-            const checkboxes = container.querySelectorAll('input[name="modulos"]:checked, input[name="modulosPermitidos"]:checked');
-            return Array.from(checkboxes).map(cb => cb.value);
-        }
-        
-        function getSelectedAreas(container = document) {
-            const checkboxes = container.querySelectorAll('input[name="areas"]:checked, input[name="areasPermitidas"]:checked');
-            return Array.from(checkboxes).map(cb => cb.value);
-        }
-        
-        function showMsg(text, type) {
-            const msgEl = document.getElementById('msg');
-            msgEl.textContent = text;
-            msgEl.className = 'msg ' + type;
-            msgEl.style.display = 'block';
-            setTimeout(() => { msgEl.style.display = 'none'; }, 5000);
-        }
-        
-        async function cargarUsuarios() {
-            try {
-                const res = await fetch('/api/auth/usuarios');
-                const data = await res.json();
-                if (data.success) {
-                    usuarios = data.usuarios;
-                    renderTabla();
-                } else {
-                    showMsg(data.error || 'Error al cargar usuarios.', 'error');
-                }
-            } catch (err) {
-                showMsg('Error de red o servidor.', 'error');
-            }
-        }
-        
-        function formatAreas(areas) {
-            const icons = {
-                'ADMINISTRACION': '🏛️',
-                'CENTRO_CONTROL': '🎛️',
-                'CENTRO DE CONTROL': '🎛️',
-                'OPERACIONES': '⚙️',
-                'CONDUCTORES': '🚌',
-                'MANTENIMIENTO': '🔧',
-                'TAQUILLEROS': '🎫'
-            };
-            return (areas || []).map(a => icons[a] || a).join(' ');
-        }
-        
-        function formatModulos(modulos) {
-            const icons = { 'turnos': '📅', 'nomina': '💰' };
-            return (modulos || []).map(m => icons[m] || '').join(' ');
-        }
-        
-        function renderTabla() {
-            const tbody = document.querySelector('#tablaUsuarios tbody');
-            tbody.innerHTML = '';
-            usuarios.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${u.nombre}</strong></td>
-                    <td>${u.username}</td>
-                    <td><span style="background:${u.rol==='admin'?'#667eea':u.rol==='consulta'?'#38a169':'#764ba2'};color:#fff;padding:4px 10px;border-radius:12px;font-size:0.85em;">${u.rol}</span></td>
-                    <td style="font-size:1.3em;">${formatModulos(u.modulosPermitidos)}</td>
-                    <td style="font-size:1.3em;">${formatAreas(u.areasPermitidas)}</td>
-                    <td class="actions">
-                        <button class="edit-btn" onclick="editarUsuario('${u._id}')">✏️ Editar</button>
-                        <button class="change-btn" onclick="cambiarContrasena('${u._id}')">🔑 Contraseña</button>
-                        <button class="delete-btn" onclick="eliminarUsuario('${u._id}')">🗑️ Eliminar</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-        
-        function generarCheckboxesHTML(tipo, seleccionados, name) {
-            const modulos = [
-                { value: 'turnos', icon: '📅', label: 'Turnos' },
-                { value: 'nomina', icon: '💰', label: 'Nómina' }
-            ];
-            const areas = [
-                { value: 'ADMINISTRACION', icon: '🏛️', label: 'Administración' },
-                { value: 'CENTRO DE CONTROL', icon: '🎛️', label: 'Centro de Control' },
-                { value: 'OPERACIONES', icon: '⚙️', label: 'Operaciones' },
-                { value: 'CONDUCTORES', icon: '🚌', label: 'Conductores' },
-                { value: 'MANTENIMIENTO', icon: '🔧', label: 'Mantenimiento' },
-                { value: 'TAQUILLEROS', icon: '🎫', label: 'Taquilleros' }
-            ];
-            const items = tipo === 'modulos' ? modulos : areas;
-            return items.map(item => {
-                // Verificar si el área está seleccionada (considerando ambos formatos)
-                let checked = (seleccionados || []).includes(item.value);
-                // Compatibilidad para CENTRO_CONTROL vs CENTRO DE CONTROL
-                if (!checked && item.value === 'CENTRO DE CONTROL') {
-                    checked = (seleccionados || []).includes('CENTRO_CONTROL');
-                }
-                return `<label class="checkbox-item ${checked ? 'selected' : ''}" data-value="${item.value}">
-                    <input type="checkbox" name="${name}" value="${item.value}" ${checked ? 'checked' : ''}>
-                    <span class="icon">${item.icon}</span>
-                    <span>${item.label}</span>
-                </label>`;
-            }).join('');
-        }
-        
-        window.editarUsuario = function(id) {
-            usuarioEditando = usuarios.find(u => u._id === id);
-            if (!usuarioEditando) return;
-            const formDiv = document.getElementById('formEditarUsuario');
-            formDiv.innerHTML = `
-                <h2>✏️ Editar Usuario: ${usuarioEditando.nombre}</h2>
-                <form id='formEdit'>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>👤 Nombre completo:</label>
-                            <input type='text' name='nombre' value='${usuarioEditando.nombre}' required>
-                        </div>
-                        <div class="form-group">
-                            <label>🔑 Usuario:</label>
-                            <input type='text' name='username' value='${usuarioEditando.username}' required>
-                        </div>
-                        <div class="form-group">
-                            <label>🎭 Rol:</label>
-                            <select name='rol'>
-                                <option value='usuario' ${usuarioEditando.rol==='usuario'?'selected':''}>Usuario</option>
-                                <option value='admin' ${usuarioEditando.rol==='admin'?'selected':''}>Administrador</option>
-                                <option value='consulta' ${usuarioEditando.rol==='consulta'?'selected':''}>Solo Consulta</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group" style="margin-top:20px;">
-                        <label>📦 Módulos permitidos:</label>
-                        <div class="checkbox-group">${generarCheckboxesHTML('modulos', usuarioEditando.modulosPermitidos, 'modulosPermitidos')}</div>
-                    </div>
-                    <div class="form-group" style="margin-top:20px;">
-                        <label>🏢 Áreas permitidas:</label>
-                        <div class="checkbox-group">${generarCheckboxesHTML('areas', usuarioEditando.areasPermitidas, 'areasPermitidas')}</div>
-                    </div>
-                    <button type='submit'>💾 Guardar Cambios</button>
-                    <button type='button' class='cancel-btn' onclick='cancelarEdicion()'>❌ Cancelar</button>
-                </form>
-            `;
-            formDiv.style.display = 'block';
-            initCheckboxes();
-            
-            document.getElementById('formEdit').onsubmit = async function(e) {
-                e.preventDefault();
-                const fd = new FormData(this);
-                const data = {
-                    nombre: fd.get('nombre'),
-                    username: fd.get('username'),
-                    rol: fd.get('rol'),
-                    modulosPermitidos: getSelectedModulos(formDiv),
-                    areasPermitidas: getSelectedAreas(formDiv)
-                };
-                try {
-                    const res = await fetch(`/api/auth/usuarios/${usuarioEditando._id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        showMsg('✅ Usuario actualizado correctamente.', 'success');
-                        formDiv.style.display = 'none';
-                        cargarUsuarios();
-                    } else {
-                        showMsg(result.error || 'Error al actualizar usuario.', 'error');
-                    }
-                } catch (err) {
-                    showMsg('Error de red o servidor.', 'error');
-                }
-            };
-        };
-        
-        window.cancelarEdicion = function() {
-            document.getElementById('formEditarUsuario').style.display = 'none';
-        };
-        
-        window.cambiarContrasena = function(id) {
-            const usuario = usuarios.find(u => u._id === id);
-            if (!usuario) return;
-            const formDiv = document.getElementById('formEditarUsuario');
-            formDiv.innerHTML = `
-                <h2>🔐 Cambiar Contraseña</h2>
-                <form id='formPass'>
-                    <div class="form-group">
-                        <label>Nueva contraseña para <strong>${usuario.username}</strong>:</label>
-                        <input type='password' name='password' placeholder="Mínimo 4 caracteres" required>
-                    </div>
-                    <button type='submit'>🔑 Cambiar Contraseña</button>
-                    <button type='button' class='cancel-btn' onclick='cancelarEdicion()'>❌ Cancelar</button>
-                </form>
-            `;
-            formDiv.style.display = 'block';
-            
-            document.getElementById('formPass').onsubmit = async function(e) {
-                e.preventDefault();
-                const fd = new FormData(this);
-                try {
-                    const res = await fetch(`/api/auth/usuarios/${usuario._id}/password`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password: fd.get('password') })
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        showMsg('✅ Contraseña actualizada correctamente.', 'success');
-                        formDiv.style.display = 'none';
-                    } else {
-                        showMsg(result.error || 'Error al cambiar contraseña.', 'error');
-                    }
-                } catch (err) {
-                    showMsg('Error de red o servidor.', 'error');
-                }
-            };
-        };
-        
-        window.eliminarUsuario = async function(id) {
-            if (!confirm('⚠️ ¿Seguro que deseas eliminar este usuario? Esta acción no se puede deshacer.')) return;
-            try {
-                const res = await fetch(`/api/auth/usuarios/${id}`, { method: 'DELETE' });
-                const result = await res.json();
-                if (result.success) {
-                    showMsg('✅ Usuario eliminado correctamente.', 'success');
-                    cargarUsuarios();
-                } else {
-                    showMsg(result.error || 'Error al eliminar usuario.', 'error');
-                }
-            } catch (err) {
-                showMsg('Error de red o servidor.', 'error');
-            }
-        };
-        
-        // Lógica para crear nuevo usuario
-        document.getElementById('formNuevoUsuario').onsubmit = async function(e) {
-            e.preventDefault();
-            const form = this;
-            const formSection = document.getElementById('formCrearUsuario');
-            const data = {
-                nombre: form.nombre.value,
-                username: form.username.value,
-                password: form.password.value,
-                rol: form.rol.value,
-                modulosPermitidos: getSelectedModulos(formSection),
-                areasPermitidas: getSelectedAreas(formSection)
-            };
-            try {
-                const res = await fetch('/api/auth/usuarios', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                const result = await res.json();
-                if (result.success) {
-                    showMsg('✅ Usuario creado exitosamente.', 'success');
-                    form.reset();
-                    // Resetear checkboxes visuales
-                    document.querySelectorAll('#formCrearUsuario .checkbox-item').forEach(item => {
-                        item.classList.remove('selected');
-                        item.querySelector('input').checked = false;
-                    });
-                    cargarUsuarios();
-                } else {
-                    showMsg(result.error || 'Error al crear usuario.', 'error');
-                }
-            } catch (err) {
-                showMsg('Error de red o servidor.', 'error');
-            }
-        };
-        
-        // Inicializar al cargar
-        initCheckboxes();
-        cargarUsuarios();
-    </script>
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="abrirModalCrear()">➕ Nuevo Usuario</button>
+        <button class="btn btn-back" onclick="window.location.href='/dashboard.html'">← Dashboard</button>
+    </div>
+</div>
+
+<div class="content">
+    <div id="msg" class="msg"></div>
+    <div class="card">
+        <div class="card-header">
+            <h2>📋 Usuarios Registrados</h2>
+            <input type="text" id="buscador" placeholder="🔍 Buscar..." style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.88em;width:220px;" oninput="filtrarTabla()">
+        </div>
+        <div id="tabla-container"><div class="empty-state">Cargando usuarios...</div></div>
+    </div>
+</div>
+
+<!-- Modal crear / editar usuario -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-titulo">Nuevo Usuario</h3>
+      <button class="modal-close" onclick="cerrarModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-alert" id="modal-alert"></div>
+      <input type="hidden" id="campo-id">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nombre completo *</label>
+          <input id="campo-nombre" type="text" placeholder="Juan Pérez">
+        </div>
+        <div class="form-group">
+          <label>Usuario *</label>
+          <input id="campo-username" type="text" placeholder="jperez">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" id="grupo-password">
+          <label>Contraseña *</label>
+          <input id="campo-password" type="password" placeholder="Mín. 4 caracteres">
+        </div>
+        <div class="form-group">
+          <label>Rol *</label>
+          <select id="campo-rol">
+            <option value="usuario">Usuario</option>
+            <option value="admin">Administrador</option>
+            <option value="gestor_turnos">Gestor Turnos</option>
+            <option value="gestor_nomina">Gestor Nómina</option>
+            <option value="consulta">Solo Consulta</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Módulos permitidos</label>
+        <div class="check-grid" id="check-modulos">
+          <label class="check-pill" data-val="turnos"><input type="checkbox" value="turnos">📅 Turnos</label>
+          <label class="check-pill" data-val="nomina"><input type="checkbox" value="nomina">💰 Nómina</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Áreas permitidas</label>
+        <div class="check-grid" id="check-areas">
+          <label class="check-pill" data-val="ADMINISTRACION"><input type="checkbox" value="ADMINISTRACION">🏛️ Admin</label>
+          <label class="check-pill" data-val="CENTRO DE CONTROL"><input type="checkbox" value="CENTRO DE CONTROL">🎛️ C. Control</label>
+          <label class="check-pill" data-val="OPERACIONES"><input type="checkbox" value="OPERACIONES">⚙️ Operaciones</label>
+          <label class="check-pill" data-val="CONDUCTORES"><input type="checkbox" value="CONDUCTORES">🚌 Conductores</label>
+          <label class="check-pill" data-val="MANTENIMIENTO"><input type="checkbox" value="MANTENIMIENTO">🔧 Mantenimiento</label>
+          <label class="check-pill" data-val="TAQUILLEROS"><input type="checkbox" value="TAQUILLEROS">🎫 Taquilleros</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-save" id="btn-guardar" onclick="guardarUsuario()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal cambiar contraseña -->
+<div class="modal-overlay" id="modal-password">
+  <div class="modal" style="width:420px;">
+    <div class="modal-header">
+      <h3 id="pass-titulo">Cambiar Contraseña</h3>
+      <button class="modal-close" onclick="cerrarModalPass()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-alert" id="pass-alert"></div>
+      <input type="hidden" id="pass-user-id">
+      <div class="form-group">
+        <label id="pass-label">Nueva contraseña</label>
+        <input id="campo-nueva-pass" type="password" placeholder="Mínimo 4 caracteres">
+      </div>
+      <div class="form-group">
+        <label>Confirmar contraseña</label>
+        <input id="campo-conf-pass" type="password" placeholder="Repite la contraseña">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="cerrarModalPass()">Cancelar</button>
+      <button class="btn btn-save" id="btn-guardar-pass" onclick="guardarPassword()">🔑 Cambiar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let usuarios = [];
+  let modoEdicion = false;
+
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  async function verificarSesion() {
+    try {
+      const res = await fetch('/api/auth/verificar-sesion');
+      const data = await res.json();
+      if (!data.autenticado) { window.location.href = '/login.html'; return null; }
+      const rolesPermitidos = ['admin', 'super_admin'];
+      if (!rolesPermitidos.includes(data.usuario.rol)) {
+        showMsg('No tienes permisos para gestionar usuarios.', 'error');
+        setTimeout(() => window.location.href = '/dashboard.html', 2000);
+        return null;
+      }
+      document.getElementById('info-usuario').textContent = `${data.usuario.nombre} · ${data.usuario.rol}`;
+      return data.usuario;
+    } catch {
+      window.location.href = '/login.html';
+      return null;
+    }
+  }
+
+  // ── Cargar usuarios ───────────────────────────────────────────────────────
+  async function cargarUsuarios() {
+    try {
+      const res = await fetch('/api/auth/usuarios');
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) { window.location.href = '/login.html'; return; }
+        throw new Error(`Error ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.success) {
+        usuarios = data.usuarios;
+        renderTabla(usuarios);
+      } else {
+        showMsg(data.error || 'Error al cargar usuarios.', 'error');
+      }
+    } catch (err) {
+      showMsg('Error de red: ' + err.message, 'error');
+    }
+  }
+
+  function filtrarTabla() {
+    const q = document.getElementById('buscador').value.toLowerCase();
+    const filtrados = usuarios.filter(u =>
+      u.nombre?.toLowerCase().includes(q) ||
+      u.username?.toLowerCase().includes(q) ||
+      u.rol?.toLowerCase().includes(q)
+    );
+    renderTabla(filtrados);
+  }
+
+  // ── Render tabla ──────────────────────────────────────────────────────────
+  function renderTabla(lista) {
+    const c = document.getElementById('tabla-container');
+    if (!lista.length) {
+      c.innerHTML = '<div class="empty-state">No hay usuarios registrados.</div>';
+      return;
+    }
+    const iconMod = { turnos: '📅', nomina: '💰' };
+    const iconArea = { ADMINISTRACION: '🏛️', 'CENTRO DE CONTROL': '🎛️', CENTRO_CONTROL: '🎛️', OPERACIONES: '⚙️', CONDUCTORES: '🚌', MANTENIMIENTO: '🔧', TAQUILLEROS: '🎫' };
+    const filas = lista.map(u => `
+      <tr>
+        <td><strong>${u.nombre}</strong></td>
+        <td><code>${u.username}</code></td>
+        <td><span class="badge badge-${u.rol}">${u.rol}</span></td>
+        <td style="font-size:1.2em">${(u.modulosPermitidos||[]).map(m=>iconMod[m]||m).join(' ')}</td>
+        <td style="font-size:1.2em">${(u.areasPermitidas||[]).map(a=>iconArea[a]||a).join(' ')}</td>
+        <td style="white-space:nowrap">
+          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u._id}')">✏️ Editar</button>
+          <button class="btn-sm btn-pass" onclick="abrirModalPass('${u._id}')">🔑 Contraseña</button>
+          <button class="btn-sm btn-del"  onclick="eliminarUsuario('${u._id}')">🗑️</button>
+        </td>
+      </tr>`).join('');
+    c.innerHTML = `<table>
+      <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Módulos</th><th>Áreas</th><th>Acciones</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>`;
+  }
+
+  // ── Checkboxes helpers ────────────────────────────────────────────────────
+  function initPills(containerId) {
+    document.querySelectorAll(`#${containerId} .check-pill`).forEach(pill => {
+      pill.addEventListener('click', function(e) {
+        e.preventDefault();
+        const cb = this.querySelector('input');
+        cb.checked = !cb.checked;
+        this.classList.toggle('active', cb.checked);
+      });
+    });
+  }
+
+  function setPills(containerId, valores) {
+    document.querySelectorAll(`#${containerId} .check-pill`).forEach(pill => {
+      const val = pill.dataset.val;
+      const activo = (valores || []).includes(val) ||
+        (val === 'CENTRO DE CONTROL' && (valores || []).includes('CENTRO_CONTROL'));
+      pill.querySelector('input').checked = activo;
+      pill.classList.toggle('active', activo);
+    });
+  }
+
+  function getChecked(containerId) {
+    return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(cb => cb.value);
+  }
+
+  // ── Modal crear usuario ───────────────────────────────────────────────────
+  function abrirModalCrear() {
+    modoEdicion = false;
+    document.getElementById('modal-titulo').textContent = '➕ Nuevo Usuario';
+    document.getElementById('campo-id').value = '';
+    document.getElementById('campo-nombre').value = '';
+    document.getElementById('campo-username').value = '';
+    document.getElementById('campo-password').value = '';
+    document.getElementById('campo-rol').value = 'usuario';
+    document.getElementById('grupo-password').style.display = 'block';
+    document.getElementById('campo-password').required = true;
+    setPills('check-modulos', []);
+    setPills('check-areas', []);
+    ocultarModalAlerta();
+    document.getElementById('modal-usuario').classList.add('open');
+  }
+
+  // ── Modal editar usuario ──────────────────────────────────────────────────
+  function abrirModalEditar(id) {
+    const u = usuarios.find(x => x._id === id);
+    if (!u) return;
+    modoEdicion = true;
+    document.getElementById('modal-titulo').textContent = `✏️ Editar: ${u.nombre}`;
+    document.getElementById('campo-id').value = u._id;
+    document.getElementById('campo-nombre').value = u.nombre || '';
+    document.getElementById('campo-username').value = u.username || '';
+    document.getElementById('campo-password').value = '';
+    document.getElementById('campo-rol').value = u.rol || 'usuario';
+    document.getElementById('grupo-password').style.display = 'none';
+    document.getElementById('campo-password').required = false;
+    setPills('check-modulos', u.modulosPermitidos);
+    setPills('check-areas', u.areasPermitidas);
+    ocultarModalAlerta();
+    document.getElementById('modal-usuario').classList.add('open');
+  }
+
+  function cerrarModal() { document.getElementById('modal-usuario').classList.remove('open'); }
+
+  // ── Guardar usuario (crear o editar) ──────────────────────────────────────
+  async function guardarUsuario() {
+    const nombre   = document.getElementById('campo-nombre').value.trim();
+    const username = document.getElementById('campo-username').value.trim();
+    const password = document.getElementById('campo-password').value;
+    const rol      = document.getElementById('campo-rol').value;
+
+    if (!nombre || !username) { mostrarModalAlerta('Nombre y usuario son obligatorios.'); return; }
+    if (!modoEdicion && !password) { mostrarModalAlerta('La contraseña es obligatoria.'); return; }
+    if (!modoEdicion && password.length < 4) { mostrarModalAlerta('La contraseña debe tener al menos 4 caracteres.'); return; }
+
+    const payload = {
+      nombre, username, rol,
+      modulosPermitidos: getChecked('check-modulos'),
+      areasPermitidas:   getChecked('check-areas')
+    };
+    if (!modoEdicion) payload.password = password;
+
+    const id  = document.getElementById('campo-id').value;
+    const url = modoEdicion ? `/api/auth/usuarios/${id}` : '/api/auth/usuarios';
+    const method = modoEdicion ? 'PUT' : 'POST';
+
+    const btn = document.getElementById('btn-guardar');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+      cerrarModal();
+      showMsg(modoEdicion ? '✅ Usuario actualizado.' : '✅ Usuario creado.', 'success');
+      await cargarUsuarios();
+    } catch (e) {
+      mostrarModalAlerta(e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Guardar';
+    }
+  }
+
+  // ── Modal cambiar contraseña ──────────────────────────────────────────────
+  function abrirModalPass(id) {
+    const u = usuarios.find(x => x._id === id);
+    if (!u) return;
+    document.getElementById('pass-user-id').value = id;
+    document.getElementById('pass-titulo').textContent = `🔑 Contraseña: ${u.username}`;
+    document.getElementById('pass-label').textContent = `Nueva contraseña para ${u.nombre}`;
+    document.getElementById('campo-nueva-pass').value = '';
+    document.getElementById('campo-conf-pass').value = '';
+    document.getElementById('pass-alert').style.display = 'none';
+    document.getElementById('modal-password').classList.add('open');
+  }
+
+  function cerrarModalPass() { document.getElementById('modal-password').classList.remove('open'); }
+
+  async function guardarPassword() {
+    const id   = document.getElementById('pass-user-id').value;
+    const pass = document.getElementById('campo-nueva-pass').value;
+    const conf = document.getElementById('campo-conf-pass').value;
+    const alertEl = document.getElementById('pass-alert');
+
+    const showPassAlert = (msg) => { alertEl.textContent = msg; alertEl.style.display = 'block'; };
+
+    if (!pass) { showPassAlert('Ingresa la nueva contraseña.'); return; }
+    if (pass.length < 4) { showPassAlert('Mínimo 4 caracteres.'); return; }
+    if (pass !== conf) { showPassAlert('Las contraseñas no coinciden.'); return; }
+
+    const btn = document.getElementById('btn-guardar-pass');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+
+    try {
+      const res = await fetch(`/api/auth/usuarios/${id}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+      cerrarModalPass();
+      showMsg('✅ Contraseña actualizada correctamente.', 'success');
+    } catch (e) {
+      showPassAlert(e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '🔑 Cambiar';
+    }
+  }
+
+  // ── Eliminar usuario ──────────────────────────────────────────────────────
+  async function eliminarUsuario(id) {
+    const u = usuarios.find(x => x._id === id);
+    if (!confirm(`⚠️ ¿Eliminar al usuario "${u?.username}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`/api/auth/usuarios/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+      showMsg('✅ Usuario eliminado.', 'success');
+      await cargarUsuarios();
+    } catch (e) {
+      showMsg('Error: ' + e.message, 'error');
+    }
+  }
+
+  // ── Alertas ───────────────────────────────────────────────────────────────
+  function showMsg(text, type) {
+    const el = document.getElementById('msg');
+    el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block';
+    if (type === 'success') setTimeout(() => el.style.display = 'none', 4000);
+  }
+  function mostrarModalAlerta(msg) {
+    const el = document.getElementById('modal-alert');
+    el.textContent = msg; el.style.display = 'block';
+  }
+  function ocultarModalAlerta() { document.getElementById('modal-alert').style.display = 'none'; }
+
+  // Cerrar modales al click fuera
+  document.getElementById('modal-usuario').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal(); });
+  document.getElementById('modal-password').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModalPass(); });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    const sesion = await verificarSesion();
+    if (!sesion) return;
+    initPills('check-modulos');
+    initPills('check-areas');
+    await cargarUsuarios();
+  });
+</script>
 </body>
 </html>
