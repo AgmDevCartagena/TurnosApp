@@ -120,6 +120,14 @@
       <div class="modal-alert" id="modal-alert"></div>
       <input type="hidden" id="campo-id">
 
+      <!-- Selector de empresa (solo super_admin) -->
+      <div class="form-group" id="grupo-empresa" style="display:none;margin-bottom:14px;">
+        <label>Empresa *</label>
+        <select id="campo-empresa" onchange="onCambioEmpresa()" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.92em;">
+          <option value="">– Seleccione una empresa –</option>
+        </select>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>Nombre completo *</label>
@@ -199,6 +207,8 @@
 <script>
   let usuarios = [];
   let modoEdicion = false;
+  let sesionActual = null;
+  let todasLasEmpresas = [];
 
   // ── Auth ─────────────────────────────────────────────────────────────────
   async function verificarSesion() {
@@ -213,6 +223,7 @@
         return null;
       }
       document.getElementById('info-usuario').textContent = `${data.usuario.nombre} · ${data.usuario.rol}`;
+      sesionActual = data.usuario;
       return data.usuario;
     } catch {
       window.location.href = '/login.html';
@@ -258,21 +269,27 @@
       return;
     }
     const iconMod = { turnos: '📅', nomina: '💰' };
-    const filas = lista.map(u => `
+    const esSuperAdmin = sesionActual?.rol === 'super_admin';
+    const filas = lista.map(u => {
+      const empresaNombre = todasLasEmpresas.find(e => e._id === (u.empresaId?._id || u.empresaId))?.nombre || (u.empresaId ? '–' : '<span style="color:#ccc">Sin empresa</span>');
+      return `
       <tr>
         <td><strong>${u.nombre}</strong></td>
         <td><code>${u.username}</code></td>
         <td><span class="badge badge-${u.rol}">${u.rol}</span></td>
         <td style="font-size:1.2em">${(u.modulosPermitidos||[]).map(m=>iconMod[m]||m).join(' ')}</td>
-        <td style="max-width:200px">${(u.areasPermitidas||[]).map(a=>`<span style="background:#e8eaf6;color:#3949ab;border-radius:5px;padding:2px 7px;font-size:0.76em;font-weight:600;margin-right:3px;display:inline-block;margin-bottom:2px;">${a}</span>`).join('')||'<span style="color:#ccc">—</span>'}</td>
+        <td style="max-width:160px">${(u.areasPermitidas||[]).map(a=>`<span style="background:#e8eaf6;color:#3949ab;border-radius:5px;padding:2px 7px;font-size:0.76em;font-weight:600;margin-right:3px;display:inline-block;margin-bottom:2px;">${a}</span>`).join('')||'<span style="color:#ccc">—</span>'}</td>
+        ${esSuperAdmin ? `<td style="font-size:0.82em;color:#555">${empresaNombre}</td>` : ''}
         <td style="white-space:nowrap">
           <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u._id}')">✏️ Editar</button>
           <button class="btn-sm btn-pass" onclick="abrirModalPass('${u._id}')">🔑 Contraseña</button>
           <button class="btn-sm btn-del"  onclick="eliminarUsuario('${u._id}')">🗑️</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
+    const thEmpresa = esSuperAdmin ? '<th>Empresa</th>' : '';
     c.innerHTML = `<table>
-      <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Módulos</th><th>Áreas</th><th>Acciones</th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Módulos</th><th>Áreas</th>${thEmpresa}<th>Acciones</th></tr></thead>
       <tbody>${filas}</tbody>
     </table>`;
   }
@@ -298,20 +315,55 @@
     });
   }
 
+  // ── Cargar empresas (super_admin) ────────────────────────────────────────
+  async function cargarEmpresas() {
+    if (sesionActual?.rol !== 'super_admin') return;
+    try {
+      const res  = await fetch('/api/empresas');
+      const data = await res.json();
+      todasLasEmpresas = (data.empresas || []).filter(e => e.estado === 'activa');
+      const sel = document.getElementById('campo-empresa');
+      sel.innerHTML = '<option value="">– Seleccione una empresa –</option>';
+      todasLasEmpresas.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e._id; opt.textContent = e.nombre;
+        sel.appendChild(opt);
+      });
+      document.getElementById('grupo-empresa').style.display = 'block';
+    } catch {}
+  }
+
+  // Cuando cambia la empresa en el modal, recargar las áreas disponibles
+  async function onCambioEmpresa() {
+    const empresaId = document.getElementById('campo-empresa').value;
+    await cargarAreasPills([], empresaId || null);
+  }
+
   /**
    * Carga áreas desde /api/areas y renderiza pills dinámicos.
    * @param {string[]} seleccionadas - nombres de áreas ya asignadas al usuario
+   * @param {string|null} empresaIdOverride - empresa a filtrar (super_admin)
    */
-  async function cargarAreasPills(seleccionadas = []) {
+  async function cargarAreasPills(seleccionadas = [], empresaIdOverride = null) {
     const container = document.getElementById('check-areas');
     container.innerHTML = '<span style="color:#aaa;font-size:0.85em;">Cargando áreas...</span>';
     try {
-      const res  = await fetch('/api/areas?estado=activa');
+      // Filtrar por empresa cuando es super_admin
+      const empId = empresaIdOverride || (sesionActual?.rol !== 'super_admin' ? null : document.getElementById('campo-empresa')?.value || null);
+      const url = empId ? `/api/areas?estado=activa&empresaId=${empId}` : '/api/areas?estado=activa';
+      const res  = await fetch(url);
       const data = await res.json();
-      const areas = (data.areas || []);
+      const areasRaw = (data.areas || []);
+      // Filtrar por empresa si super_admin y hay empresaId seleccionado
+      const areas = (empId && sesionActual?.rol === 'super_admin')
+        ? areasRaw.filter(a => a.empresaId === empId || (a.empresaId && a.empresaId.toString ? a.empresaId.toString() === empId : false))
+        : areasRaw;
 
       if (areas.length === 0) {
-        container.innerHTML = `<span style="color:#e65100;font-size:0.85em;">⚠️ No hay áreas activas registradas para esta empresa.
+        const msg = (empId && sesionActual?.rol === 'super_admin')
+          ? '⚠️ Seleccione primero una empresa para ver sus áreas.'
+          : '⚠️ No hay áreas activas registradas.';
+        container.innerHTML = `<span style="color:#e65100;font-size:0.85em;">${msg}
           <a href="/areas.html" target="_blank" style="color:#667eea;">Crear áreas →</a></span>`;
         return;
       }
@@ -378,7 +430,13 @@
     setPills('check-modulos', u.modulosPermitidos);
     ocultarModalAlerta();
     document.getElementById('modal-usuario').classList.add('open');
-    await cargarAreasPills(u.areasPermitidas || []);
+    // Para super_admin: pre-seleccionar la empresa del usuario
+    const selEmp = document.getElementById('campo-empresa');
+    if (selEmp && u.empresaId) {
+      const empId = u.empresaId?._id || u.empresaId?.toString?.() || u.empresaId;
+      selEmp.value = empId;
+    }
+    await cargarAreasPills(u.areasPermitidas || [], u.empresaId?._id || u.empresaId?.toString?.() || null);
   }
 
   function cerrarModal() { document.getElementById('modal-usuario').classList.remove('open'); }
@@ -394,12 +452,21 @@
     if (!modoEdicion && !password) { mostrarModalAlerta('La contraseña es obligatoria.'); return; }
     if (!modoEdicion && password.length < 4) { mostrarModalAlerta('La contraseña debe tener al menos 4 caracteres.'); return; }
 
+    // Validar empresa para super_admin al crear
+    const selEmp = document.getElementById('campo-empresa');
+    if (!modoEdicion && sesionActual?.rol === 'super_admin' && selEmp && !selEmp.value) {
+      mostrarModalAlerta('Debe seleccionar una empresa para el nuevo usuario.');
+      return;
+    }
+
     const payload = {
       nombre, username, rol,
       modulosPermitidos: getChecked('check-modulos'),
       areasPermitidas:   getChecked('check-areas')
     };
     if (!modoEdicion) payload.password = password;
+    // Incluir empresaId si es super_admin
+    if (selEmp && selEmp.value) payload.empresaId = selEmp.value;
 
     const id  = document.getElementById('campo-id').value;
     const url = modoEdicion ? `/api/auth/usuarios/${id}` : '/api/auth/usuarios';
@@ -509,7 +576,7 @@
     const sesion = await verificarSesion();
     if (!sesion) return;
     initPills('check-modulos');
-    await cargarUsuarios();
+    await Promise.all([cargarUsuarios(), cargarEmpresas()]);
   });
 </script>
 </body>
