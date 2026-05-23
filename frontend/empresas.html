@@ -425,11 +425,18 @@
     } else {
       const adminUsername = document.getElementById('admin-username').value.trim();
       const adminPassword = document.getElementById('admin-password').value;
-      if (adminUsername && adminPassword) {
+      const adminNombre   = document.getElementById('admin-nombre').value.trim();
+
+      const tieneCamposAdmin = adminUsername || adminPassword || adminNombre;
+
+      if (tieneCamposAdmin) {
+        if (!adminUsername) { mostrarModalAlerta('El campo "Usuario (login)" del administrador es obligatorio si vas a crear un usuario.'); return; }
+        if (!adminPassword) { mostrarModalAlerta('El campo "Contraseña" del administrador es obligatorio si vas a crear un usuario.'); return; }
+        if (adminPassword.length < 4) { mostrarModalAlerta('La contraseña del administrador debe tener al menos 4 caracteres.'); return; }
         payload.adminUsuario = {
           username: adminUsername,
           password: adminPassword,
-          nombre: document.getElementById('admin-nombre').value.trim()
+          nombre: adminNombre || `Admin ${nombre}`
         };
       }
     }
