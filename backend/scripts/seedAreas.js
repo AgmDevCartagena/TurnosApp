@@ -28,8 +28,10 @@ async function seedAreas() {
     await mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
     console.log('✅ MongoDB conectado para seedAreas');
 
-    const empresas = await Empresa.find({ estado: 'activa' });
-    console.log(`📋 Empresas activas encontradas: ${empresas.length}`);
+    // Solo seedear la empresa de bootstrap (Empresa Principal).
+    // Las empresas creadas desde la UI deben gestionar sus propias áreas.
+    const empresas = await Empresa.find({ nombre: 'Empresa Principal', estado: 'activa' });
+    console.log(`📋 Empresas de bootstrap a inicializar: ${empresas.length}`);
 
     let creadas = 0;
     let omitidas = 0;
