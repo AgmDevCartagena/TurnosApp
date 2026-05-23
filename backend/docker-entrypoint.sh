@@ -21,6 +21,10 @@ node scripts/hashPasswords.js
 echo "🏢 Inicializando áreas por empresa..."
 node scripts/seedAreas.js
 
+# Seed de parámetros y conceptos de nómina (idempotente)
+echo "💰 Inicializando parámetros de nómina por empresa..."
+node scripts/seedParametrosNomina.js
+
 # Iniciar el servidor principal
 echo ""
 echo "🌐 Iniciando servidor Node.js..."

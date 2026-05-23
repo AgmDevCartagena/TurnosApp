@@ -12,6 +12,7 @@
     "migrate": "node scripts/migrarEmpresaId.js",
     "seed": "node scripts/seedMultiempresa.js",
     "seed:areas": "node scripts/seedAreas.js",
+    "seed:nomina": "node scripts/seedParametrosNomina.js",
     "init-db": "node init-db.js",
     "hash-passwords": "node scripts/hashPasswords.js"
   },

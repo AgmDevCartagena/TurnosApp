@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const empresasRoutes = require('./routes/empresas');
 const dashboardRoutes = require('./routes/dashboard');
 const areasRoutes = require('./routes/areas');
+const nominaDinamicaRoutes = require('./routes/nominaDinamica');
 const { requireAuth, requireModulo } = require('./middlewares/auth');
 const { requireTenant } = require('./middlewares/tenant');
 
@@ -82,6 +83,7 @@ app.use('/api/areas', areasRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/turnos', requireAuth, requireTenant, requireModulo('turnos'), turnosRoutes);
 app.use('/api/nomina', requireAuth, requireTenant, requireModulo('nomina'), nominaRoutes);
+app.use('/api/nomina', requireAuth, requireTenant, nominaDinamicaRoutes);
 
 // Serve frontend static files
 // En Docker, los archivos están en /app/public
