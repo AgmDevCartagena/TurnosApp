@@ -25,7 +25,9 @@ exports.listarAreas = async (req, res) => {
 
     if (req.query.estado) filtro.estado = req.query.estado;
 
-    const areas = await Area.find(filtro).sort({ nombre: 1 });
+    const areas = await Area.find(filtro)
+      .populate('empresaId', 'nombre')
+      .sort({ nombre: 1 });
     res.json({ success: true, areas });
   } catch (err) {
     console.error('Error listarAreas:', err);

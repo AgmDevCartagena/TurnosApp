@@ -89,6 +89,17 @@
 
     .loading-spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #f0f0f0; border-top-color: #667eea; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Selector empresa (super_admin) */
+    .empresa-selector-bar { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 16px 22px; margin-bottom: 22px; display: none; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .empresa-selector-bar label { font-size: 0.88em; font-weight: 600; color: #555; white-space: nowrap; }
+    .empresa-selector-bar select { padding: 9px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9em; min-width: 260px; background: white; cursor: pointer; }
+    .empresa-selector-bar select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.12); }
+    .empresa-badge { background: linear-gradient(135deg,#667eea,#764ba2); color: white; padding: 5px 14px; border-radius: 20px; font-size: 0.82em; font-weight: 600; white-space: nowrap; }
+    .select-prompt { text-align: center; padding: 60px 20px; color: #aaa; }
+    .select-prompt .icon { font-size: 3em; margin-bottom: 14px; }
+    .select-prompt p { font-size: 1em; }
+    .select-prompt small { font-size: 0.85em; color: #bbb; display: block; margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -106,6 +117,15 @@
 
 <div class="content">
   <div id="alert" class="alert"></div>
+
+  <!-- Selector de empresa (solo super_admin) -->
+  <div class="empresa-selector-bar" id="empresa-selector-bar">
+    <label>🏢 Empresa:</label>
+    <select id="selector-empresa" onchange="onEmpresaChange()">
+      <option value="">— Selecciona una empresa —</option>
+    </select>
+    <span class="empresa-badge" id="empresa-badge" style="display:none;"></span>
+  </div>
 
   <div class="stats">
     <div class="stat-card"><div class="number" id="stat-total">–</div><div class="label">Áreas Total</div></div>
@@ -174,12 +194,22 @@
 <script>
   let areas = [];
   let modoEdicion = false;
+  let usuarioActual = null;          // sesión completa
+  let empresaSeleccionadaId = null;  // para super_admin
 
   // ── Init ────────────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
-    const sesion = await verificarSesion();
-    if (!sesion) return;
-    await cargarAreas();
+    usuarioActual = await verificarSesion();
+    if (!usuarioActual) return;
+
+    if (usuarioActual.rol === 'super_admin') {
+      document.getElementById('empresa-selector-bar').style.display = 'flex';
+      await cargarSelectorEmpresas();
+      // No cargamos áreas hasta que el super_admin elija empresa
+      mostrarPromptSeleccion();
+    } else {
+      await cargarAreas();
+    }
   });
 
   async function verificarSesion() {
@@ -201,10 +231,70 @@
     }
   }
 
+  // ── Selector de empresas (super_admin) ─────────────────────────────────────
+  async function cargarSelectorEmpresas() {
+    try {
+      const res  = await fetch('/api/empresas');
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Error cargando empresas');
+
+      const select = document.getElementById('selector-empresa');
+      // Mantener la opción vacía inicial
+      select.innerHTML = '<option value="">— Selecciona una empresa —</option>';
+
+      (data.empresas || []).forEach(emp => {
+        const opt = document.createElement('option');
+        opt.value = emp._id;
+        opt.textContent = `${emp.nombre}${emp.estado !== 'activa' ? ' (inactiva)' : ''}`;
+        select.appendChild(opt);
+      });
+    } catch (e) {
+      mostrarAlerta('Error cargando empresas: ' + e.message, 'error');
+    }
+  }
+
+  async function onEmpresaChange() {
+    const select = document.getElementById('selector-empresa');
+    empresaSeleccionadaId = select.value || null;
+    const badge  = document.getElementById('empresa-badge');
+
+    if (!empresaSeleccionadaId) {
+      badge.style.display = 'none';
+      mostrarPromptSeleccion();
+      actualizarStats([]);
+      return;
+    }
+
+    const nombreEmpresa = select.options[select.selectedIndex].textContent;
+    badge.textContent   = nombreEmpresa;
+    badge.style.display = 'inline-block';
+
+    await cargarAreas();
+  }
+
+  function mostrarPromptSeleccion() {
+    document.getElementById('tabla-container').innerHTML = `
+      <div class="select-prompt">
+        <div class="icon">🏢</div>
+        <p>Selecciona una empresa para gestionar sus áreas</p>
+        <small>Cada empresa administra su propio catálogo de áreas</small>
+      </div>`;
+    document.getElementById('stat-total').textContent    = '–';
+    document.getElementById('stat-activas').textContent  = '–';
+    document.getElementById('stat-inactivas').textContent = '–';
+  }
+
   // ── Cargar áreas ────────────────────────────────────────────────────────────
   async function cargarAreas() {
+    document.getElementById('tabla-container').innerHTML =
+      '<div class="empty-state"><div class="loading-spinner"></div> Cargando...</div>';
     try {
-      const res = await fetch('/api/areas');
+      let url = '/api/areas';
+      if (usuarioActual.rol === 'super_admin' && empresaSeleccionadaId) {
+        url += `?empresaId=${empresaSeleccionadaId}`;
+      }
+
+      const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) { window.location.href = '/login.html'; return; }
         throw new Error(`Error ${res.status}`);
@@ -221,8 +311,8 @@
   }
 
   function actualizarStats(lista) {
-    document.getElementById('stat-total').textContent = lista.length;
-    document.getElementById('stat-activas').textContent = lista.filter(a => a.estado === 'activa').length;
+    document.getElementById('stat-total').textContent     = lista.length;
+    document.getElementById('stat-activas').textContent   = lista.filter(a => a.estado === 'activa').length;
     document.getElementById('stat-inactivas').textContent = lista.filter(a => a.estado === 'inactiva').length;
   }
 
@@ -244,16 +334,25 @@
   function renderTabla(lista) {
     const c = document.getElementById('tabla-container');
     if (!lista.length) {
-      c.innerHTML = '<div class="empty-state"><div class="icon">🏢</div><p>No hay áreas registradas</p></div>';
+      c.innerHTML = '<div class="empty-state"><div class="icon">🏢</div><p>No hay áreas registradas para esta empresa</p></div>';
       return;
     }
 
+    const esSuperAdmin = usuarioActual?.rol === 'super_admin';
+
+    const encabezadoEmpresa = esSuperAdmin ? '<th>Empresa</th>' : '';
     const filas = lista.map(a => {
-      const esActiva = a.estado === 'activa';
+      const esActiva   = a.estado === 'activa';
+      const empNombre  = a.empresaId?.nombre || '—';
+      const celdaEmpresa = esSuperAdmin
+        ? `<td style="font-size:0.85em;color:#667eea;font-weight:600;">${empNombre}</td>`
+        : '';
+
       return `<tr>
         <td><strong>${a.nombre}</strong></td>
         <td>${a.codigo ? `<span class="code-tag">${a.codigo}</span>` : '<span style="color:#ccc">—</span>'}</td>
-        <td style="max-width:260px;color:#666;">${a.descripcion || '<span style="color:#ccc">—</span>'}</td>
+        <td style="max-width:220px;color:#666;">${a.descripcion || '<span style="color:#ccc">—</span>'}</td>
+        ${celdaEmpresa}
         <td><span class="badge badge-${a.estado}">${a.estado}</span></td>
         <td style="white-space:nowrap">
           <button class="btn-sm btn-edit" onclick="abrirModalEditar('${a._id}')">✏️ Editar</button>
@@ -267,13 +366,20 @@
     }).join('');
 
     c.innerHTML = `<table>
-      <thead><tr><th>Nombre</th><th>Código</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <thead><tr>
+        <th>Nombre</th><th>Código</th><th>Descripción</th>
+        ${encabezadoEmpresa}<th>Estado</th><th>Acciones</th>
+      </tr></thead>
       <tbody>${filas}</tbody>
     </table>`;
   }
 
   // ── Modal crear ─────────────────────────────────────────────────────────────
   function abrirModalCrear() {
+    if (usuarioActual?.rol === 'super_admin' && !empresaSeleccionadaId) {
+      mostrarAlerta('⚠️ Selecciona una empresa antes de crear un área.', 'error');
+      return;
+    }
     modoEdicion = false;
     document.getElementById('modal-titulo').textContent = '➕ Nueva Área';
     document.getElementById('campo-id').value = '';
@@ -313,7 +419,11 @@
       codigo:      document.getElementById('campo-codigo').value.trim(),
       descripcion: document.getElementById('campo-descripcion').value.trim()
     };
-    if (modoEdicion) payload.estado = document.getElementById('campo-estado').value;
+    if (modoEdicion) {
+      payload.estado = document.getElementById('campo-estado').value;
+    } else if (usuarioActual?.rol === 'super_admin' && empresaSeleccionadaId) {
+      payload.empresaId = empresaSeleccionadaId;
+    }
 
     const id     = document.getElementById('campo-id').value;
     const url    = modoEdicion ? `/api/areas/${id}` : '/api/areas';
@@ -346,7 +456,7 @@
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
-      mostrarAlerta(`✅ Área ${accion === 'activar' ? 'activada' : 'inactivada'} correctamente.`, 'success');
+      mostrarAlerta(`✅ Área ${nuevoEstado === 'activa' ? 'activada' : 'inactivada'} correctamente.`, 'success');
       await cargarAreas();
     } catch (e) {
       mostrarAlerta('Error: ' + e.message, 'error');
