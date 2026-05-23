@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Módulo de Nómina</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+    /* ── Header ── */
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+    .header-title h1 { font-size: 1.5em; }
+    .header-title p  { font-size: 0.88em; opacity: 0.85; margin-top: 2px; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* ── Botones ── */
+    .btn { padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all .2s; }
+    .btn-primary   { background: #667eea; color: white; }
+    .btn-primary:hover   { background: #5a6fd6; }
+    .btn-success   { background: #43a047; color: white; }
+    .btn-success:hover   { background: #388e3c; }
+    .btn-danger    { background: #e53935; color: white; }
+    .btn-danger:hover    { background: #c62828; }
+    .btn-warning   { background: #fb8c00; color: white; }
+    .btn-warning:hover   { background: #e65100; }
+    .btn-outline   { background: transparent; color: #667eea; border: 1.5px solid #667eea; }
+    .btn-outline:hover   { background: #e8eaf6; }
+    .btn-back      { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+    .btn-back:hover      { background: rgba(255,255,255,0.25); }
+    .btn-sm  { padding: 5px 12px; font-size: 0.8em; border-radius: 6px; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Layout ── */
+    .content { max-width: 1200px; margin: 28px auto; padding: 0 20px; }
+
+    /* ── Alertas ── */
+    .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 0.9em; font-weight: 500; }
+    .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .alert-error   { background: #fce4ec; color: #c62828; border: 1px solid #f48fb1; }
+    .alert-info    { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+    .alert-hidden  { display: none; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 4px; background: white; border-radius: 12px; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 24px; flex-wrap: wrap; }
+    .tab-btn { padding: 10px 20px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-size: 0.9em; font-weight: 600; color: #666; transition: all .2s; }
+    .tab-btn.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; box-shadow: 0 2px 8px rgba(102,126,234,0.3); }
+    .tab-btn:hover:not(.active) { background: #f0f2f5; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Stats ── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .stat-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); text-align: center; }
+    .stat-card .number { font-size: 2em; font-weight: 700; color: #667eea; }
+    .stat-card .label  { font-size: 0.82em; color: #888; margin-top: 4px; }
+
+    /* ── Card / Panel ── */
+    .card { background: white; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; margin-bottom: 20px; }
+    .card-header { padding: 18px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .card-header h2 { font-size: 1.05em; color: #333; }
+    .card-body  { padding: 24px; }
+
+    /* ── Formulario ── */
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 0.85em; color: #555; margin-bottom: 6px; font-weight: 600; }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.92em; transition: border-color .2s; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; }
+
+    /* ── Tabla ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f8f9ff; color: #555; font-size: 0.8em; text-transform: uppercase; letter-spacing: .05em; padding: 11px 14px; text-align: left; white-space: nowrap; }
+    td { padding: 12px 14px; border-top: 1px solid #f0f0f0; font-size: 0.9em; color: #333; }
+    tr:hover td { background: #fafbff; }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 0.76em; font-weight: 600; }
+    .badge-borrador  { background: #fff3e0; color: #e65100; }
+    .badge-aprobada  { background: #e8f5e9; color: #2e7d32; }
+    .badge-anulada   { background: #f3e5f5; color: #6a1b9a; }
+    .badge-activo    { background: #e8f5e9; color: #2e7d32; }
+    .badge-inactivo  { background: #fce4ec; color: #c62828; }
+    .badge-devengado { background: #e3f2fd; color: #1565c0; }
+    .badge-deduccion { background: #fce4ec; color: #c62828; }
+    .code-tag { display: inline-block; background: #e8eaf6; color: #5c6bc0; border-radius: 5px; padding: 2px 8px; font-size: 0.78em; font-weight: 600; font-family: monospace; }
+
+    /* ── Resultado cálculo ── */
+    .resultado-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 20px; }
+    .resultado-box  { background: #f8f9ff; border-radius: 10px; padding: 16px; border-left: 4px solid #667eea; }
+    .resultado-box.devengado { border-left-color: #43a047; }
+    .resultado-box.deduccion { border-left-color: #e53935; }
+    .resultado-box.neto      { border-left-color: #667eea; background: #e8eaf6; }
+    .resultado-box .box-label { font-size: 0.8em; color: #888; margin-bottom: 4px; }
+    .resultado-box .box-value { font-size: 1.5em; font-weight: 700; color: #333; }
+    .resultado-box.neto .box-value { color: #667eea; }
+
+    .detalles-table { margin-top: 16px; }
+    .detalles-table th, .detalles-table td { padding: 9px 12px; font-size: 0.85em; }
+
+    /* ── Spinner ── */
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; justify-content: center; align-items: center; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: white; border-radius: 14px; padding: 28px 32px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); animation: fadeUp .2s ease; }
+    @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .modal-box h2 { margin-bottom: 20px; color: #333; font-size: 1.15em; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ── Tabla área ── */
+    .area-result-header { background: #667eea; color: white; padding: 10px 14px; font-weight: 600; font-size: 0.9em; border-radius: 8px 8px 0 0; }
+
+    /* ── Empty state ── */
+    .empty { padding: 40px; text-align: center; color: #999; font-size: 0.9em; }
+    .empty-icon { font-size: 2.5em; margin-bottom: 10px; }
+
+    @media (max-width: 640px) {
+      .header { flex-direction: column; gap: 12px; }
+      .tabs { gap: 2px; }
+      .tab-btn { padding: 8px 12px; font-size: 0.82em; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <div class="header-title">
+    <h1>💰 Módulo de Nómina</h1>
+    <p id="headerEmpresa">Cargando...</p>
+  </div>
+  <div class="header-actions">
+    <span id="headerUser" style="opacity:.85;font-size:.9em;"></span>
+    <button class="btn btn-back" onclick="location.href='/dashboard.html'">← Dashboard</button>
+  </div>
+</div>
+
+<div class="content">
+  <!-- ── ALERTA GLOBAL ── -->
+  <div id="alertGlobal" class="alert alert-hidden"></div>
+
+  <!-- ── STATS ── -->
+  <div class="stats">
+    <div class="stat-card"><div class="number" id="statBorradores">–</div><div class="label">Borradores</div></div>
+    <div class="stat-card"><div class="number" id="statAprobadas">–</div><div class="label">Aprobadas</div></div>
+    <div class="stat-card"><div class="number" id="statTotal">–</div><div class="label">Total Liquidaciones</div></div>
+    <div class="stat-card"><div class="number" id="statParametros">–</div><div class="label">Parámetros Activos</div></div>
+  </div>
+
+  <!-- ── TABS ── -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="calcular">🧮 Calcular</button>
+    <button class="tab-btn" data-tab="area">🏢 Por Área</button>
+    <button class="tab-btn" data-tab="liquidaciones">📋 Liquidaciones</button>
+    <button class="tab-btn admin-only" data-tab="parametros">⚙️ Parámetros</button>
+    <button class="tab-btn admin-only" data-tab="conceptos">📐 Conceptos</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       TAB: CALCULAR INDIVIDUAL
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-calcular" class="tab-panel active">
+    <div class="card">
+      <div class="card-header"><h2>🧮 Calcular Nómina Individual</h2></div>
+      <div class="card-body">
+        <form id="formCalcIndividual" onsubmit="return calcularIndividual(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Documento del Empleado *</label>
+              <input type="text" id="calcDoc" placeholder="Ej: 12345678" required>
+            </div>
+            <div class="form-group">
+              <label>Fecha Inicio *</label>
+              <input type="date" id="calcIni" required>
+            </div>
+            <div class="form-group">
+              <label>Fecha Fin *</label>
+              <input type="date" id="calcFin" required>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="submit" class="btn btn-success" id="btnCalcIndividual">
+              Calcular Nómina
+            </button>
+            <button type="button" class="btn btn-outline" onclick="limpiarResultadoIndividual()">Limpiar</button>
+          </div>
+        </form>
+
+        <!-- Resultado -->
+        <div id="resultadoIndividual" style="display:none;margin-top:24px;">
+          <hr style="margin-bottom:20px;border:none;border-top:1px solid #eee;">
+          <h3 style="color:#333;margin-bottom:4px;" id="resNombre">–</h3>
+          <p style="color:#888;font-size:.88em;margin-bottom:16px;" id="resInfo">–</p>
+
+          <div class="resultado-grid">
+            <div class="resultado-box devengado">
+              <div class="box-label">Total Devengado</div>
+              <div class="box-value" id="resTotalDevengado">–</div>
+            </div>
+            <div class="resultado-box deduccion">
+              <div class="box-label">Total Deducciones</div>
+              <div class="box-value" id="resTotalDeducciones">–</div>
+            </div>
+            <div class="resultado-box neto">
+              <div class="box-label">Neto a Pagar</div>
+              <div class="box-value" id="resNetoPagar">–</div>
+            </div>
+          </div>
+
+          <!-- Detalle por concepto -->
+          <div style="margin-top:20px;">
+            <h4 style="color:#555;margin-bottom:10px;font-size:.95em;">Detalle por Concepto</h4>
+            <div class="table-wrap detalles-table">
+              <table>
+                <thead>
+                  <tr><th>Concepto</th><th>Tipo</th><th>Cantidad</th><th>Base</th><th>%</th><th>Valor</th></tr>
+                </thead>
+                <tbody id="detallesBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" id="btnAprobar" onclick="aprobarLiquidacion()">✓ Aprobar</button>
+            <button class="btn btn-danger btn-sm" id="btnAnular" onclick="anularLiquidacion()">✗ Anular</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       TAB: CALCULAR POR ÁREA
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-area" class="tab-panel">
+    <div class="card">
+      <div class="card-header"><h2>🏢 Calcular Nómina por Área</h2></div>
+      <div class="card-body">
+        <form id="formCalcArea" onsubmit="return calcularPorArea(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Área *</label>
+              <select id="calcAreaId" required>
+                <option value="">– Seleccione un área –</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Fecha Inicio *</label>
+              <input type="date" id="calcAreaIni" required>
+            </div>
+            <div class="form-group">
+              <label>Fecha Fin *</label>
+              <input type="date" id="calcAreaFin" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success" id="btnCalcArea">
+            Calcular por Área
+          </button>
+        </form>
+
+        <div id="resultadoArea" style="display:none;margin-top:24px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       TAB: LIQUIDACIONES
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-liquidaciones" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2>📋 Historial de Liquidaciones</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select id="filtrEstado" onchange="cargarLiquidaciones()" style="padding:7px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;">
+            <option value="">Todos los estados</option>
+            <option value="borrador">Borrador</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="anulada">Anulada</option>
+          </select>
+          <input type="text" id="filtrDoc" placeholder="Buscar documento..." style="padding:7px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:.88em;width:180px;" oninput="cargarLiquidaciones()">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Empleado</th><th>Documento</th><th>Área</th><th>Período</th><th>Devengado</th><th>Deducciones</th><th>Neto</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="liquidacionesBody"></tbody>
+        </table>
+      </div>
+      <div id="liquidacionesEmpty" class="empty" style="display:none;">
+        <div class="empty-icon">📄</div>
+        <p>No hay liquidaciones que coincidan con los filtros.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       TAB: PARÁMETROS
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-parametros" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2>⚙️ Parámetros de Nómina</h2>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalParametro()">+ Nuevo Parámetro</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Código</th><th>Nombre</th><th>Valor</th><th>Tipo</th><th>Vigencia Desde</th><th>Vigencia Hasta</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="parametrosBody"></tbody>
+        </table>
+      </div>
+      <div id="parametrosEmpty" class="empty" style="display:none;">
+        <div class="empty-icon">⚙️</div>
+        <p>No hay parámetros configurados.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       TAB: CONCEPTOS
+  ══════════════════════════════════════════════════ -->
+  <div id="tab-conceptos" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2>📐 Conceptos de Nómina</h2>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalConcepto()">+ Nuevo Concepto</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Ord.</th><th>Código</th><th>Nombre</th><th>Tipo</th><th>Parámetro Ref.</th><th>Base</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="conceptosBody"></tbody>
+        </table>
+      </div>
+      <div id="conceptosEmpty" class="empty" style="display:none;">
+        <div class="empty-icon">📐</div>
+        <p>No hay conceptos configurados.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: PARÁMETRO
+══════════════════════════════════════════════════ -->
+<div id="modalParametro" class="modal-overlay">
+  <div class="modal-box">
+    <h2 id="modalParamTitle">Nuevo Parámetro</h2>
+    <input type="hidden" id="paramId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Código *</label>
+        <input type="text" id="paramCodigo" placeholder="Ej: SMLV" style="text-transform:uppercase;" required>
+      </div>
+      <div class="form-group">
+        <label>Tipo Valor *</label>
+        <select id="paramTipo">
+          <option value="valor_fijo">Valor Fijo ($)</option>
+          <option value="porcentaje">Porcentaje</option>
+          <option value="horas">Horas</option>
+          <option value="dias">Días</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Nombre *</label>
+      <input type="text" id="paramNombre" placeholder="Ej: Salario Mínimo Legal Vigente 2025" required>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Valor *</label>
+        <input type="number" id="paramValor" step="any" placeholder="Ej: 1750905" required>
+      </div>
+      <div class="form-group">
+        <label>Vigencia Desde *</label>
+        <input type="date" id="paramVigDesde" required>
+      </div>
+      <div class="form-group">
+        <label>Vigencia Hasta</label>
+        <input type="date" id="paramVigHasta">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Descripción</label>
+      <input type="text" id="paramDesc" placeholder="Ej: Decreto 2473 de 2024">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalParametro')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarParametro()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: CONCEPTO
+══════════════════════════════════════════════════ -->
+<div id="modalConcepto" class="modal-overlay">
+  <div class="modal-box">
+    <h2 id="modalConceptoTitle">Nuevo Concepto</h2>
+    <input type="hidden" id="conceptoId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Código *</label>
+        <input type="text" id="concCodigo" placeholder="Ej: RECARGO_NOCTURNO" style="text-transform:uppercase;" required>
+      </div>
+      <div class="form-group">
+        <label>Tipo *</label>
+        <select id="concTipo">
+          <option value="devengado">Devengado</option>
+          <option value="deduccion">Deducción</option>
+          <option value="prestacion">Prestación</option>
+          <option value="informativo">Informativo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Nombre *</label>
+      <input type="text" id="concNombre" placeholder="Ej: Recargo Nocturno" required>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Parámetro de Referencia</label>
+        <input type="text" id="concRefParam" placeholder="Ej: RECARGO_NOCTURNO" style="text-transform:uppercase;">
+      </div>
+      <div class="form-group">
+        <label>Base de Cálculo</label>
+        <select id="concBase">
+          <option value="salarioBase">Salario Base</option>
+          <option value="totalDevengado">Total Devengado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Orden</label>
+        <input type="number" id="concOrden" value="0" min="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Vigencia Desde *</label>
+        <input type="date" id="concVigDesde" required>
+      </div>
+      <div class="form-group">
+        <label>Vigencia Hasta</label>
+        <input type="date" id="concVigHasta">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalConcepto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConcepto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// ESTADO Y SESIÓN
+// ══════════════════════════════════════════════════════════════════════════════
+let sessionUser  = null;
+let areas        = [];
+let liquidaciones = [];
+let ultimaLiqId  = null;
+
+async function init() {
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!r.ok) { location.href = '/login.html'; return; }
+    const d = await r.json();
+    sessionUser = d.usuario || d;
+
+    document.getElementById('headerUser').textContent =
+      `👤 ${sessionUser.nombre || sessionUser.username} (${sessionUser.rol})`;
+    document.getElementById('headerEmpresa').textContent =
+      sessionUser.empresa?.nombre || sessionUser.nombreEmpresa || '';
+
+    // Mostrar / ocultar tabs admin
+    const esAdmin = ['admin', 'super_admin'].includes(sessionUser.rol);
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = esAdmin ? '' : 'none';
+    });
+
+    // Fechas por defecto: mes actual
+    const hoy   = new Date();
+    const ini   = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+    const fin   = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0);
+    const finStr= `${fin.getFullYear()}-${String(fin.getMonth()+1).padStart(2,'0')}-${String(fin.getDate()).padStart(2,'0')}`;
+    ['calcIni','calcFin','calcAreaIni','calcAreaFin'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = id.includes('Ini') ? ini : finStr;
+    });
+
+    await Promise.all([
+      cargarAreas(),
+      cargarStats(),
+      cargarLiquidaciones(),
+      esAdmin ? cargarParametros() : Promise.resolve(),
+      esAdmin ? cargarConceptos()  : Promise.resolve()
+    ]);
+  } catch (e) {
+    showAlert('Error al inicializar la página: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function fmt(n) {
+  return Number(n || 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+}
+function fmtFecha(d) {
+  return d ? new Date(d).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' }) : '–';
+}
+function fmtPct(v) {
+  return v > 0 && v < 1 ? `${(v*100).toFixed(1)}%` : String(v);
+}
+function showAlert(msg, tipo = 'info', id = 'alertGlobal') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = `alert alert-${tipo}`;
+  el.textContent = msg;
+  setTimeout(() => { el.className = 'alert alert-hidden'; }, 5000);
+}
+function loading(btnId, activo) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = activo;
+  btn.innerHTML = activo
+    ? `<span class="spinner"></span> Calculando...`
+    : btn.dataset.original || btn.textContent;
+  if (!activo && !btn.dataset.original) btn.dataset.original = btn.textContent;
+}
+async function apiFetch(url, opts = {}) {
+  const r = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(data.error || `HTTP ${r.status}`), { status: r.status });
+  return data;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════════════════════════════════════════
+async function cargarStats() {
+  try {
+    const [liqRes, prmRes] = await Promise.all([
+      apiFetch('/api/nomina/liquidaciones'),
+      apiFetch('/api/nomina/parametros?estado=activo')
+    ]);
+    const liqs = liqRes.liquidaciones || [];
+    document.getElementById('statBorradores').textContent = liqs.filter(l => l.estado === 'borrador').length;
+    document.getElementById('statAprobadas').textContent  = liqs.filter(l => l.estado === 'aprobada').length;
+    document.getElementById('statTotal').textContent      = liqs.length;
+    document.getElementById('statParametros').textContent = (prmRes.parametros || []).length;
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ÁREAS
+// ══════════════════════════════════════════════════════════════════════════════
+async function cargarAreas() {
+  try {
+    const d = await apiFetch('/api/areas');
+    areas = (d.areas || []).filter(a => a.estado === 'activa');
+    const sel = document.getElementById('calcAreaId');
+    sel.innerHTML = '<option value="">– Seleccione un área –</option>';
+    areas.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a._id;
+      opt.textContent = a.nombre;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CALCULAR INDIVIDUAL
+// ══════════════════════════════════════════════════════════════════════════════
+async function calcularIndividual(e) {
+  e.preventDefault();
+  const doc = document.getElementById('calcDoc').value.trim();
+  const ini = document.getElementById('calcIni').value;
+  const fin = document.getElementById('calcFin').value;
+
+  try {
+    document.getElementById('btnCalcIndividual').dataset.original = 'Calcular Nómina';
+    loading('btnCalcIndividual', true);
+    document.getElementById('resultadoIndividual').style.display = 'none';
+
+    const d = await apiFetch('/api/nomina/calcular-individual', {
+      method: 'POST',
+      body: JSON.stringify({ documentoEmpleado: doc, fechaInicio: ini, fechaFin: fin })
+    });
+    const liq = d.liquidacion;
+    ultimaLiqId = liq.liquidacionId;
+    renderResultadoIndividual(liq);
+    await cargarStats();
+    await cargarLiquidaciones();
+  } catch (err) {
+    showAlert('Error al calcular: ' + err.message, 'error');
+  } finally {
+    loading('btnCalcIndividual', false);
+    document.getElementById('btnCalcIndividual').textContent = 'Calcular Nómina';
+  }
+}
+
+function renderResultadoIndividual(liq) {
+  document.getElementById('resNombre').textContent =
+    `${liq.empleado?.nombre || '–'} · ${liq.empleado?.area || '–'}`;
+  document.getElementById('resInfo').textContent =
+    `Documento: ${liq.empleado?.documento || '–'} · Período: ${liq.periodo?.inicio || ''} → ${liq.periodo?.fin || ''} · Días trabajados: ${liq.periodo?.diasTrabajados ?? '–'}`;
+  document.getElementById('resTotalDevengado').textContent   = fmt(liq.totalDevengado);
+  document.getElementById('resTotalDeducciones').textContent = fmt(liq.totalDeducciones);
+  document.getElementById('resNetoPagar').textContent        = fmt(liq.netoPagar);
+
+  const tbody = document.getElementById('detallesBody');
+  tbody.innerHTML = '';
+  (liq.detalles || []).forEach(det => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${det.nombreConcepto}</td>
+      <td><span class="badge badge-${det.tipo}">${det.tipo}</span></td>
+      <td>${det.cantidad || '–'}</td>
+      <td>${fmt(det.base)}</td>
+      <td>${det.porcentaje > 0 ? fmtPct(det.porcentaje) : '–'}</td>
+      <td style="font-weight:600;color:${det.tipo==='deduccion'?'#c62828':'#2e7d32'}">${det.tipo==='deduccion'?'-':''}${fmt(det.valor)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('btnAprobar').style.display = liq.estadoLiquidacion === 'borrador' ? '' : 'none';
+  document.getElementById('btnAnular').style.display  = liq.estadoLiquidacion === 'borrador' ? '' : 'none';
+  document.getElementById('resultadoIndividual').style.display = 'block';
+}
+
+function limpiarResultadoIndividual() {
+  document.getElementById('resultadoIndividual').style.display = 'none';
+  document.getElementById('formCalcIndividual').reset();
+  ultimaLiqId = null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CALCULAR POR ÁREA
+// ══════════════════════════════════════════════════════════════════════════════
+async function calcularPorArea(e) {
+  e.preventDefault();
+  const areaId = document.getElementById('calcAreaId').value;
+  const ini    = document.getElementById('calcAreaIni').value;
+  const fin    = document.getElementById('calcAreaFin').value;
+
+  try {
+    document.getElementById('btnCalcArea').dataset.original = 'Calcular por Área';
+    loading('btnCalcArea', true);
+    document.getElementById('resultadoArea').style.display = 'none';
+
+    const d = await apiFetch('/api/nomina/calcular-por-area', {
+      method: 'POST',
+      body: JSON.stringify({ areaId, fechaInicio: ini, fechaFin: fin })
+    });
+    renderResultadoArea(d);
+    await cargarStats();
+    await cargarLiquidaciones();
+  } catch (err) {
+    showAlert('Error al calcular por área: ' + err.message, 'error');
+  } finally {
+    loading('btnCalcArea', false);
+    document.getElementById('btnCalcArea').textContent = 'Calcular por Área';
+  }
+}
+
+function renderResultadoArea(d) {
+  const cont = document.getElementById('resultadoArea');
+  const resultados = d.resultados || [];
+  let html = `
+    <div class="area-result-header">
+      Área: ${d.area?.nombre || '–'} · Período: ${d.periodo?.inicio || ''} → ${d.periodo?.fin || ''}
+      · Empleados procesados: ${d.procesados || 0} / ${d.totalEmpleados || 0}
+    </div>
+    <div class="resultado-grid" style="margin-top:12px;margin-bottom:16px;">
+      <div class="resultado-box devengado"><div class="box-label">Total Devengado</div><div class="box-value">${fmt(d.totalDevengado)}</div></div>
+      <div class="resultado-box neto"><div class="box-label">Total Neto</div><div class="box-value">${fmt(d.totalNeto)}</div></div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Empleado</th><th>Salario Base</th><th>Devengado</th><th>Deducciones</th><th>Neto</th></tr></thead>
+      <tbody>`;
+  if (resultados.length === 0) {
+    html += `<tr><td colspan="5" class="empty">Sin empleados procesados en esta área para el período.</td></tr>`;
+  } else {
+    resultados.forEach(r => {
+      html += `<tr>
+        <td><strong>${r.empleado?.nombre || '–'}</strong><br><small style="color:#888">${r.empleado?.documento || ''}</small></td>
+        <td>${fmt(r.salarioBase)}</td>
+        <td style="color:#2e7d32;font-weight:600">${fmt(r.totalDevengado)}</td>
+        <td style="color:#c62828">${fmt(r.totalDeducciones)}</td>
+        <td style="font-weight:700">${fmt(r.netoPagar)}</td>
+      </tr>`;
+    });
+  }
+  html += `</tbody></table></div>`;
+  if ((d.errores || []).length > 0) {
+    html += `<div class="alert alert-info" style="margin-top:12px;">⚠️ ${d.errores.length} empleado(s) con errores: ${d.errores.map(e=>e.nombre||e.documento).join(', ')}</div>`;
+  }
+  cont.innerHTML = html;
+  cont.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIQUIDACIONES
+// ══════════════════════════════════════════════════════════════════════════════
+async function cargarLiquidaciones() {
+  try {
+    const estado = document.getElementById('filtrEstado')?.value || '';
+    const doc    = document.getElementById('filtrDoc')?.value?.trim() || '';
+    let url = '/api/nomina/liquidaciones';
+    const params = [];
+    if (estado) params.push('estado=' + estado);
+    if (doc)    params.push('documentoEmpleado=' + encodeURIComponent(doc));
+    if (params.length) url += '?' + params.join('&');
+
+    const d = await apiFetch(url);
+    liquidaciones = d.liquidaciones || [];
+    renderLiquidaciones();
+  } catch {}
+}
+
+function renderLiquidaciones() {
+  const tbody = document.getElementById('liquidacionesBody');
+  const empty = document.getElementById('liquidacionesEmpty');
+  tbody.innerHTML = '';
+  if (liquidaciones.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  liquidaciones.forEach(liq => {
+    const tr = document.createElement('tr');
+    const esAdmin = ['admin','super_admin'].includes(sessionUser?.rol);
+    tr.innerHTML = `
+      <td><strong>${liq.nombreEmpleado || '–'}</strong></td>
+      <td><code style="font-size:.82em">${liq.documentoEmpleado || '–'}</code></td>
+      <td>${liq.areaNombre || '–'}</td>
+      <td style="font-size:.82em">${fmtFecha(liq.periodoInicio)} → ${fmtFecha(liq.periodoFin)}</td>
+      <td style="color:#2e7d32">${fmt(liq.totalDevengado)}</td>
+      <td style="color:#c62828">${fmt(liq.totalDeducciones)}</td>
+      <td style="font-weight:700">${fmt(liq.netoPagar)}</td>
+      <td><span class="badge badge-${liq.estado}">${liq.estado}</span></td>
+      <td style="white-space:nowrap;">
+        ${esAdmin && liq.estado === 'borrador' ? `
+          <button class="btn btn-sm btn-success" onclick="aprobarLiquidacionId('${liq._id}')">✓</button>
+          <button class="btn btn-sm btn-danger"  onclick="anularLiquidacionId('${liq._id}')">✗</button>
+        ` : ''}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+async function aprobarLiquidacion() {
+  if (!ultimaLiqId) return;
+  await aprobarLiquidacionId(ultimaLiqId);
+}
+async function anularLiquidacion() {
+  if (!ultimaLiqId) return;
+  await anularLiquidacionId(ultimaLiqId);
+}
+async function aprobarLiquidacionId(id) {
+  if (!confirm('¿Aprobar esta liquidación? Esta acción no se puede deshacer fácilmente.')) return;
+  try {
+    await apiFetch(`/api/nomina/liquidaciones/${id}/aprobar`, { method: 'POST' });
+    showAlert('Liquidación aprobada correctamente.', 'success');
+    await Promise.all([cargarLiquidaciones(), cargarStats()]);
+    document.getElementById('btnAprobar').style.display = 'none';
+    document.getElementById('btnAnular').style.display  = 'none';
+  } catch (err) { showAlert('Error: ' + err.message, 'error'); }
+}
+async function anularLiquidacionId(id) {
+  if (!confirm('¿Anular esta liquidación?')) return;
+  try {
+    await apiFetch(`/api/nomina/liquidaciones/${id}/anular`, { method: 'POST' });
+    showAlert('Liquidación anulada.', 'success');
+    await Promise.all([cargarLiquidaciones(), cargarStats()]);
+    document.getElementById('btnAprobar').style.display = 'none';
+    document.getElementById('btnAnular').style.display  = 'none';
+  } catch (err) { showAlert('Error: ' + err.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PARÁMETROS
+// ══════════════════════════════════════════════════════════════════════════════
+async function cargarParametros() {
+  try {
+    const d = await apiFetch('/api/nomina/parametros');
+    const params = d.parametros || [];
+    const tbody = document.getElementById('parametrosBody');
+    const empty = document.getElementById('parametrosEmpty');
+    tbody.innerHTML = '';
+    if (params.length === 0) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    params.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="code-tag">${p.codigo}</span></td>
+        <td>${p.nombre}</td>
+        <td style="font-weight:600">${p.tipoValor === 'porcentaje' ? fmtPct(p.valor) : p.tipoValor === 'valor_fijo' ? fmt(p.valor) : p.valor}</td>
+        <td>${p.tipoValor}</td>
+        <td>${fmtFecha(p.vigenciaDesde)}</td>
+        <td>${p.vigenciaHasta ? fmtFecha(p.vigenciaHasta) : '∞'}</td>
+        <td><span class="badge badge-${p.estado}">${p.estado}</span></td>
+        <td>
+          <button class="btn btn-sm btn-outline" onclick='editarParametro(${JSON.stringify(p)})'>Editar</button>
+          <button class="btn btn-sm ${p.estado==='activo'?'btn-warning':'btn-success'}"
+            onclick="toggleEstadoParam('${p._id}','${p.estado==='activo'?'inactivo':'activo'}')">
+            ${p.estado === 'activo' ? 'Desactivar' : 'Activar'}
+          </button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch {}
+}
+
+function abrirModalParametro() {
+  document.getElementById('modalParamTitle').textContent = 'Nuevo Parámetro';
+  document.getElementById('paramId').value = '';
+  ['paramCodigo','paramNombre','paramValor','paramVigDesde','paramVigHasta','paramDesc'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('paramTipo').value = 'valor_fijo';
+  document.getElementById('modalParametro').classList.add('active');
+}
+function editarParametro(p) {
+  document.getElementById('modalParamTitle').textContent = 'Editar Parámetro';
+  document.getElementById('paramId').value         = p._id;
+  document.getElementById('paramCodigo').value     = p.codigo;
+  document.getElementById('paramNombre').value     = p.nombre;
+  document.getElementById('paramValor').value      = p.valor;
+  document.getElementById('paramTipo').value       = p.tipoValor;
+  document.getElementById('paramDesc').value       = p.descripcion || '';
+  document.getElementById('paramVigDesde').value   = p.vigenciaDesde ? p.vigenciaDesde.slice(0,10) : '';
+  document.getElementById('paramVigHasta').value   = p.vigenciaHasta ? p.vigenciaHasta.slice(0,10) : '';
+  document.getElementById('modalParametro').classList.add('active');
+}
+async function guardarParametro() {
+  const id      = document.getElementById('paramId').value;
+  const payload = {
+    codigo:       document.getElementById('paramCodigo').value.toUpperCase().trim(),
+    nombre:       document.getElementById('paramNombre').value.trim(),
+    valor:        parseFloat(document.getElementById('paramValor').value),
+    tipoValor:    document.getElementById('paramTipo').value,
+    descripcion:  document.getElementById('paramDesc').value.trim(),
+    vigenciaDesde:document.getElementById('paramVigDesde').value,
+    vigenciaHasta:document.getElementById('paramVigHasta').value || null
+  };
+  try {
+    if (id) {
+      await apiFetch(`/api/nomina/parametros/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await apiFetch('/api/nomina/parametros', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    cerrarModal('modalParametro');
+    showAlert('Parámetro guardado correctamente.', 'success');
+    await Promise.all([cargarParametros(), cargarStats()]);
+  } catch (err) { showAlert('Error: ' + err.message, 'error'); }
+}
+async function toggleEstadoParam(id, nuevoEstado) {
+  try {
+    await apiFetch(`/api/nomina/parametros/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado: nuevoEstado }) });
+    showAlert(`Parámetro ${nuevoEstado}.`, 'success');
+    await cargarParametros();
+  } catch (err) { showAlert('Error: ' + err.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CONCEPTOS
+// ══════════════════════════════════════════════════════════════════════════════
+async function cargarConceptos() {
+  try {
+    const d = await apiFetch('/api/nomina/conceptos');
+    const conceptos = d.conceptos || [];
+    const tbody = document.getElementById('conceptosBody');
+    const empty = document.getElementById('conceptosEmpty');
+    tbody.innerHTML = '';
+    if (conceptos.length === 0) { empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    conceptos.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:#888;font-size:.85em">${c.orden}</td>
+        <td><span class="code-tag">${c.codigo}</span></td>
+        <td>${c.nombre}</td>
+        <td><span class="badge badge-${c.tipo}">${c.tipo}</span></td>
+        <td>${c.referenciaParametro ? `<span class="code-tag">${c.referenciaParametro}</span>` : '–'}</td>
+        <td style="font-size:.82em;color:#888">${c.base || '–'}</td>
+        <td><span class="badge badge-${c.estado}">${c.estado}</span></td>
+        <td>
+          <button class="btn btn-sm btn-outline" onclick='editarConcepto(${JSON.stringify(c)})'>Editar</button>
+          <button class="btn btn-sm ${c.estado==='activo'?'btn-warning':'btn-success'}"
+            onclick="toggleEstadoConcepto('${c._id}','${c.estado==='activo'?'inactivo':'activo'}')">
+            ${c.estado === 'activo' ? 'Desactivar' : 'Activar'}
+          </button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch {}
+}
+
+function abrirModalConcepto() {
+  document.getElementById('modalConceptoTitle').textContent = 'Nuevo Concepto';
+  document.getElementById('conceptoId').value = '';
+  ['concCodigo','concNombre','concRefParam','concVigDesde','concVigHasta'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('concTipo').value  = 'devengado';
+  document.getElementById('concBase').value  = 'salarioBase';
+  document.getElementById('concOrden').value = '0';
+  document.getElementById('modalConcepto').classList.add('active');
+}
+function editarConcepto(c) {
+  document.getElementById('modalConceptoTitle').textContent = 'Editar Concepto';
+  document.getElementById('conceptoId').value    = c._id;
+  document.getElementById('concCodigo').value    = c.codigo;
+  document.getElementById('concNombre').value    = c.nombre;
+  document.getElementById('concTipo').value      = c.tipo;
+  document.getElementById('concRefParam').value  = c.referenciaParametro || '';
+  document.getElementById('concBase').value      = c.base || 'salarioBase';
+  document.getElementById('concOrden').value     = c.orden || 0;
+  document.getElementById('concVigDesde').value  = c.vigenciaDesde ? c.vigenciaDesde.slice(0,10) : '';
+  document.getElementById('concVigHasta').value  = c.vigenciaHasta ? c.vigenciaHasta.slice(0,10) : '';
+  document.getElementById('modalConcepto').classList.add('active');
+}
+async function guardarConcepto() {
+  const id      = document.getElementById('conceptoId').value;
+  const payload = {
+    codigo:              document.getElementById('concCodigo').value.toUpperCase().trim(),
+    nombre:              document.getElementById('concNombre').value.trim(),
+    tipo:                document.getElementById('concTipo').value,
+    referenciaParametro: document.getElementById('concRefParam').value.toUpperCase().trim() || null,
+    base:                document.getElementById('concBase').value,
+    orden:               parseInt(document.getElementById('concOrden').value) || 0,
+    vigenciaDesde:       document.getElementById('concVigDesde').value,
+    vigenciaHasta:       document.getElementById('concVigHasta').value || null
+  };
+  try {
+    if (id) {
+      await apiFetch(`/api/nomina/conceptos/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await apiFetch('/api/nomina/conceptos', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    cerrarModal('modalConcepto');
+    showAlert('Concepto guardado correctamente.', 'success');
+    await cargarConceptos();
+  } catch (err) { showAlert('Error: ' + err.message, 'error'); }
+}
+async function toggleEstadoConcepto(id, nuevoEstado) {
+  try {
+    await apiFetch(`/api/nomina/conceptos/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado: nuevoEstado }) });
+    showAlert(`Concepto ${nuevoEstado}.`, 'success');
+    await cargarConceptos();
+  } catch (err) { showAlert('Error: ' + err.message, 'error'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MODALES
+// ══════════════════════════════════════════════════════════════════════════════
+function cerrarModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ENDPOINT /api/auth/me — verificar si existe, si no usar sesión
+// ══════════════════════════════════════════════════════════════════════════════
+// Algunos sistemas exponen /api/auth/me; si no existe, redirigir a login
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

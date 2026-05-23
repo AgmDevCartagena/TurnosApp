@@ -108,6 +108,16 @@ app.get('/usuarios.html', (req, res) => {
   res.sendFile(path.join(frontendPath, 'usuarios.html'));
 });
 
+// Proteger acceso a nomina.html
+app.get('/nomina.html', (req, res) => {
+  if (!req.session || !req.session.autenticado) return res.redirect('/login.html');
+  const modulos = req.session.usuario.modulosPermitidos || [];
+  if (!modulos.includes('nomina') && req.session.usuario.rol !== 'super_admin') {
+    return res.status(403).send('Acceso denegado al módulo de nómina.');
+  }
+  res.sendFile(path.join(frontendPath, 'nomina.html'));
+});
+
 // Proteger acceso a areas.html (admin y super_admin)
 app.get('/areas.html', (req, res) => {
   if (!req.session || !req.session.autenticado) return res.redirect('/login.html');

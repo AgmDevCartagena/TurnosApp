@@ -29,6 +29,7 @@ COPY frontend/dashboard.html ./public/
 COPY frontend/usuarios.html ./public/
 COPY frontend/empresas.html ./public/
 COPY frontend/areas.html ./public/
+COPY frontend/nomina.html ./public/
 COPY frontend/index.html ./public/
 
 # Exponer el puerto
