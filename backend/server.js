@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
-const MongoStore = require('connect-mongo');
 require('dotenv').config();
 
 // Importar rutas principales
@@ -38,8 +37,8 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Configuración de sesiones — MongoStore en producción, MemoryStore en dev/test
-const sessionConfig = {
+// Configuración de sesiones
+app.use(session({
   secret: process.env.SESSION_SECRET || 'sistema_gestion_secret',
   resave: false,
   saveUninitialized: false,
@@ -49,19 +48,7 @@ const sessionConfig = {
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 1 día
   }
-};
-
-if (process.env.NODE_ENV === 'production') {
-  const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/turnos_app';
-  sessionConfig.store = MongoStore.create({
-    mongoUrl: MONGO_URI,
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60,
-    autoRemove: 'native'
-  });
-}
-
-app.use(session(sessionConfig));
+}));
 
 // Manejar errores no capturados
 process.on('uncaughtException', (error) => {
