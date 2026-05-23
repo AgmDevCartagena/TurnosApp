@@ -166,6 +166,18 @@
                 </ul>
                 <button class="module-button">Acceder a Gestión de Usuarios</button>
             </a>
+            <a href="/areas.html" class="module-card" id="modulo-areas" style="display:none;">
+                <div class="module-icon">🏢</div>
+                <h2 class="module-title">Gestión de Áreas</h2>
+                <p class="module-description">Crea y administra las áreas operativas de tu empresa. Las áreas se asignan a usuarios y turnos.</p>
+                <ul class="module-features">
+                    <li>Crear y editar áreas por empresa</li>
+                    <li>Activar / inactivar áreas</li>
+                    <li>Asignar áreas a usuarios</li>
+                    <li>Control multiempresa</li>
+                </ul>
+                <button class="module-button">Gestionar Áreas</button>
+            </a>
         </div>
         <div class="info-section">
             <h2>🏢 Áreas Operativas</h2>
@@ -244,6 +256,7 @@
             const rolesAdmin = ['admin', 'super_admin'];
             if (rolesAdmin.includes(usuarioSesion.rol)) {
                 document.getElementById('modulo-usuarios').style.display = 'block';
+                document.getElementById('modulo-areas').style.display = 'block';
             }
             
             // Mostrar solo áreas permitidas

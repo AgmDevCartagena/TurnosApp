@@ -154,14 +154,12 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Áreas permitidas</label>
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          Áreas permitidas
+          <a href="/areas.html" target="_blank" style="font-size:0.78em;color:#667eea;font-weight:500;">⚙️ Gestionar áreas</a>
+        </label>
         <div class="check-grid" id="check-areas">
-          <label class="check-pill" data-val="ADMINISTRACION"><input type="checkbox" value="ADMINISTRACION">🏛️ Admin</label>
-          <label class="check-pill" data-val="CENTRO DE CONTROL"><input type="checkbox" value="CENTRO DE CONTROL">🎛️ C. Control</label>
-          <label class="check-pill" data-val="OPERACIONES"><input type="checkbox" value="OPERACIONES">⚙️ Operaciones</label>
-          <label class="check-pill" data-val="CONDUCTORES"><input type="checkbox" value="CONDUCTORES">🚌 Conductores</label>
-          <label class="check-pill" data-val="MANTENIMIENTO"><input type="checkbox" value="MANTENIMIENTO">🔧 Mantenimiento</label>
-          <label class="check-pill" data-val="TAQUILLEROS"><input type="checkbox" value="TAQUILLEROS">🎫 Taquilleros</label>
+          <span style="color:#aaa;font-size:0.85em;">Cargando áreas...</span>
         </div>
       </div>
     </div>
@@ -260,14 +258,13 @@
       return;
     }
     const iconMod = { turnos: '📅', nomina: '💰' };
-    const iconArea = { ADMINISTRACION: '🏛️', 'CENTRO DE CONTROL': '🎛️', CENTRO_CONTROL: '🎛️', OPERACIONES: '⚙️', CONDUCTORES: '🚌', MANTENIMIENTO: '🔧', TAQUILLEROS: '🎫' };
     const filas = lista.map(u => `
       <tr>
         <td><strong>${u.nombre}</strong></td>
         <td><code>${u.username}</code></td>
         <td><span class="badge badge-${u.rol}">${u.rol}</span></td>
         <td style="font-size:1.2em">${(u.modulosPermitidos||[]).map(m=>iconMod[m]||m).join(' ')}</td>
-        <td style="font-size:1.2em">${(u.areasPermitidas||[]).map(a=>iconArea[a]||a).join(' ')}</td>
+        <td style="max-width:200px">${(u.areasPermitidas||[]).map(a=>`<span style="background:#e8eaf6;color:#3949ab;border-radius:5px;padding:2px 7px;font-size:0.76em;font-weight:600;margin-right:3px;display:inline-block;margin-bottom:2px;">${a}</span>`).join('')||'<span style="color:#ccc">—</span>'}</td>
         <td style="white-space:nowrap">
           <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u._id}')">✏️ Editar</button>
           <button class="btn-sm btn-pass" onclick="abrirModalPass('${u._id}')">🔑 Contraseña</button>
@@ -295,11 +292,53 @@
   function setPills(containerId, valores) {
     document.querySelectorAll(`#${containerId} .check-pill`).forEach(pill => {
       const val = pill.dataset.val;
-      const activo = (valores || []).includes(val) ||
-        (val === 'CENTRO DE CONTROL' && (valores || []).includes('CENTRO_CONTROL'));
+      const activo = (valores || []).includes(val);
       pill.querySelector('input').checked = activo;
       pill.classList.toggle('active', activo);
     });
+  }
+
+  /**
+   * Carga áreas desde /api/areas y renderiza pills dinámicos.
+   * @param {string[]} seleccionadas - nombres de áreas ya asignadas al usuario
+   */
+  async function cargarAreasPills(seleccionadas = []) {
+    const container = document.getElementById('check-areas');
+    container.innerHTML = '<span style="color:#aaa;font-size:0.85em;">Cargando áreas...</span>';
+    try {
+      const res  = await fetch('/api/areas?estado=activa');
+      const data = await res.json();
+      const areas = (data.areas || []);
+
+      if (areas.length === 0) {
+        container.innerHTML = `<span style="color:#e65100;font-size:0.85em;">⚠️ No hay áreas activas registradas para esta empresa.
+          <a href="/areas.html" target="_blank" style="color:#667eea;">Crear áreas →</a></span>`;
+        return;
+      }
+
+      // Construir pills para áreas activas
+      const pillsHTML = areas.map(a => {
+        const checked = seleccionadas.includes(a.nombre);
+        return `<label class="check-pill${checked ? ' active' : ''}" data-val="${a.nombre}">
+          <input type="checkbox" value="${a.nombre}"${checked ? ' checked' : ''}>🏢 ${a.nombre}
+        </label>`;
+      }).join('');
+
+      // Pills extra para áreas previamente asignadas que ahora están inactivas
+      const areasInactivasAsignadas = seleccionadas.filter(
+        s => !areas.find(a => a.nombre === s)
+      );
+      const pillsInactivasHTML = areasInactivasAsignadas.map(nombre => {
+        return `<label class="check-pill active" data-val="${nombre}" title="Área inactiva — historial" style="opacity:0.55;border-style:dashed;cursor:default;">
+          <input type="checkbox" value="${nombre}" checked disabled>⏸ ${nombre}
+        </label>`;
+      }).join('');
+
+      container.innerHTML = pillsHTML + pillsInactivasHTML;
+      initPills('check-areas');
+    } catch {
+      container.innerHTML = '<span style="color:#c62828;font-size:0.85em;">Error cargando áreas. Intenta de nuevo.</span>';
+    }
   }
 
   function getChecked(containerId) {
@@ -307,7 +346,7 @@
   }
 
   // ── Modal crear usuario ───────────────────────────────────────────────────
-  function abrirModalCrear() {
+  async function abrirModalCrear() {
     modoEdicion = false;
     document.getElementById('modal-titulo').textContent = '➕ Nuevo Usuario';
     document.getElementById('campo-id').value = '';
@@ -318,13 +357,13 @@
     document.getElementById('grupo-password').style.display = 'block';
     document.getElementById('campo-password').required = true;
     setPills('check-modulos', []);
-    setPills('check-areas', []);
     ocultarModalAlerta();
     document.getElementById('modal-usuario').classList.add('open');
+    await cargarAreasPills([]);
   }
 
   // ── Modal editar usuario ──────────────────────────────────────────────────
-  function abrirModalEditar(id) {
+  async function abrirModalEditar(id) {
     const u = usuarios.find(x => x._id === id);
     if (!u) return;
     modoEdicion = true;
@@ -337,9 +376,9 @@
     document.getElementById('grupo-password').style.display = 'none';
     document.getElementById('campo-password').required = false;
     setPills('check-modulos', u.modulosPermitidos);
-    setPills('check-areas', u.areasPermitidas);
     ocultarModalAlerta();
     document.getElementById('modal-usuario').classList.add('open');
+    await cargarAreasPills(u.areasPermitidas || []);
   }
 
   function cerrarModal() { document.getElementById('modal-usuario').classList.remove('open'); }
@@ -470,7 +509,6 @@
     const sesion = await verificarSesion();
     if (!sesion) return;
     initPills('check-modulos');
-    initPills('check-areas');
     await cargarUsuarios();
   });
 </script>

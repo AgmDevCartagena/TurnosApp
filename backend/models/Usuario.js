@@ -37,7 +37,6 @@ const UsuarioSchema = new mongoose.Schema({
   },
   areasPermitidas: {
     type: [String],
-    enum: ['ADMINISTRACION', 'CENTRO_CONTROL', 'CENTRO DE CONTROL', 'OPERACIONES', 'CONDUCTORES', 'MANTENIMIENTO', 'TAQUILLEROS'],
     default: []
   },
   activo: {

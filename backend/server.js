@@ -11,6 +11,7 @@ const nominaRoutes = require('./routes/nominaRoutes');
 const authRoutes = require('./routes/auth');
 const empresasRoutes = require('./routes/empresas');
 const dashboardRoutes = require('./routes/dashboard');
+const areasRoutes = require('./routes/areas');
 const { requireAuth, requireModulo } = require('./middlewares/auth');
 const { requireTenant } = require('./middlewares/tenant');
 
@@ -77,6 +78,7 @@ mongoose.connect(MONGO_URI, {
 // API Routes - Sistema modular
 app.use('/api/auth', authRoutes);
 app.use('/api/empresas', empresasRoutes);
+app.use('/api/areas', areasRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/turnos', requireAuth, requireTenant, requireModulo('turnos'), turnosRoutes);
 app.use('/api/nomina', requireAuth, requireTenant, requireModulo('nomina'), nominaRoutes);
@@ -102,6 +104,15 @@ app.get('/usuarios.html', (req, res) => {
     return res.status(403).send('Acceso denegado. Solo administradores pueden acceder.');
   }
   res.sendFile(path.join(frontendPath, 'usuarios.html'));
+});
+
+// Proteger acceso a areas.html (admin y super_admin)
+app.get('/areas.html', (req, res) => {
+  if (!req.session || !req.session.autenticado) return res.redirect('/login.html');
+  if (!['admin', 'super_admin'].includes(req.session.usuario.rol)) {
+    return res.status(403).send('Acceso denegado. Solo administradores pueden gestionar áreas.');
+  }
+  res.sendFile(path.join(frontendPath, 'areas.html'));
 });
 
 // Proteger acceso a empresas.html (solo super_admin)

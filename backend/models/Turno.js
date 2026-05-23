@@ -26,10 +26,9 @@ const HistorialTurnoSchema = new mongoose.Schema({
   horaFin: { type: String },
   
   // Área y configuración
-  area: { 
-    type: String, 
-    enum: ['TAQUILLEROS', 'CONDUCTORES', 'MANTENIMIENTO', 'OPERACIONES', 'ADMINISTRACION', 'CENTRO DE CONTROL'],
-    required: true 
+  area: {
+    type: String,
+    required: true
   },
   subarea: { type: String },
   

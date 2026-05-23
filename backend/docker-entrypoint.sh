@@ -17,6 +17,10 @@ node init-db.js
 echo "🔐 Migrando contraseñas a bcrypt (si hay en plaintext)..."
 node scripts/hashPasswords.js
 
+# Seed de áreas por empresa (idempotente — solo crea si no existen áreas)
+echo "🏢 Inicializando áreas por empresa..."
+node scripts/seedAreas.js
+
 # Iniciar el servidor principal
 echo ""
 echo "🌐 Iniciando servidor Node.js..."

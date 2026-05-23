@@ -1,5 +1,6 @@
 ﻿const Usuario = require('../models/Usuario');
 const Empresa = require('../models/Empresa');
+const Area    = require('../models/Area');
 
 /**
  * Login de usuario
@@ -120,13 +121,31 @@ exports.crearUsuario = async (req, res) => {
       empresaAsignada = usuarioSesion.empresaId || null;
     }
 
+    // Validar que las áreas existan y estén activas en la empresa
+    const areasNorm = (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean);
+    if (areasNorm.length > 0 && empresaAsignada) {
+      const areasValidas = await Area.find({
+        empresaId: empresaAsignada,
+        nombre: { $in: areasNorm },
+        estado: 'activa'
+      });
+      const nombresValidos = areasValidas.map(a => a.nombre);
+      const invalidas = areasNorm.filter(a => !nombresValidos.includes(a));
+      if (invalidas.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Áreas no válidas o inactivas: ${invalidas.join(', ')}`
+        });
+      }
+    }
+
     const nuevoUsuario = new Usuario({
       username: username.toLowerCase().trim(),
       password,
       nombre,
       rol: rol || 'usuario',
       modulosPermitidos: modulosPermitidos || ['turnos', 'nomina'],
-      areasPermitidas: areasPermitidas || [],
+      areasPermitidas: areasNorm,
       empresaId: empresaAsignada
     });
 
@@ -200,7 +219,33 @@ exports.editarUsuario = async (req, res) => {
     usuario.username = username || usuario.username;
     usuario.rol = rol || usuario.rol;
     usuario.modulosPermitidos = modulosPermitidos || usuario.modulosPermitidos;
-    usuario.areasPermitidas = areasPermitidas || usuario.areasPermitidas;
+
+    if (areasPermitidas !== undefined) {
+      const areasNorm = (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean);
+      const empresaRef = usuario.empresaId;
+      if (areasNorm.length > 0 && empresaRef) {
+        const areasValidas = await Area.find({
+          empresaId: empresaRef,
+          nombre: { $in: areasNorm },
+          estado: 'activa'
+        });
+        const nombresValidos = areasValidas.map(a => a.nombre);
+        // Conservar áreas previamente asignadas aunque ahora estén inactivas
+        const areasAnteriores = usuario.areasPermitidas || [];
+        const areasHistoricas = areasAnteriores.filter(a => !areasNorm.includes(a));
+        const invalidas = areasNorm.filter(a => !nombresValidos.includes(a) && !areasAnteriores.includes(a));
+        if (invalidas.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `Áreas no válidas o inactivas para nuevas asignaciones: ${invalidas.join(', ')}`
+          });
+        }
+        usuario.areasPermitidas = areasNorm;
+      } else {
+        usuario.areasPermitidas = areasNorm;
+      }
+    }
+
     await usuario.save();
     res.json({ success: true, usuario });
   } catch (error) {
