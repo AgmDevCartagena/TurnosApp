@@ -130,8 +130,9 @@ exports.obtenerEmpleados = async (req, res) => {
     // Función para normalizar área
     const normalizarArea = (a) => mapeoAreas[a] || a;
 
-    // Verificar permisos de área si no es admin
-    if (req.session.usuario && req.session.usuario.rol !== 'admin') {
+    // Verificar permisos de área si no es admin ni super_admin
+    const rolesAdmin = ['admin', 'super_admin'];
+    if (req.session.usuario && !rolesAdmin.includes(req.session.usuario.rol)) {
       const areasPermitidasOriginales = req.session.usuario.areasPermitidas || [];
       // Normalizar las áreas permitidas
       const areasPermitidas = areasPermitidasOriginales.map(normalizarArea);
@@ -170,6 +171,9 @@ exports.obtenerEmpleados = async (req, res) => {
 
 exports.crearEmpleado = async (req, res) => {
   try {
+    if (!req.empresaId) {
+      return res.status(400).json({ error: 'Debe tener una empresa asignada para crear empleados.' });
+    }
     const empleado = await empleadosService.crearEmpleado(req.body, req.empresaId);
     res.status(201).json({ message: 'Empleado creado exitosamente', empleado });
   } catch (error) {
