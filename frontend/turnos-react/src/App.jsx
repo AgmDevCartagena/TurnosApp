@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import GestionEmpleados from './components/GestionEmpleados'
 import AsignacionTurnos from './components/AsignacionTurnos'
 import AsignacionPorAreas from './components/AsignacionPorAreas'
@@ -7,6 +7,14 @@ import ConsultaTurnos from './components/ConsultaTurnos'
 
 function App() {
   const [activeTab, setActiveTab] = useState('empleados')
+  const [sesion, setSesion] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/auth/verificar-sesion')
+      .then(r => r.json())
+      .then(data => { if (data.autenticado) setSesion(data.usuario) })
+      .catch(() => {})
+  }, [])
 
   return (
     <>
@@ -54,7 +62,7 @@ function App() {
         </div>
 
         <div className={`tab-content ${activeTab === 'empleados' ? 'active' : ''}`}>
-          <GestionEmpleados />
+          <GestionEmpleados sesion={sesion} />
         </div>
 
         <div className={`tab-content ${activeTab === 'asignacion' ? 'active' : ''}`}>

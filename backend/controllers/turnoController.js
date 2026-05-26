@@ -121,6 +121,12 @@ exports.obtenerEmpleados = async (req, res) => {
   try {
     let { area } = req.query;
 
+    // super_admin puede filtrar por empresa via ?empresaId=
+    let empresaId = req.empresaId;
+    if (req.esSuperAdmin && req.query.empresaId) {
+      empresaId = req.query.empresaId;
+    }
+
     // Mapeo de áreas para compatibilidad (Usuario usa CENTRO_CONTROL, Empleado usa CENTRO DE CONTROL)
     const mapeoAreas = {
       'CENTRO_CONTROL': 'CENTRO DE CONTROL',
@@ -161,7 +167,7 @@ exports.obtenerEmpleados = async (req, res) => {
       }
     }
 
-    const empleados = await empleadosService.obtenerEmpleados(area, req.empresaId);
+    const empleados = await empleadosService.obtenerEmpleados(area, empresaId);
     res.json(empleados);
   } catch (error) {
     console.error('❌ Error en obtenerEmpleados:', error);
@@ -171,10 +177,15 @@ exports.obtenerEmpleados = async (req, res) => {
 
 exports.crearEmpleado = async (req, res) => {
   try {
-    if (!req.empresaId) {
-      return res.status(400).json({ error: 'Debe tener una empresa asignada para crear empleados.' });
+    // super_admin puede especificar empresaId en el body
+    let empresaId = req.empresaId;
+    if (req.esSuperAdmin && req.body.empresaId) {
+      empresaId = req.body.empresaId;
     }
-    const empleado = await empleadosService.crearEmpleado(req.body, req.empresaId);
+    if (!empresaId) {
+      return res.status(400).json({ error: 'Debe seleccionar una empresa para crear el empleado.' });
+    }
+    const empleado = await empleadosService.crearEmpleado(req.body, empresaId);
     res.status(201).json({ message: 'Empleado creado exitosamente', empleado });
   } catch (error) {
     res.status(400).json({ error: error.message });

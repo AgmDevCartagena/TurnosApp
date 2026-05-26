@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-function GestionEmpleados() {
+function GestionEmpleados({ sesion }) {
   const [empleados, setEmpleados] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -8,6 +8,8 @@ function GestionEmpleados() {
   const [uploadProgress, setUploadProgress] = useState(null)
   const [vistaAgrupada, setVistaAgrupada] = useState(true)
   const [areasExpandidas, setAreasExpandidas] = useState({})
+  const [empresas, setEmpresas] = useState([])
+  const [empresaFiltro, setEmpresaFiltro] = useState('')
   const [formData, setFormData] = useState({
     nombre: '',
     documento: '',
@@ -17,6 +19,8 @@ function GestionEmpleados() {
     fechaIngreso: '',
     fechaCumpleanos: ''
   })
+
+  const esSuperAdmin = sesion?.rol === 'super_admin'
 
   const areas = [
     'TAQUILLEROS',
@@ -28,13 +32,28 @@ function GestionEmpleados() {
   ]
 
   useEffect(() => {
+    if (esSuperAdmin) cargarEmpresas()
+  }, [esSuperAdmin])
+
+  useEffect(() => {
     cargarEmpleados()
-  }, [])
+  }, [empresaFiltro])
+
+  const cargarEmpresas = async () => {
+    try {
+      const res = await fetch('/api/empresas')
+      const data = await res.json()
+      setEmpresas((data.empresas || []).filter(e => e.estado === 'activa'))
+    } catch {}
+  }
 
   const cargarEmpleados = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/turnos/empleados')
+      const url = (esSuperAdmin && empresaFiltro)
+        ? `/api/turnos/empleados?empresaId=${empresaFiltro}`
+        : '/api/turnos/empleados'
+      const response = await fetch(url)
       const data = await response.json()
       if (response.ok) {
         setEmpleados(data)
@@ -61,12 +80,15 @@ function GestionEmpleados() {
     setSuccess(null)
 
     try {
+      const body = { ...formData }
+      if (esSuperAdmin && empresaFiltro) body.empresaId = empresaFiltro
+
       const response = await fetch('/api/turnos/empleados', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(body)
       })
 
       const data = await response.json()
@@ -237,8 +259,37 @@ function GestionEmpleados() {
         </div>
       </div>
 
+      {esSuperAdmin && (
+        <div className="form-section" style={{ background: '#fff8e1', border: '1.5px solid #f9a825', borderRadius: '10px', padding: '16px 20px', marginBottom: '10px' }}>
+          <h4 style={{ margin: '0 0 10px 0', color: '#f57f17' }}>🏢 Filtrar por Empresa</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <select
+              value={empresaFiltro}
+              onChange={e => setEmpresaFiltro(e.target.value)}
+              style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px solid #f9a825', fontSize: '0.92em', minWidth: '220px' }}
+            >
+              <option value="">– Todas las empresas –</option>
+              {empresas.map(e => (
+                <option key={e._id} value={e._id}>{e.nombre}</option>
+              ))}
+            </select>
+            {empresaFiltro && (
+              <span style={{ fontSize: '0.83em', color: '#666' }}>
+                Mostrando empleados de: <strong>{empresas.find(e => e._id === empresaFiltro)?.nombre}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="form-section">
         <h3>➕ Agregar Empleado Individual</h3>
+
+        {esSuperAdmin && !empresaFiltro && (
+          <div className="alert alert-info" style={{ background: '#fff3e0', border: '1px solid #ff9800', color: '#e65100' }}>
+            ⚠️ Selecciona una empresa en el filtro de arriba antes de agregar empleados.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-row">
