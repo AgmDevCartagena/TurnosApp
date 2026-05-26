@@ -48,6 +48,10 @@ function GestionEmpleados({ sesion }) {
   }
 
   const cargarEmpleados = async () => {
+    if (esSuperAdmin && !empresaFiltro) {
+      setEmpleados([])
+      return
+    }
     setLoading(true)
     try {
       const url = (esSuperAdmin && empresaFiltro)
@@ -401,7 +405,9 @@ function GestionEmpleados({ sesion }) {
 
         {!loading && empleados.length === 0 && (
           <div className="alert alert-info">
-            No hay empleados registrados. Agrega uno usando el formulario anterior.
+            {esSuperAdmin && !empresaFiltro
+              ? '👆 Selecciona una empresa en el filtro superior para ver sus empleados.'
+              : 'No hay empleados registrados. Agrega uno usando el formulario anterior.'}
           </div>
         )}
 
