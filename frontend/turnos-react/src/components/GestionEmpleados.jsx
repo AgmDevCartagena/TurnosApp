@@ -36,8 +36,8 @@ function GestionEmpleados({ sesion }) {
   }, [esSuperAdmin])
 
   useEffect(() => {
-    cargarEmpleados()
-  }, [empresaFiltro])
+    if (sesion !== null) cargarEmpleados()
+  }, [sesion, empresaFiltro])
 
   const cargarEmpresas = async () => {
     try {
