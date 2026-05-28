@@ -24,7 +24,10 @@ RUN npx prisma generate
 RUN chmod +x docker-entrypoint.sh
 
 # Crear directorios necesarios
-RUN mkdir -p ./public ./uploads/empresas/logos
+RUN mkdir -p ./public/lib ./uploads/empresas/logos
+
+# Copiar bundle tsParticles al directorio estático (evita servir desde node_modules)
+RUN cp node_modules/tsparticles-slim/tsparticles.slim.bundle.min.js ./public/lib/
 
 # Copiar los builds de React (estos se construyen antes de hacer docker build)
 COPY frontend/nomina-build/ ./public/nomina-build/

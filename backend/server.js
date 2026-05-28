@@ -92,10 +92,8 @@ app.use('/api/nomina',    requireAuth, requireTenant, nominaDinamicaRoutes);
 // ── Archivos de logos subidos por usuarios ──────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ── Bundle tsParticles para frontend estático (sin bundler) ─────────────────
-app.get('/lib/tsparticles.slim.bundle.min.js', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'node_modules', 'tsparticles-slim', 'tsparticles.slim.bundle.min.js'));
-});
+// ── Archivos estáticos de /lib (tsParticles y otras librerías copiadas en build) ──
+app.use('/lib', express.static(path.join(__dirname, 'public', 'lib')));
 
 // Serve frontend static files
 // En Docker, los archivos están en /app/public
