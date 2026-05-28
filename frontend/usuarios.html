@@ -271,7 +271,7 @@
     const iconMod = { turnos: '📅', nomina: '💰' };
     const esSuperAdmin = sesionActual?.rol === 'super_admin';
     const filas = lista.map(u => {
-      const empresaNombre = todasLasEmpresas.find(e => e._id === (u.empresaId?._id || u.empresaId))?.nombre || (u.empresaId ? '–' : '<span style="color:#ccc">Sin empresa</span>');
+      const empresaNombre = todasLasEmpresas.find(e => e.id === u.empresaId)?.nombre || (u.empresaId ? '–' : '<span style="color:#ccc">Sin empresa</span>');
       return `
       <tr>
         <td><strong>${u.nombre}</strong></td>
@@ -281,9 +281,9 @@
         <td style="max-width:160px">${(u.areasPermitidas||[]).map(a=>`<span style="background:#e8eaf6;color:#3949ab;border-radius:5px;padding:2px 7px;font-size:0.76em;font-weight:600;margin-right:3px;display:inline-block;margin-bottom:2px;">${a}</span>`).join('')||'<span style="color:#ccc">—</span>'}</td>
         ${esSuperAdmin ? `<td style="font-size:0.82em;color:#555">${empresaNombre}</td>` : ''}
         <td style="white-space:nowrap">
-          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u._id}')">✏️ Editar</button>
-          <button class="btn-sm btn-pass" onclick="abrirModalPass('${u._id}')">🔑 Contraseña</button>
-          <button class="btn-sm btn-del"  onclick="eliminarUsuario('${u._id}')">🗑️</button>
+          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u.id}')">✏️ Editar</button>
+          <button class="btn-sm btn-pass" onclick="abrirModalPass('${u.id}')">🔑 Contraseña</button>
+          <button class="btn-sm btn-del"  onclick="eliminarUsuario('${u.id}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -326,7 +326,7 @@
       sel.innerHTML = '<option value="">– Seleccione una empresa –</option>';
       todasLasEmpresas.forEach(e => {
         const opt = document.createElement('option');
-        opt.value = e._id; opt.textContent = e.nombre;
+        opt.value = e.id; opt.textContent = e.nombre;
         sel.appendChild(opt);
       });
       document.getElementById('grupo-empresa').style.display = 'block';
@@ -416,11 +416,11 @@
 
   // ── Modal editar usuario ──────────────────────────────────────────────────
   async function abrirModalEditar(id) {
-    const u = usuarios.find(x => x._id === id);
+    const u = usuarios.find(x => x.id === id);
     if (!u) return;
     modoEdicion = true;
     document.getElementById('modal-titulo').textContent = `✏️ Editar: ${u.nombre}`;
-    document.getElementById('campo-id').value = u._id;
+    document.getElementById('campo-id').value = u.id;
     document.getElementById('campo-nombre').value = u.nombre || '';
     document.getElementById('campo-username').value = u.username || '';
     document.getElementById('campo-password').value = '';
@@ -433,10 +433,9 @@
     // Para super_admin: pre-seleccionar la empresa del usuario
     const selEmp = document.getElementById('campo-empresa');
     if (selEmp && u.empresaId) {
-      const empId = u.empresaId?._id || u.empresaId?.toString?.() || u.empresaId;
-      selEmp.value = empId;
+      selEmp.value = u.empresaId;
     }
-    await cargarAreasPills(u.areasPermitidas || [], u.empresaId?._id || u.empresaId?.toString?.() || null);
+    await cargarAreasPills(u.areasPermitidas || [], u.empresaId || null);
   }
 
   function cerrarModal() { document.getElementById('modal-usuario').classList.remove('open'); }
@@ -495,9 +494,9 @@
 
   // ── Modal cambiar contraseña ──────────────────────────────────────────────
   function abrirModalPass(id) {
-    const u = usuarios.find(x => x._id === id);
+    const u = usuarios.find(x => x.id === id);
     if (!u) return;
-    document.getElementById('pass-user-id').value = id;
+    document.getElementById('pass-user-id').value = u.id;
     document.getElementById('pass-titulo').textContent = `🔑 Contraseña: ${u.username}`;
     document.getElementById('pass-label').textContent = `Nueva contraseña para ${u.nombre}`;
     document.getElementById('campo-nueva-pass').value = '';
@@ -542,7 +541,7 @@
 
   // ── Eliminar usuario ──────────────────────────────────────────────────────
   async function eliminarUsuario(id) {
-    const u = usuarios.find(x => x._id === id);
+    const u = usuarios.find(x => x.id === id);
     if (!confirm(`⚠️ ¿Eliminar al usuario "${u?.username}"? Esta acción no se puede deshacer.`)) return;
     try {
       const res = await fetch(`/api/auth/usuarios/${id}`, { method: 'DELETE' });

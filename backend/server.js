@@ -6,13 +6,15 @@ const session = require('express-session');
 require('dotenv').config();
 
 // Importar rutas principales
-const turnosRoutes = require('./routes/turnos');
-const nominaRoutes = require('./routes/nominaRoutes');
-const authRoutes = require('./routes/auth');
-const empresasRoutes = require('./routes/empresas');
-const dashboardRoutes = require('./routes/dashboard');
-const areasRoutes = require('./routes/areas');
+const turnosRoutes      = require('./routes/turnos');
+const nominaRoutes      = require('./routes/nominaRoutes');
+const authRoutes        = require('./routes/auth');
+const empresasRoutes    = require('./routes/empresas');
+const dashboardRoutes   = require('./routes/dashboard');
+const areasRoutes       = require('./routes/areas');
+const empleadosRoutes   = require('./routes/empleados');
 const nominaDinamicaRoutes = require('./routes/nominaDinamica');
+const meRoutes             = require('./routes/me');
 const { requireAuth, requireModulo } = require('./middlewares/auth');
 const { requireTenant } = require('./middlewares/tenant');
 
@@ -77,13 +79,23 @@ mongoose.connect(MONGO_URI, {
   });
 
 // API Routes - Sistema modular
-app.use('/api/auth', authRoutes);
-app.use('/api/empresas', empresasRoutes);
-app.use('/api/areas', areasRoutes);
+app.use('/api/auth',      authRoutes);
+app.use('/api/me',        meRoutes);
+app.use('/api/empresas',  empresasRoutes);
+app.use('/api/areas',     areasRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/turnos', requireAuth, requireTenant, requireModulo('turnos'), turnosRoutes);
-app.use('/api/nomina', requireAuth, requireTenant, requireModulo('nomina'), nominaRoutes);
-app.use('/api/nomina', requireAuth, requireTenant, nominaDinamicaRoutes);
+app.use('/api/empleados', requireAuth, requireTenant, empleadosRoutes);
+app.use('/api/turnos',    requireAuth, requireTenant, requireModulo('turnos'), turnosRoutes);
+app.use('/api/nomina',    requireAuth, requireTenant, requireModulo('nomina'), nominaRoutes);
+app.use('/api/nomina',    requireAuth, requireTenant, nominaDinamicaRoutes);
+
+// ── Archivos de logos subidos por usuarios ──────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ── Bundle tsParticles para frontend estático (sin bundler) ─────────────────
+app.get('/lib/tsparticles.slim.bundle.min.js', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'node_modules', 'tsparticles-slim', 'tsparticles.slim.bundle.min.js'));
+});
 
 // Serve frontend static files
 // En Docker, los archivos están en /app/public

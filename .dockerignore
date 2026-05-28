@@ -1,8 +1,10 @@
-# Archivos de Node
-node_modules/
+# Archivos de Node (en cualquier subdirectorio)
+**/node_modules/
 npm-debug.log
 yarn-error.log
 package-lock.json
+pnpm-lock.yaml
+backend/pnpm-lock.yaml
 
 # Archivos de entorno
 .env

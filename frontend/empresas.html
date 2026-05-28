@@ -116,6 +116,17 @@
     .btn-save { background: linear-gradient(135deg,#667eea,#764ba2); color: white; }
     .btn-save:hover { opacity: 0.9; }
 
+    /* ── Logo upload ── */
+    .logo-upload-area {
+      border: 2px dashed #c5cae9; border-radius: 10px; padding: 16px 12px;
+      text-align: center; cursor: pointer; transition: border .2s, background .2s;
+      background: #fafbff;
+    }
+    .logo-upload-area:hover { border-color: #667eea; background: #f0f2ff; }
+    .logo-upload-area .upload-hint { font-size: 0.78em; color: #aaa; margin-top: 4px; }
+    .logo-preview-img { max-height: 60px; max-width: 160px; object-fit: contain; border-radius: 6px; margin-bottom: 4px; }
+    .logo-table-img { max-height: 32px; max-width: 80px; object-fit: contain; vertical-align: middle; border-radius: 4px; }
+
     /* ── Alert ── */
     .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display: none; font-size: 0.9em; }
     .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
@@ -212,6 +223,21 @@
           <option value="inactiva">Inactiva</option>
           <option value="suspendida">Suspendida</option>
         </select>
+      </div>
+
+      <!-- Logo -->
+      <div class="form-group">
+        <label>Logo de empresa <span style="font-size:.78em;color:#aaa;font-weight:400">(SVG, PNG, JPG, WEBP · máx. 2 MB)</span></label>
+        <div class="logo-upload-area" id="logo-upload-area" onclick="document.getElementById('campo-logo').click()">
+          <div id="logo-preview-contenido">
+            <div style="font-size:1.6em;">📷</div>
+            <div>Haz clic para seleccionar logo</div>
+            <div class="upload-hint">Sin logo seleccionado</div>
+          </div>
+        </div>
+        <input type="file" id="campo-logo" accept=".svg,.png,.jpg,.jpeg,.webp" style="display:none" onchange="previewLogo(this)">
+        <div id="logo-error" style="color:#c62828;font-size:0.82em;margin-top:4px;display:none;"></div>
+        <div id="logo-actual-info" style="font-size:.8em;color:#888;margin-top:4px;"></div>
       </div>
 
       <!-- Sección admin: solo visible al crear nueva empresa -->
@@ -323,8 +349,13 @@
       const estadoClass = `badge-${e.estado || 'activa'}`;
       const esActiva = e.estado === 'activa';
 
+      const logoHtml = e.logoUrl
+        ? `<img class="logo-table-img" src="${e.logoUrl}" alt="Logo" title="${e.nombre}">`
+        : `<span style="font-size:1.4em;opacity:.35">🏢</span>`;
+      const eId = e.id || e._id;
       return `<tr>
         <td>
+          ${logoHtml}
           <span class="color-dot" style="background:${color}"></span>
           <strong>${e.nombre}</strong>
           ${e.dominio ? `<br><small style="color:#999">${e.dominio}</small>` : ''}
@@ -334,9 +365,9 @@
         <td>${modulos || '<span style="color:#ccc">ninguno</span>'}</td>
         <td><span class="badge ${estadoClass}">${e.estado || 'activa'}</span></td>
         <td>
-          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${e._id}')">✏️ Editar</button>
+          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${eId}')">✏️ Editar</button>
           <button class="btn-sm btn-toggle ${esActiva ? 'desactivar' : ''}"
-            onclick="toggleEstado('${e._id}', '${esActiva ? 'inactiva' : 'activa'}')">
+            onclick="toggleEstado('${eId}', '${esActiva ? 'inactiva' : 'activa'}')">
             ${esActiva ? '⏸ Desactivar' : '▶ Activar'}
           </button>
         </td>
@@ -372,17 +403,50 @@
     document.getElementById('admin-nombre').value = '';
     document.getElementById('admin-username').value = '';
     document.getElementById('admin-password').value = '';
+    resetLogoField();
     ocultarModalAlerta();
     document.getElementById('modal-empresa').classList.add('open');
   }
 
+  function resetLogoField() {
+    document.getElementById('campo-logo').value = '';
+    document.getElementById('logo-preview-contenido').innerHTML =
+      '<div style="font-size:1.6em">📷</div><div>Haz clic para seleccionar logo</div><div class="upload-hint">Sin logo seleccionado</div>';
+    document.getElementById('logo-error').style.display = 'none';
+    document.getElementById('logo-actual-info').textContent = '';
+  }
+
+  function previewLogo(input) {
+    const errEl = document.getElementById('logo-error');
+    errEl.style.display = 'none';
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const allowed = ['image/svg+xml','image/png','image/jpeg','image/webp'];
+    if (!allowed.includes(file.type)) {
+      errEl.textContent = 'Formato no permitido. Solo SVG, PNG, JPG o WEBP.';
+      errEl.style.display = 'block';
+      input.value = ''; return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      errEl.textContent = 'El archivo supera el tamaño máximo de 2 MB.';
+      errEl.style.display = 'block';
+      input.value = ''; return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('logo-preview-contenido').innerHTML =
+        `<img class="logo-preview-img" src="${e.target.result}" alt="Vista previa"><div>${file.name}</div>`;
+    };
+    reader.readAsDataURL(file);
+  }
+
   // ── Modal editar ──────────────────────────────────────────────────────────
   function abrirModalEditar(id) {
-    const e = empresas.find(x => x._id === id);
+    const e = empresas.find(x => (x.id || x._id) === id);
     if (!e) return;
     modoEdicion = true;
     document.getElementById('modal-titulo').textContent = '✏️ Editar Empresa';
-    document.getElementById('campo-id').value = e._id;
+    document.getElementById('campo-id').value = e.id || e._id;
     document.getElementById('campo-nombre').value = e.nombre || '';
     document.getElementById('campo-nit').value = e.nit || '';
     document.getElementById('campo-razon').value = e.razonSocial || '';
@@ -393,6 +457,13 @@
     document.getElementById('campo-estado').value = e.estado || 'activa';
     document.getElementById('campo-estado-group').style.display = 'block';
     document.getElementById('seccion-admin').style.display = 'none';
+    // Mostrar logo actual si existe
+    resetLogoField();
+    if (e.logoUrl) {
+      document.getElementById('logo-preview-contenido').innerHTML =
+        `<img class="logo-preview-img" src="${e.logoUrl}" alt="Logo actual"><div>Logo actual</div>`;
+      document.getElementById('logo-actual-info').textContent = 'Logo cargado. Selecciona otro archivo para reemplazarlo.';
+    }
     ocultarModalAlerta();
     document.getElementById('modal-empresa').classList.add('open');
   }
@@ -442,7 +513,7 @@
     }
 
     const id = document.getElementById('campo-id').value;
-    const url = modoEdicion ? `/api/empresas/${id}` : '/api/empresas';
+    const url    = modoEdicion ? `/api/empresas/${id}` : '/api/empresas';
     const method = modoEdicion ? 'PUT' : 'POST';
 
     const btn = document.getElementById('btn-guardar');
@@ -458,11 +529,27 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al guardar');
 
+      const empresaId = modoEdicion ? id : data.empresa?.id;
+
+      // Subir logo si se seleccionó archivo
+      const logoFile = document.getElementById('campo-logo').files[0];
+      if (logoFile && empresaId) {
+        btn.textContent = 'Subiendo logo...';
+        const fd = new FormData();
+        fd.append('logo', logoFile);
+        const logoRes  = await fetch(`/api/empresas/${empresaId}/logo`, { method: 'PATCH', body: fd });
+        const logoData = await logoRes.json();
+        if (!logoRes.ok) {
+          mostrarAlerta('Empresa guardada, pero el logo no se pudo subir: ' + logoData.error, 'error');
+        }
+      }
+
       cerrarModal();
       let msgExito = modoEdicion ? '✅ Empresa actualizada' : '✅ Empresa creada exitosamente';
       if (!modoEdicion && data.adminUsuario) {
         msgExito += ` · Admin creado: ${data.adminUsuario.username}`;
       }
+      if (logoFile) msgExito += ' · Logo cargado correctamente.';
       mostrarAlerta(msgExito, 'success');
       await cargarEmpresas();
     } catch (e) {
@@ -475,6 +562,7 @@
 
   // ── Toggle estado ─────────────────────────────────────────────────────────
   async function toggleEstado(id, nuevoEstado) {
+    if (!id || id === 'undefined') { mostrarAlerta('ID de empresa inválido.', 'error'); return; }
     const accion = nuevoEstado === 'activa' ? 'activar' : 'desactivar';
     if (!confirm(`¿Seguro que deseas ${accion} esta empresa?`)) return;
 

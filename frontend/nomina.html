@@ -820,7 +820,7 @@ async function cargarParametros() {
         <td>
           <button class="btn btn-sm btn-outline" onclick='editarParametro(${JSON.stringify(p)})'>Editar</button>
           <button class="btn btn-sm ${p.estado==='activo'?'btn-warning':'btn-success'}"
-            onclick="toggleEstadoParam('${p._id}','${p.estado==='activo'?'inactivo':'activo'}')">
+            onclick="toggleEstadoParam('${p.id}','${p.estado==='activo'?'inactivo':'activo'}')">
             ${p.estado === 'activo' ? 'Desactivar' : 'Activar'}
           </button>
         </td>`;
@@ -840,7 +840,7 @@ function abrirModalParametro() {
 }
 function editarParametro(p) {
   document.getElementById('modalParamTitle').textContent = 'Editar Parámetro';
-  document.getElementById('paramId').value         = p._id;
+  document.getElementById('paramId').value         = p.id;
   document.getElementById('paramCodigo').value     = p.codigo;
   document.getElementById('paramNombre').value     = p.nombre;
   document.getElementById('paramValor').value      = p.valor;
@@ -905,7 +905,7 @@ async function cargarConceptos() {
         <td>
           <button class="btn btn-sm btn-outline" onclick='editarConcepto(${JSON.stringify(c)})'>Editar</button>
           <button class="btn btn-sm ${c.estado==='activo'?'btn-warning':'btn-success'}"
-            onclick="toggleEstadoConcepto('${c._id}','${c.estado==='activo'?'inactivo':'activo'}')">
+            onclick="toggleEstadoConcepto('${c.id}','${c.estado==='activo'?'inactivo':'activo'}')">
             ${c.estado === 'activo' ? 'Desactivar' : 'Activar'}
           </button>
         </td>`;
@@ -927,7 +927,7 @@ function abrirModalConcepto() {
 }
 function editarConcepto(c) {
   document.getElementById('modalConceptoTitle').textContent = 'Editar Concepto';
-  document.getElementById('conceptoId').value    = c._id;
+  document.getElementById('conceptoId').value    = c.id;
   document.getElementById('concCodigo').value    = c.codigo;
   document.getElementById('concNombre').value    = c.nombre;
   document.getElementById('concTipo').value      = c.tipo;

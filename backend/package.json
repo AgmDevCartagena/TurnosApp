@@ -1,6 +1,7 @@
 {
   "name": "gestion_empresarial",
   "version": "2.0.0",
+  "packageManager": "pnpm@10.20.0",
   "description": "Sistema Integrado de Gestión - Módulos de Turnos y Nómina",
   "main": "server.js",
   "scripts": {
@@ -10,11 +11,27 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage --forceExit",
     "migrate": "node scripts/migrarEmpresaId.js",
+    "migrate:pg": "node scripts/migrarMongoAPostgres.js",
     "seed": "node scripts/seedMultiempresa.js",
     "seed:areas": "node scripts/seedAreas.js",
     "seed:nomina": "node scripts/seedParametrosNomina.js",
+    "seed:pg": "node prisma/seed.js",
     "init-db": "node init-db.js",
-    "hash-passwords": "node scripts/hashPasswords.js"
+    "hash-passwords": "node scripts/hashPasswords.js",
+    "prisma:generate": "pnpm exec prisma generate",
+    "prisma:migrate:dev": "pnpm exec prisma migrate dev",
+    "prisma:migrate:deploy": "pnpm exec prisma migrate deploy",
+    "prisma:studio": "pnpm exec prisma studio",
+    "prisma:reset": "pnpm exec prisma migrate reset --force"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "prisma"
+    ]
   },
   "jest": {
     "testEnvironment": "node",
@@ -24,6 +41,7 @@
     "testTimeout": 20000
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
@@ -36,7 +54,9 @@
     "mongodb": "^6.20.0",
     "mongoose": "^7.0.0",
     "multer": "^2.0.2",
-    "pdfkit": "^0.17.2"
+    "pdfkit": "^0.17.2",
+    "prisma": "^5.22.0",
+    "tsparticles-slim": "^2.12.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

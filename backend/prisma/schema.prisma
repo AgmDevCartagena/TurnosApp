@@ -1,0 +1,436 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMERACIONES ────────────────────────────────────────────────────────────
+
+enum EstadoGeneral {
+  activo
+  inactivo
+}
+
+enum EstadoEmpresa {
+  activa
+  inactiva
+}
+
+enum RolUsuario {
+  super_admin
+  admin
+  gestor_turnos
+  gestor_nomina
+  usuario
+  consulta
+}
+
+enum TipoModulo {
+  turnos
+  nomina
+}
+
+enum TipoContrato {
+  indefinido
+  fijo
+  obra_labor
+  aprendizaje
+  prestacion_servicios
+}
+
+enum TipoTurno {
+  ADMINISTRATIVO
+  TURNO_100
+  TURNO_300
+  TURNO_400
+  TECNICO
+  CONDUCTOR
+  PERSONALIZADO
+  MANUAL
+}
+
+enum TipoValorParametro {
+  porcentaje
+  valor_fijo
+  horas
+  dias
+}
+
+enum TipoConcepto {
+  devengado
+  deduccion
+  prestacion
+  informativo
+}
+
+enum EstadoLiquidacion {
+  borrador
+  aprobada
+  anulada
+}
+
+enum TipoNovedad {
+  incapacidad
+  licencia_remunerada
+  licencia_no_remunerada
+  vacaciones
+  bonificacion
+  descuento
+  embargo
+  otro
+}
+
+enum EstadoNovedad {
+  activa
+  aplicada
+  anulada
+}
+
+// ─── EMPRESA ──────────────────────────────────────────────────────────────────
+
+model Empresa {
+  id          String        @id @default(uuid())
+  nombre      String        @db.VarChar(150)
+  nit         String?       @unique @db.VarChar(30)
+  razonSocial String?       @db.VarChar(200)
+  dominio     String?       @db.VarChar(100)
+  colorTema        String        @default("#667eea") @db.VarChar(10)
+  logoUrl          String?
+  logoPath         String?
+  logoMimeType     String?       @db.VarChar(50)
+  logoOriginalName String?
+  logoSize         Int?
+  estado           EstadoEmpresa @default(activa)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  usuarios      Usuario[]
+  areas         Area[]
+  empleados     Empleado[]
+  modulos       EmpresaModulo[]
+  parametros    ParametroNomina[]
+  conceptos     ConceptoNomina[]
+  liquidaciones LiquidacionNomina[]
+  novedades     NovedadNomina[]
+  turnos        Turno[]
+  festivos      Festivo[]
+
+  @@index([estado])
+  @@map("empresas")
+}
+
+// ─── MODULO ───────────────────────────────────────────────────────────────────
+
+model Modulo {
+  id          String     @id @default(uuid())
+  codigo      TipoModulo @unique
+  nombre      String     @db.VarChar(80)
+  descripcion String?
+  activo      Boolean    @default(true)
+
+  empresas EmpresaModulo[]
+
+  @@map("modulos")
+}
+
+model EmpresaModulo {
+  id               String    @id @default(uuid())
+  empresaId        String
+  moduloId         String
+  habilitado       Boolean   @default(true)
+  fechaActivacion  DateTime?
+  fechaVencimiento DateTime?
+  createdAt        DateTime  @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  modulo  Modulo  @relation(fields: [moduloId], references: [id])
+
+  @@unique([empresaId, moduloId])
+  @@index([empresaId, habilitado])
+  @@map("empresa_modulos")
+}
+
+// ─── USUARIO ──────────────────────────────────────────────────────────────────
+
+model Usuario {
+  id           String     @id @default(uuid())
+  username     String     @unique @db.VarChar(60)
+  passwordHash String
+  nombre       String     @db.VarChar(150)
+  empresaId    String?
+  rol          RolUsuario @default(usuario)
+  activo       Boolean    @default(true)
+  ultimoAcceso DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  empresa                 Empresa?           @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+  modulosPermitidos       UsuarioModulo[]
+  areas                   UsuarioArea[]
+  liquidacionesCalculadas LiquidacionNomina[] @relation("CalculadoPor")
+  liquidacionesAprobadas  LiquidacionNomina[] @relation("AprobadoPor")
+  novedadesRegistradas    NovedadNomina[]
+
+  @@index([empresaId, activo])
+  @@index([rol])
+  @@map("usuarios")
+}
+
+model UsuarioModulo {
+  usuarioId String
+  modulo    TipoModulo
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, modulo])
+  @@map("usuario_modulos")
+}
+
+// ─── ÁREA ─────────────────────────────────────────────────────────────────────
+
+model Area {
+  id          String        @id @default(uuid())
+  empresaId   String
+  nombre      String        @db.VarChar(100)
+  codigo      String?       @db.VarChar(20)
+  descripcion String?
+  estado      EstadoGeneral @default(activo)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  empresa   Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarios  UsuarioArea[]
+  empleados Empleado[]
+  turnos    Turno[]
+
+  @@unique([empresaId, nombre])
+  @@index([empresaId, estado])
+  @@map("areas")
+}
+
+model UsuarioArea {
+  usuarioId String
+  areaId    String
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  area    Area    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, areaId])
+  @@index([areaId])
+  @@map("usuario_areas")
+}
+
+// ─── EMPLEADO ─────────────────────────────────────────────────────────────────
+
+model Empleado {
+  id              String        @id @default(uuid())
+  empresaId       String
+  areaId          String?
+  documento       String        @db.VarChar(20)
+  nombre          String        @db.VarChar(100)
+  apellidos       String?       @db.VarChar(100)
+  cargo           String?       @db.VarChar(80)
+  salario         Decimal       @default(0) @db.Decimal(14, 2)
+  tipoContrato    TipoContrato  @default(indefinido)
+  estado          EstadoGeneral @default(activo)
+  fechaIngreso    DateTime?     @db.Date
+  fechaRetiro     DateTime?     @db.Date
+  fechaCumpleanos DateTime?     @db.Date
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  empresa       Empresa             @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  area          Area?               @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  turnos        Turno[]
+  liquidaciones LiquidacionNomina[]
+  novedades     NovedadNomina[]
+
+  @@unique([documento, empresaId])
+  @@index([empresaId, estado])
+  @@index([empresaId, areaId])
+  @@map("empleados")
+}
+
+// ─── TURNO ────────────────────────────────────────────────────────────────────
+
+model Turno {
+  id                String     @id @default(uuid())
+  empresaId         String
+  empleadoId        String
+  areaId            String?
+  turno             String     @db.VarChar(60)
+  tipoTurno         TipoTurno?
+  tablaDescanso     String?    @db.VarChar(10)
+  fechaInicio       DateTime
+  fechaFin          DateTime
+  horaInicio        String?    @db.VarChar(5)
+  horaFin           String?    @db.VarChar(5)
+  esTurnoPartido    Boolean    @default(false)
+  horaInicio2       String?    @db.VarChar(5)
+  horaFin2          String?    @db.VarChar(5)
+  activo            Boolean    @default(true)
+  cronogramaMongoId String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  empresa  Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  empleado Empleado @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  area     Area?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId, empleadoId])
+  @@index([empresaId, fechaInicio, fechaFin])
+  @@index([empresaId, areaId, fechaInicio])
+  @@map("turnos")
+}
+
+// ─── PARÁMETROS DE NÓMINA ─────────────────────────────────────────────────────
+
+model ParametroNomina {
+  id            String             @id @default(uuid())
+  empresaId     String
+  codigo        String             @db.VarChar(60)
+  nombre        String             @db.VarChar(120)
+  descripcion   String?
+  valor         Decimal            @db.Decimal(14, 4)
+  tipoValor     TipoValorParametro @default(valor_fijo)
+  vigenciaDesde DateTime           @db.Date
+  vigenciaHasta DateTime?          @db.Date
+  estado        EstadoGeneral      @default(activo)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, codigo, vigenciaDesde])
+  @@index([empresaId, codigo, estado])
+  @@map("parametros_nomina")
+}
+
+// ─── CONCEPTOS DE NÓMINA ──────────────────────────────────────────────────────
+
+model ConceptoNomina {
+  id                  String        @id @default(uuid())
+  empresaId           String
+  codigo              String        @db.VarChar(60)
+  nombre              String        @db.VarChar(120)
+  descripcion         String?
+  tipo                TipoConcepto
+  referenciaParametro String?       @db.VarChar(60)
+  base                String        @default("salarioBase") @db.VarChar(60)
+  formula             String?
+  afectaTotal         Boolean       @default(true)
+  orden               Int           @default(0)
+  vigenciaDesde       DateTime      @db.Date
+  vigenciaHasta       DateTime?     @db.Date
+  estado              EstadoGeneral @default(activo)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  empresa  Empresa              @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  detalles DetalleLiquidacion[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId, tipo, estado])
+  @@map("conceptos_nomina")
+}
+
+// ─── LIQUIDACIÓN DE NÓMINA ────────────────────────────────────────────────────
+
+model LiquidacionNomina {
+  id               String            @id @default(uuid())
+  empresaId        String
+  empleadoId       String
+  periodoInicio    DateTime          @db.Date
+  periodoFin       DateTime          @db.Date
+  salarioBase      Decimal           @db.Decimal(14, 2)
+  diasTrabajados   Int               @default(0)
+  totalDevengado   Decimal           @default(0) @db.Decimal(14, 2)
+  totalDeducciones Decimal           @default(0) @db.Decimal(14, 2)
+  netoPagar        Decimal           @default(0) @db.Decimal(14, 2)
+  estado           EstadoLiquidacion @default(borrador)
+  calculadoPorId   String?
+  aprobadoPorId    String?
+  fechaAprobacion  DateTime?
+  observaciones    String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  empresa      Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  empleado     Empleado @relation(fields: [empleadoId], references: [id], onDelete: Restrict)
+  calculadoPor Usuario? @relation("CalculadoPor", fields: [calculadoPorId], references: [id], onDelete: SetNull)
+  aprobadoPor  Usuario? @relation("AprobadoPor", fields: [aprobadoPorId], references: [id], onDelete: SetNull)
+  detalles     DetalleLiquidacion[]
+
+  @@unique([empresaId, empleadoId, periodoInicio, periodoFin])
+  @@index([empresaId, estado])
+  @@index([empresaId, periodoInicio, periodoFin])
+  @@map("liquidaciones_nomina")
+}
+
+model DetalleLiquidacion {
+  id             String       @id @default(uuid())
+  liquidacionId  String
+  conceptoId     String?
+  codigoConcepto String       @db.VarChar(60)
+  nombreConcepto String       @db.VarChar(120)
+  tipo           TipoConcepto
+  cantidad       Decimal      @default(0) @db.Decimal(10, 4)
+  base           Decimal      @default(0) @db.Decimal(14, 2)
+  porcentaje     Decimal      @default(0) @db.Decimal(8, 4)
+  valor          Decimal      @db.Decimal(14, 2)
+  observacion    String?
+
+  liquidacion LiquidacionNomina @relation(fields: [liquidacionId], references: [id], onDelete: Cascade)
+  concepto    ConceptoNomina?   @relation(fields: [conceptoId], references: [id], onDelete: SetNull)
+
+  @@index([liquidacionId])
+  @@index([conceptoId])
+  @@map("detalle_liquidacion")
+}
+
+// ─── NOVEDADES DE NÓMINA ──────────────────────────────────────────────────────
+
+model NovedadNomina {
+  id              String        @id @default(uuid())
+  empresaId       String
+  empleadoId      String
+  tipo            TipoNovedad
+  descripcion     String?
+  fechaInicio     DateTime      @db.Date
+  fechaFin        DateTime      @db.Date
+  cantidad        Decimal       @default(0) @db.Decimal(10, 2)
+  valor           Decimal       @default(0) @db.Decimal(14, 2)
+  observacion     String?
+  estado          EstadoNovedad @default(activa)
+  registradoPorId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  empresa       Empresa  @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  empleado      Empleado @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  registradoPor Usuario? @relation(fields: [registradoPorId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId, empleadoId, fechaInicio])
+  @@index([empresaId, tipo, estado])
+  @@map("novedades_nomina")
+}
+
+// ─── FESTIVOS ─────────────────────────────────────────────────────────────────
+
+model Festivo {
+  id        String   @id @default(uuid())
+  empresaId String?
+  fecha     DateTime @db.Date
+  nombre    String   @db.VarChar(100)
+  tipo      String   @default("nacional") @db.VarChar(30)
+  createdAt DateTime @default(now())
+
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, fecha])
+  @@index([fecha])
+  @@map("festivos")
+}

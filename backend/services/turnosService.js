@@ -5,6 +5,52 @@
 
 const Turno = require('../models/Turno');
 const { esFestivo } = require('./festivosService');
+const prisma   = require('../lib/prisma');
+
+/**
+ * Sincroniza un turno en PostgreSQL tras guardarlo en MongoDB.
+ * Fire-and-forget: silencia errores para no bloquear la operación principal.
+ */
+async function syncTurnoPG(documentoEmpleado, datosTurno, mongoDocId) {
+  try {
+    const pgEmp = await prisma.empleado.findFirst({
+      where:  { documento: documentoEmpleado },
+      select: { id: true, empresaId: true, areaId: true }
+    });
+    if (!pgEmp) return;
+
+    let areaId = pgEmp.areaId;
+    if (!areaId && datosTurno.area && pgEmp.empresaId) {
+      const areaPg = await prisma.area.findFirst({
+        where: { empresaId: pgEmp.empresaId, nombre: datosTurno.area.toUpperCase() }
+      });
+      areaId = areaPg?.id || null;
+    }
+
+    const tiposValidos = ['ADMINISTRATIVO','TURNO_100','TURNO_300','TURNO_400','TECNICO','CONDUCTOR','PERSONALIZADO','MANUAL'];
+    const tipoTurno = tiposValidos.includes(datosTurno.tipoTurno) ? datosTurno.tipoTurno : null;
+
+    await prisma.turno.create({
+      data: {
+        empleadoId:        pgEmp.id,
+        empresaId:         pgEmp.empresaId,
+        areaId:            areaId,
+        turno:             (datosTurno.turno || 'OTRO').substring(0, 60),
+        tipoTurno,
+        tablaDescanso:     datosTurno.tablaDescanso?.substring(0, 10) || null,
+        fechaInicio:       new Date(datosTurno.fechaInicio),
+        fechaFin:          new Date(datosTurno.fechaFin),
+        horaInicio:        datosTurno.horaInicio?.substring(0, 5) || null,
+        horaFin:           datosTurno.horaFin?.substring(0, 5) || null,
+        esTurnoPartido:    datosTurno.esTurnoPartido || false,
+        activo:            true,
+        cronogramaMongoId: mongoDocId?.toString() || null
+      }
+    });
+  } catch (err) {
+    console.warn('\u26a0\ufe0f PG turno sync:', err.message);
+  }
+}
 
 /**
  * Genera turnos para el área de administrativos
@@ -327,6 +373,7 @@ async function crearTurno(datosTurno, empresaId = null) {
       );
       
       await documentoTurno.save();
+      syncTurnoPG(documentoEmpleado, datosDelTurno, documentoTurno._id).catch(() => {});
       
       console.log(`📊 Historial actualizado: ${documentoTurno.historialTurnos.length} turnos en total`);
       
@@ -360,6 +407,7 @@ async function crearTurno(datosTurno, empresaId = null) {
       });
       
       await nuevoDocumento.save();
+      syncTurnoPG(documentoEmpleado, datosDelTurno, nuevoDocumento._id).catch(() => {});
       
       console.log(`✅ Documento creado con éxito, ID: ${nuevoDocumento._id}`);
       

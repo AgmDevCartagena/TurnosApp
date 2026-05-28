@@ -1,4 +1,25 @@
 services:
+  # Servicio de PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: turnos_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: turnos_user
+      POSTGRES_PASSWORD: turnos_pass
+      POSTGRES_DB: turnos_app_pg
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - turnos-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U turnos_user -d turnos_app_pg"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Servicio de MongoDB
   mongodb:
     image: mongo:7.0
@@ -32,16 +53,20 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - MONGO_URI=mongodb://mongodb:27017/turnos_app
+      - DATABASE_URL=postgresql://turnos_user:turnos_pass@postgres:5432/turnos_app_pg
       - SESSION_SECRET=sistema_gestion_secret_production_2025
       - ALLOWED_ORIGINS=http://localhost:3001,http://10.250.10.9:3001
       - ADMIN_INIT_PASSWORD=Admin2025!
     depends_on:
       mongodb:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     networks:
       - turnos-network
     volumes:
       - ./backend/utils:/app/utils
+      - ./backend/uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/auth/verificar-sesion"]
       interval: 30s
@@ -57,4 +82,6 @@ volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  postgres_data:
     driver: local

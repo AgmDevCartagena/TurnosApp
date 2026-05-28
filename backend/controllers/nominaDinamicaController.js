@@ -1,18 +1,19 @@
 'use strict';
 
-const motor           = require('../services/motorCalculoNomina');
-const ParametroNomina = require('../models/ParametroNomina');
-const ConceptoNomina  = require('../models/ConceptoNomina');
-const LiquidacionNomina = require('../models/LiquidacionNomina');
+const prisma = require('../lib/prisma');
+const motor  = require('../services/motorCalculoNomina');
 
 // ── Helpers de sesión ─────────────────────────────────────────────────────────
-function getEmpresaId(req, body = {}) {
-  // Para super_admin, admite empresaId desde el body (operación explícita sobre una empresa)
+function getPgEmpresaId(req, body = {}) {
+  if (req.esSuperAdmin && body.pgEmpresaId) return body.pgEmpresaId;
+  return req.pgEmpresaId;
+}
+function getMongoEmpresaId(req, body = {}) {
   if (req.esSuperAdmin && body.empresaId) return body.empresaId;
   return req.empresaId || req.session?.usuario?.empresaId;
 }
-function getUsuarioId(req) {
-  return req.session?.usuario?.id || req.session?.usuario?._id;
+function getPgUsuarioId(req) {
+  return req.session?.usuario?.pgId || req.session?.usuario?.id || null;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -21,11 +22,15 @@ function getUsuarioId(req) {
 
 exports.listarParametros = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const filtro = { empresaId };
-    if (req.query.estado) filtro.estado = req.query.estado;
+    const empresaId = getPgEmpresaId(req);
+    if (!empresaId) return res.json({ success: true, parametros: [] });
+    const where = { empresaId };
+    if (req.query.estado) where.estado = req.query.estado;
 
-    const parametros = await ParametroNomina.find(filtro).sort({ codigo: 1, vigenciaDesde: -1 });
+    const parametros = await prisma.parametroNomina.findMany({
+      where,
+      orderBy: [{ codigo: 'asc' }, { vigenciaDesde: 'desc' }]
+    });
     res.json({ success: true, parametros });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Error al listar parámetros de nómina.' });
@@ -34,20 +39,28 @@ exports.listarParametros = async (req, res) => {
 
 exports.crearParametro = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
+    const empresaId = getPgEmpresaId(req);
     const { codigo, nombre, descripcion, valor, tipoValor, vigenciaDesde, vigenciaHasta } = req.body;
 
     if (!codigo || !nombre || valor === undefined || !vigenciaDesde) {
       return res.status(400).json({ success: false, error: 'Faltan campos requeridos: codigo, nombre, valor, vigenciaDesde.' });
     }
 
-    const param = await ParametroNomina.create({
-      empresaId, codigo, nombre, descripcion, valor, tipoValor, vigenciaDesde,
-      vigenciaHasta: vigenciaHasta || null
+    const param = await prisma.parametroNomina.create({
+      data: {
+        empresaId,
+        codigo:        String(codigo).toUpperCase().trim(),
+        nombre,
+        descripcion:   descripcion || null,
+        valor:         parseFloat(valor),
+        tipoValor:     tipoValor || 'valor_fijo',
+        vigenciaDesde: new Date(vigenciaDesde),
+        vigenciaHasta: vigenciaHasta ? new Date(vigenciaHasta) : null
+      }
     });
     res.status(201).json({ success: true, parametro: param });
   } catch (err) {
-    if (err.code === 11000) {
+    if (err.code === 'P2002') {
       return res.status(409).json({ success: false, error: 'Ya existe un parámetro con ese código y vigencia para esta empresa.' });
     }
     res.status(500).json({ success: false, error: err.message });
@@ -56,13 +69,21 @@ exports.crearParametro = async (req, res) => {
 
 exports.actualizarParametro = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const param = await ParametroNomina.findOne({ _id: req.params.id, empresaId });
-    if (!param) return res.status(404).json({ success: false, error: 'Parámetro no encontrado.' });
+    const empresaId = getPgEmpresaId(req);
+    const existing = await prisma.parametroNomina.findFirst({ where: { id: req.params.id, empresaId } });
+    if (!existing) return res.status(404).json({ success: false, error: 'Parámetro no encontrado.' });
 
-    const campos = ['nombre', 'descripcion', 'valor', 'tipoValor', 'vigenciaDesde', 'vigenciaHasta'];
-    campos.forEach(c => { if (req.body[c] !== undefined) param[c] = req.body[c]; });
-    await param.save();
+    const data = {};
+    const permitidos = ['codigo', 'nombre', 'descripcion', 'valor', 'tipoValor', 'vigenciaDesde', 'vigenciaHasta'];
+    permitidos.forEach(c => {
+      if (req.body[c] !== undefined) {
+        if (c === 'vigenciaDesde' || c === 'vigenciaHasta') data[c] = req.body[c] ? new Date(req.body[c]) : null;
+        else if (c === 'valor') data[c] = parseFloat(req.body[c]);
+        else if (c === 'codigo') data[c] = String(req.body[c]).toUpperCase().trim();
+        else data[c] = req.body[c];
+      }
+    });
+    const param = await prisma.parametroNomina.update({ where: { id: req.params.id }, data });
     res.json({ success: true, parametro: param });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -71,17 +92,14 @@ exports.actualizarParametro = async (req, res) => {
 
 exports.cambiarEstadoParametro = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
+    const empresaId = getPgEmpresaId(req);
     const { estado } = req.body;
     if (!['activo', 'inactivo'].includes(estado)) {
       return res.status(400).json({ success: false, error: 'Estado debe ser activo o inactivo.' });
     }
-    const param = await ParametroNomina.findOneAndUpdate(
-      { _id: req.params.id, empresaId },
-      { estado },
-      { new: true }
-    );
-    if (!param) return res.status(404).json({ success: false, error: 'Parámetro no encontrado.' });
+    const existing = await prisma.parametroNomina.findFirst({ where: { id: req.params.id, empresaId } });
+    if (!existing) return res.status(404).json({ success: false, error: 'Parámetro no encontrado.' });
+    const param = await prisma.parametroNomina.update({ where: { id: req.params.id }, data: { estado } });
     res.json({ success: true, parametro: param });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -94,12 +112,16 @@ exports.cambiarEstadoParametro = async (req, res) => {
 
 exports.listarConceptos = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const filtro = { empresaId };
-    if (req.query.estado) filtro.estado = req.query.estado;
-    if (req.query.tipo)   filtro.tipo   = req.query.tipo;
+    const empresaId = getPgEmpresaId(req);
+    if (!empresaId) return res.json({ success: true, conceptos: [] });
+    const where = { empresaId };
+    if (req.query.estado) where.estado = req.query.estado;
+    if (req.query.tipo)   where.tipo   = req.query.tipo;
 
-    const conceptos = await ConceptoNomina.find(filtro).sort({ orden: 1, codigo: 1 });
+    const conceptos = await prisma.conceptoNomina.findMany({
+      where,
+      orderBy: [{ orden: 'asc' }, { codigo: 'asc' }]
+    });
     res.json({ success: true, conceptos });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Error al listar conceptos de nómina.' });
@@ -108,21 +130,32 @@ exports.listarConceptos = async (req, res) => {
 
 exports.crearConcepto = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
+    const empresaId = getPgEmpresaId(req);
     const { codigo, nombre, descripcion, tipo, referenciaParametro, base, formula, afectaTotal, orden, vigenciaDesde, vigenciaHasta } = req.body;
 
     if (!codigo || !nombre || !tipo || !vigenciaDesde) {
       return res.status(400).json({ success: false, error: 'Faltan campos requeridos: codigo, nombre, tipo, vigenciaDesde.' });
     }
 
-    const concepto = await ConceptoNomina.create({
-      empresaId, codigo, nombre, descripcion, tipo, referenciaParametro,
-      base: base || 'salarioBase', formula, afectaTotal, orden: orden || 0,
-      vigenciaDesde, vigenciaHasta: vigenciaHasta || null
+    const concepto = await prisma.conceptoNomina.create({
+      data: {
+        empresaId,
+        codigo:              String(codigo).toUpperCase().trim(),
+        nombre,
+        descripcion:         descripcion || null,
+        tipo,
+        referenciaParametro: referenciaParametro || null,
+        base:                base || 'salarioBase',
+        formula:             formula || null,
+        afectaTotal:         afectaTotal !== undefined ? Boolean(afectaTotal) : true,
+        orden:               orden || 0,
+        vigenciaDesde:       new Date(vigenciaDesde),
+        vigenciaHasta:       vigenciaHasta ? new Date(vigenciaHasta) : null
+      }
     });
     res.status(201).json({ success: true, concepto });
   } catch (err) {
-    if (err.code === 11000) {
+    if (err.code === 'P2002') {
       return res.status(409).json({ success: false, error: 'Ya existe un concepto con ese código para esta empresa.' });
     }
     res.status(500).json({ success: false, error: err.message });
@@ -131,13 +164,19 @@ exports.crearConcepto = async (req, res) => {
 
 exports.actualizarConcepto = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const concepto = await ConceptoNomina.findOne({ _id: req.params.id, empresaId });
-    if (!concepto) return res.status(404).json({ success: false, error: 'Concepto no encontrado.' });
+    const empresaId = getPgEmpresaId(req);
+    const existing = await prisma.conceptoNomina.findFirst({ where: { id: req.params.id, empresaId } });
+    if (!existing) return res.status(404).json({ success: false, error: 'Concepto no encontrado.' });
 
-    const campos = ['nombre', 'descripcion', 'tipo', 'referenciaParametro', 'base', 'formula', 'afectaTotal', 'orden', 'vigenciaDesde', 'vigenciaHasta'];
-    campos.forEach(c => { if (req.body[c] !== undefined) concepto[c] = req.body[c]; });
-    await concepto.save();
+    const data = {};
+    const permitidos = ['nombre', 'descripcion', 'tipo', 'referenciaParametro', 'base', 'formula', 'afectaTotal', 'orden', 'vigenciaDesde', 'vigenciaHasta'];
+    permitidos.forEach(c => {
+      if (req.body[c] !== undefined) {
+        if (c === 'vigenciaDesde' || c === 'vigenciaHasta') data[c] = req.body[c] ? new Date(req.body[c]) : null;
+        else data[c] = req.body[c];
+      }
+    });
+    const concepto = await prisma.conceptoNomina.update({ where: { id: req.params.id }, data });
     res.json({ success: true, concepto });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -146,17 +185,14 @@ exports.actualizarConcepto = async (req, res) => {
 
 exports.cambiarEstadoConcepto = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
+    const empresaId = getPgEmpresaId(req);
     const { estado } = req.body;
     if (!['activo', 'inactivo'].includes(estado)) {
       return res.status(400).json({ success: false, error: 'Estado debe ser activo o inactivo.' });
     }
-    const concepto = await ConceptoNomina.findOneAndUpdate(
-      { _id: req.params.id, empresaId },
-      { estado },
-      { new: true }
-    );
-    if (!concepto) return res.status(404).json({ success: false, error: 'Concepto no encontrado.' });
+    const existing = await prisma.conceptoNomina.findFirst({ where: { id: req.params.id, empresaId } });
+    if (!existing) return res.status(404).json({ success: false, error: 'Concepto no encontrado.' });
+    const concepto = await prisma.conceptoNomina.update({ where: { id: req.params.id }, data: { estado } });
     res.json({ success: true, concepto });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -169,8 +205,9 @@ exports.cambiarEstadoConcepto = async (req, res) => {
 
 exports.calcularIndividual = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req, req.body);
-    const usuarioId = getUsuarioId(req);
+    const pgEmpresaId = getPgEmpresaId(req, req.body);
+    const empresaId   = getMongoEmpresaId(req, req.body);
+    const pgUsuarioId = getPgUsuarioId(req);
     const { documentoEmpleado, fechaInicio, fechaFin } = req.body;
 
     if (!documentoEmpleado) {
@@ -182,10 +219,9 @@ exports.calcularIndividual = async (req, res) => {
 
     const liquidacion = await motor.calcularIndividual({
       documento: documentoEmpleado,
-      fechaInicio,
-      fechaFin,
+      fechaInicio, fechaFin,
+      pgEmpresaId, pgUsuarioId,
       empresaId,
-      usuarioId,
       guardar: true
     });
 
@@ -198,8 +234,9 @@ exports.calcularIndividual = async (req, res) => {
 
 exports.calcularPorArea = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req, req.body);
-    const usuarioId = getUsuarioId(req);
+    const pgEmpresaId = getPgEmpresaId(req, req.body);
+    const empresaId   = getMongoEmpresaId(req, req.body);
+    const pgUsuarioId = getPgUsuarioId(req);
     const { areaId, fechaInicio, fechaFin } = req.body;
 
     if (!areaId) {
@@ -209,7 +246,7 @@ exports.calcularPorArea = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Las fechas fechaInicio y fechaFin son requeridas.' });
     }
 
-    const resultado = await motor.calcularPorArea({ areaId, fechaInicio, fechaFin, empresaId, usuarioId });
+    const resultado = await motor.calcularPorArea({ areaId, fechaInicio, fechaFin, pgEmpresaId, pgUsuarioId, empresaId });
     res.json({ success: true, ...resultado });
   } catch (err) {
     const status = err.status || 500;
@@ -223,14 +260,23 @@ exports.calcularPorArea = async (req, res) => {
 
 exports.listarLiquidaciones = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const filtro = { empresaId };
-    if (req.query.estado)            filtro.estado             = req.query.estado;
-    if (req.query.documentoEmpleado) filtro.documentoEmpleado  = req.query.documentoEmpleado;
+    const empresaId = getPgEmpresaId(req);
+    if (!empresaId) return res.json({ success: true, liquidaciones: [] });
+    const where = { empresaId };
+    if (req.query.estado) where.estado = req.query.estado;
+    if (req.query.documentoEmpleado) {
+      where.empleado = { documento: req.query.documentoEmpleado };
+    }
 
-    const liquidaciones = await LiquidacionNomina.find(filtro)
-      .sort({ createdAt: -1 })
-      .limit(200);
+    const liquidaciones = await prisma.liquidacionNomina.findMany({
+      where,
+      include: {
+        empleado: { select: { nombre: true, apellidos: true, documento: true } },
+        detalles: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200
+    });
     res.json({ success: true, liquidaciones });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Error al listar liquidaciones.' });
@@ -239,8 +285,14 @@ exports.listarLiquidaciones = async (req, res) => {
 
 exports.obtenerLiquidacion = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const liq = await LiquidacionNomina.findOne({ _id: req.params.id, empresaId });
+    const empresaId = getPgEmpresaId(req);
+    const liq = await prisma.liquidacionNomina.findFirst({
+      where: { id: req.params.id, empresaId },
+      include: {
+        empleado: { select: { nombre: true, apellidos: true, documento: true } },
+        detalles: true
+      }
+    });
     if (!liq) return res.status(404).json({ success: false, error: 'Liquidación no encontrada.' });
     res.json({ success: true, liquidacion: liq });
   } catch (err) {
@@ -250,18 +302,18 @@ exports.obtenerLiquidacion = async (req, res) => {
 
 exports.aprobarLiquidacion = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const usuarioId = getUsuarioId(req);
-    const liq = await LiquidacionNomina.findOne({ _id: req.params.id, empresaId });
+    const empresaId   = getPgEmpresaId(req);
+    const pgUsuarioId = getPgUsuarioId(req);
+    const liq = await prisma.liquidacionNomina.findFirst({ where: { id: req.params.id, empresaId } });
     if (!liq) return res.status(404).json({ success: false, error: 'Liquidación no encontrada.' });
     if (liq.estado !== 'borrador') {
       return res.status(400).json({ success: false, error: `No se puede aprobar una liquidación en estado "${liq.estado}".` });
     }
-    liq.estado         = 'aprobada';
-    liq.aprobadoPor    = usuarioId;
-    liq.fechaAprobacion = new Date();
-    await liq.save();
-    res.json({ success: true, liquidacion: liq });
+    const updated = await prisma.liquidacionNomina.update({
+      where: { id: req.params.id },
+      data:  { estado: 'aprobada', aprobadoPorId: pgUsuarioId, fechaAprobacion: new Date() }
+    });
+    res.json({ success: true, liquidacion: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -269,15 +321,14 @@ exports.aprobarLiquidacion = async (req, res) => {
 
 exports.anularLiquidacion = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
-    const liq = await LiquidacionNomina.findOne({ _id: req.params.id, empresaId });
+    const empresaId = getPgEmpresaId(req);
+    const liq = await prisma.liquidacionNomina.findFirst({ where: { id: req.params.id, empresaId } });
     if (!liq) return res.status(404).json({ success: false, error: 'Liquidación no encontrada.' });
     if (liq.estado === 'aprobada') {
       return res.status(400).json({ success: false, error: 'No se puede anular una liquidación ya aprobada.' });
     }
-    liq.estado = 'anulada';
-    await liq.save();
-    res.json({ success: true, liquidacion: liq });
+    const updated = await prisma.liquidacionNomina.update({ where: { id: req.params.id }, data: { estado: 'anulada' } });
+    res.json({ success: true, liquidacion: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -285,21 +336,27 @@ exports.anularLiquidacion = async (req, res) => {
 
 exports.reportes = async (req, res) => {
   try {
-    const empresaId = getEmpresaId(req);
+    const empresaId = getPgEmpresaId(req);
+    if (!empresaId) return res.json({ success: true, resumen: { totalLiquidaciones: 0, totalDevengado: 0, totalDeducciones: 0, totalNeto: 0 }, liquidaciones: [] });
     const { fechaInicio, fechaFin, estado } = req.query;
 
-    const filtro = { empresaId };
-    if (estado) filtro.estado = estado;
+    const where = { empresaId };
+    if (estado) where.estado = estado;
     if (fechaInicio && fechaFin) {
-      filtro.periodoInicio = { $gte: new Date(fechaInicio) };
-      filtro.periodoFin    = { $lte: new Date(fechaFin) };
+      where.periodoInicio = { gte: new Date(fechaInicio) };
+      where.periodoFin    = { lte: new Date(fechaFin) };
     }
 
-    const liquidaciones = await LiquidacionNomina.find(filtro).sort({ periodoInicio: -1 }).limit(500);
+    const liquidaciones = await prisma.liquidacionNomina.findMany({
+      where,
+      include: { empleado: { select: { nombre: true, apellidos: true, documento: true } } },
+      orderBy: { periodoInicio: 'desc' },
+      take: 500
+    });
 
-    const totalDevengado    = liquidaciones.reduce((s, l) => s + (l.totalDevengado || 0), 0);
-    const totalDeducciones  = liquidaciones.reduce((s, l) => s + (l.totalDeducciones || 0), 0);
-    const totalNeto         = liquidaciones.reduce((s, l) => s + (l.netoPagar || 0), 0);
+    const totalDevengado   = liquidaciones.reduce((s, l) => s + Number(l.totalDevengado || 0), 0);
+    const totalDeducciones = liquidaciones.reduce((s, l) => s + Number(l.totalDeducciones || 0), 0);
+    const totalNeto        = liquidaciones.reduce((s, l) => s + Number(l.netoPagar || 0), 0);
 
     res.json({
       success: true,

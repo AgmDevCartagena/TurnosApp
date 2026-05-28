@@ -19,19 +19,21 @@ function requireTenant(req, res, next) {
   }
 
   if (usuario.rol === 'super_admin') {
-    req.empresaId = null;
+    req.empresaId    = null;   // MongoDB ObjectId — legacy
+    req.pgEmpresaId  = null;   // PostgreSQL UUID — Prisma
     req.esSuperAdmin = true;
     return next();
   }
 
-  if (!usuario.empresaId) {
+  if (!usuario.empresaId && !usuario.pgEmpresaId) {
     return res.status(403).json({
       success: false,
       error: 'Tu usuario no tiene empresa asignada. Contacta al administrador.'
     });
   }
 
-  req.empresaId = usuario.empresaId;
+  req.empresaId   = usuario.empresaId   || null; // MongoDB ObjectId
+  req.pgEmpresaId = usuario.pgEmpresaId || null; // PostgreSQL UUID
   req.esSuperAdmin = false;
   next();
 }

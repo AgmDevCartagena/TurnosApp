@@ -1,23 +1,30 @@
 # Dockerfile para el Backend Node.js
-FROM node:18-alpine
+FROM node:20-alpine
+
+# Dependencias del sistema necesarias para Prisma en Alpine
+RUN apk add --no-cache openssl libc6-compat
 
 # Establecer directorio de trabajo
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
-COPY backend/package*.json ./
+# Copiar manifiesto de dependencias
+COPY backend/package.json ./
 
-# Instalar dependencias
-RUN npm install --production
+# Instalar dependencias de producción con npm
+# (npm ejecuta postinstall por defecto, necesario para que Prisma genere sus binarios)
+RUN npm install --production --no-package-lock
 
-# Copiar el código del backend
+# Copiar el código del backend (incluye prisma/schema.prisma)
 COPY backend/ ./
+
+# Generar Prisma Client (no requiere conexión a BD)
+RUN npx prisma generate
 
 # Hacer ejecutable el script de entrada
 RUN chmod +x docker-entrypoint.sh
 
-# Crear directorio public si no existe
-RUN mkdir -p ./public
+# Crear directorios necesarios
+RUN mkdir -p ./public ./uploads/empresas/logos
 
 # Copiar los builds de React (estos se construyen antes de hacer docker build)
 COPY frontend/nomina-build/ ./public/nomina-build/

@@ -16,18 +16,10 @@ function AsignacionTurnos() {
     incluirAlmuerzo: true,
     diasDescanso: [] // Array con los días de la semana que descansa: [0,6] = Domingo y Sábado
   })
+  const [areas, setAreas] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
-
-  // Lista de áreas disponibles
-  const areas = [
-    'ADMINISTRACION',
-    'CENTRO_CONTROL', 
-    'OPERACIONES',
-    'CONDUCTORES',
-    'MANTENIMIENTO'
-  ]
 
   // Días de la semana para seleccionar descansos
   const diasSemana = [
@@ -42,6 +34,7 @@ function AsignacionTurnos() {
 
   useEffect(() => {
     cargarEmpleados()
+    cargarAreas()
   }, [])
 
   // Filtrar empleados cuando cambia la búsqueda o el filtro de área
@@ -75,6 +68,18 @@ function AsignacionTurnos() {
       }
     } catch (err) {
       console.error('Error al cargar empleados:', err)
+    }
+  }
+
+  const cargarAreas = async () => {
+    try {
+      const response = await fetch('/api/turnos/areas')
+      const data = await response.json()
+      if (response.ok) {
+        setAreas(data.areas || [])
+      }
+    } catch (err) {
+      console.error('Error al cargar áreas:', err)
     }
   }
 
@@ -158,14 +163,17 @@ function AsignacionTurnos() {
 
   // Función para formatear nombre del área
   const formatearArea = (area) => {
-    const nombres = {
-      'ADMINISTRACION': '🏛️ Administración',
-      'CENTRO_CONTROL': '🎛️ Centro de Control',
-      'OPERACIONES': '⚙️ Operaciones',
-      'CONDUCTORES': '🚌 Conductores',
-      'MANTENIMIENTO': '🔧 Mantenimiento'
+    if (!area) return area
+    const iconos = {
+      'ADMINISTRACION': '🏛️', 'ADMINISTRACIÓN': '🏛️',
+      'CENTRO_CONTROL': '🎛️', 'CENTRO DE CONTROL': '🎛️',
+      'OPERACIONES': '⚙️',
+      'CONDUCTORES': '🚌',
+      'MANTENIMIENTO': '🔧',
+      'TAQUILLEROS': '🎫'
     }
-    return nombres[area] || area
+    const icono = iconos[area.toUpperCase()] || '🏢'
+    return `${icono} ${area.charAt(0).toUpperCase() + area.slice(1).toLowerCase()}`
   }
 
   return (

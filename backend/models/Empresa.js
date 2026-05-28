@@ -22,7 +22,7 @@ const EmpresaSchema = new mongoose.Schema({
     enum: ['activa', 'inactiva'],
     default: 'activa'
   },
-  logo: {
+  logoUrl: {
     type: String,
     default: null
   },

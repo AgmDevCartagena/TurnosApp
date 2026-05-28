@@ -1,6 +1,8 @@
-﻿const Usuario = require('../models/Usuario');
+﻿const bcrypt  = require('bcryptjs');
+const prisma  = require('../lib/prisma');
+// MongoDB — solo para sincronización mientras turnoController no está migrado
+const Usuario = require('../models/Usuario');
 const Empresa = require('../models/Empresa');
-const Area    = require('../models/Area');
 
 /**
  * Login de usuario
@@ -43,15 +45,38 @@ exports.login = async (req, res) => {
 
     const modulosEfectivos = (usuario.modulosPermitidos || []).filter(m => modulosEmpresa.includes(m));
 
+    // Lookup en PostgreSQL para obtener UUIDs (migración gradual)
+    let pgId = null;
+    let pgEmpresaId = null;
+    let logoUrl = null;
+    try {
+      const pgUser = await prisma.usuario.findUnique({ where: { username: usuario.username } });
+      if (pgUser) {
+        pgId = pgUser.id;
+        pgEmpresaId = pgUser.empresaId || null;
+        await prisma.usuario.update({ where: { id: pgUser.id }, data: { ultimoAcceso: new Date() } });
+        if (pgEmpresaId) {
+          const pgEmpresa = await prisma.empresa.findUnique({
+            where: { id: pgEmpresaId },
+            select: { logoUrl: true }
+          });
+          logoUrl = pgEmpresa?.logoUrl || null;
+        }
+      }
+    } catch (_) { /* PostgreSQL no disponible o usuario no migrado aún */ }
+
     req.session.usuario = {
       id: usuario._id,
+      pgId,
       username: usuario.username,
       nombre: usuario.nombre,
       rol: usuario.rol,
       modulosPermitidos: modulosEfectivos,
       areasPermitidas: usuario.areasPermitidas || [],
       empresaId: usuario.empresaId || null,
-      nombreEmpresa: empresa ? empresa.nombre : null
+      pgEmpresaId,
+      nombreEmpresa: empresa ? empresa.nombre : null,
+      logoUrl
     };
     req.session.autenticado = true;
 
@@ -64,7 +89,9 @@ exports.login = async (req, res) => {
         modulosPermitidos: modulosEfectivos,
         areasPermitidas: usuario.areasPermitidas || [],
         empresaId: usuario.empresaId || null,
-        nombreEmpresa: empresa ? empresa.nombre : null
+        pgEmpresaId,
+        nombreEmpresa: empresa ? empresa.nombre : null,
+        logoUrl
       }
     });
   } catch (error) {
@@ -100,36 +127,37 @@ exports.verificarSesion = (req, res) => {
  */
 exports.crearUsuario = async (req, res) => {
   try {
-    const usuarioSesion = req.session.usuario;
-    const rolesPermitidos = ['admin', 'super_admin'];
-    if (!usuarioSesion || !rolesPermitidos.includes(usuarioSesion.rol)) {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
       return res.status(403).json({ success: false, error: 'No tienes permisos para crear usuarios' });
     }
 
     const { username, password, nombre, rol, modulosPermitidos, areasPermitidas, empresaId } = req.body;
-
     if (!username || !password || !nombre) {
       return res.status(400).json({ success: false, error: 'Datos incompletos' });
     }
 
-    const existe = await Usuario.findOne({ username: username.toLowerCase().trim() });
+    const usernameNorm = username.toLowerCase().trim();
+
+    // Empresa: admin usa la suya, super_admin elige
+    const pgEmpresaId = sesion.rol === 'super_admin'
+      ? (empresaId || null)
+      : (sesion.pgEmpresaId || null);
+
+    // Verificar unicidad en PostgreSQL
+    const existe = await prisma.usuario.findUnique({ where: { username: usernameNorm } });
     if (existe) return res.status(400).json({ success: false, error: 'El usuario ya existe' });
 
-    // Un admin solo puede crear en su empresa; super_admin puede elegir
-    let empresaAsignada = empresaId || null;
-    if (usuarioSesion.rol !== 'super_admin') {
-      empresaAsignada = usuarioSesion.empresaId || null;
-    }
-
-    // Validar que las áreas existan y estén activas en la empresa
+    const modulos = modulosPermitidos || ['turnos', 'nomina'];
     const areasNorm = (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean);
-    if (areasNorm.length > 0 && empresaAsignada) {
-      const areasValidas = await Area.find({
-        empresaId: empresaAsignada,
-        nombre: { $in: areasNorm },
-        estado: 'activa'
+
+    // Validar y obtener IDs de áreas en PostgreSQL
+    let areasPg = [];
+    if (areasNorm.length > 0 && pgEmpresaId) {
+      areasPg = await prisma.area.findMany({
+        where: { empresaId: pgEmpresaId, nombre: { in: areasNorm }, estado: 'activo' }
       });
-      const nombresValidos = areasValidas.map(a => a.nombre);
+      const nombresValidos = areasPg.map(a => a.nombre);
       const invalidas = areasNorm.filter(a => !nombresValidos.includes(a));
       if (invalidas.length > 0) {
         return res.status(400).json({
@@ -139,32 +167,68 @@ exports.crearUsuario = async (req, res) => {
       }
     }
 
-    const nuevoUsuario = new Usuario({
-      username: username.toLowerCase().trim(),
-      password,
-      nombre,
-      rol: rol || 'usuario',
-      modulosPermitidos: modulosPermitidos || ['turnos', 'nomina'],
-      areasPermitidas: areasNorm,
-      empresaId: empresaAsignada
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // ── PostgreSQL (fuente de verdad) ──────────────────────────────────────────
+    const pgUser = await prisma.usuario.create({
+      data: {
+        username:  usernameNorm,
+        passwordHash,
+        nombre,
+        rol:       rol || 'usuario',
+        empresaId: pgEmpresaId,
+        activo:    true,
+        modulosPermitidos: {
+          create: modulos.map(m => ({ modulo: m }))
+        },
+        areas: {
+          create: areasPg.map(a => ({ areaId: a.id }))
+        }
+      }
     });
 
-    await nuevoUsuario.save();
+    // ── MongoDB (sync para turnoController no migrado) ─────────────────────────
+    try {
+      // Obtener empresaId MongoDB correspondiente al pgEmpresaId
+      const pgEmpresa = pgEmpresaId
+        ? await prisma.empresa.findUnique({ where: { id: pgEmpresaId }, select: { nit: true, nombre: true } })
+        : null;
+      const mongoEmpresa = pgEmpresa
+        ? await Empresa.findOne({ $or: [{ nit: pgEmpresa.nit }, { nombre: pgEmpresa.nombre }] })
+        : null;
+
+      await Usuario.create({
+        username:         usernameNorm,
+        password:         passwordHash,
+        nombre,
+        rol:              rol || 'usuario',
+        modulosPermitidos: modulos,
+        areasPermitidas:  areasNorm,
+        empresaId:        mongoEmpresa?._id || null,
+        activo:           true
+      });
+    } catch (syncErr) {
+      console.warn('⚠️ Sync MongoDB fallida (no crítico):', syncErr.message);
+    }
 
     res.status(201).json({
       success: true,
       message: 'Usuario creado exitosamente',
       usuario: {
-        username: nuevoUsuario.username,
-        nombre: nuevoUsuario.nombre,
-        rol: nuevoUsuario.rol,
-        modulosPermitidos: nuevoUsuario.modulosPermitidos,
-        areasPermitidas: nuevoUsuario.areasPermitidas,
-        empresaId: nuevoUsuario.empresaId
+        id:               pgUser.id,
+        username:         pgUser.username,
+        nombre:           pgUser.nombre,
+        rol:              pgUser.rol,
+        modulosPermitidos: modulos,
+        areasPermitidas:  areasNorm,
+        empresaId:        pgEmpresaId
       }
     });
   } catch (error) {
     console.error('Error al crear usuario:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ success: false, error: 'El usuario ya existe' });
+    }
     res.status(500).json({ success: false, error: 'Error al crear usuario' });
   }
 };
@@ -174,19 +238,38 @@ exports.crearUsuario = async (req, res) => {
  */
 exports.listarUsuarios = async (req, res) => {
   try {
-    const usuarioSesion = req.session.usuario;
-    const rolesPermitidos = ['admin', 'super_admin'];
-    if (!usuarioSesion || !rolesPermitidos.includes(usuarioSesion.rol)) {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
       return res.status(403).json({ success: false, error: 'No tienes permisos para ver usuarios' });
     }
 
-    let filtro = {};
-    if (usuarioSesion.rol !== 'super_admin' && usuarioSesion.empresaId) {
-      filtro.empresaId = usuarioSesion.empresaId;
+    const where = {};
+    if (sesion.rol !== 'super_admin' && sesion.pgEmpresaId) {
+      where.empresaId = sesion.pgEmpresaId;
     }
 
-    const usuarios = await Usuario.find(filtro, '-password').sort({ createdAt: -1 });
-    res.json({ success: true, usuarios });
+    const usuarios = await prisma.usuario.findMany({
+      where,
+      select: {
+        id: true, username: true, nombre: true, rol: true,
+        activo: true, ultimoAcceso: true, createdAt: true,
+        empresaId: true,
+        empresa:  { select: { nombre: true } },
+        modulosPermitidos: true,
+        areas: { include: { area: { select: { nombre: true } } } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Normalizar para compatibilidad con frontend
+    const resultado = usuarios.map(u => ({
+      ...u,
+      modulosPermitidos: u.modulosPermitidos.map(m => m.modulo),
+      areasPermitidas:   u.areas.map(ua => ua.area.nombre),
+      nombreEmpresa:     u.empresa?.nombre || null
+    }));
+
+    res.json({ success: true, usuarios: resultado });
   } catch (error) {
     console.error('Error al listar usuarios:', error);
     res.status(500).json({ success: false, error: 'Error al listar usuarios' });
@@ -194,91 +277,108 @@ exports.listarUsuarios = async (req, res) => {
 };
 
 /**
- * Editar usuario (admin o super_admin)
+ * Editar usuario (admin o super_admin) — id = PostgreSQL UUID
  */
 exports.editarUsuario = async (req, res) => {
   try {
-    const usuarioSesion = req.session.usuario;
-    const rolesPermitidos = ['admin', 'super_admin'];
-    if (!usuarioSesion || !rolesPermitidos.includes(usuarioSesion.rol)) {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
       return res.status(403).json({ success: false, error: 'No tienes permisos para editar usuarios' });
     }
     const { id } = req.params;
     const { nombre, username, rol, modulosPermitidos, areasPermitidas } = req.body;
-    const usuario = await Usuario.findById(id);
-    if (!usuario) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
 
-    // Admin solo puede editar usuarios de su empresa
-    if (usuarioSesion.rol !== 'super_admin') {
-      if (usuario.empresaId?.toString() !== usuarioSesion.empresaId?.toString()) {
-        return res.status(403).json({ success: false, error: 'No puedes editar usuarios de otra empresa' });
-      }
+    const pgUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+
+    if (sesion.rol !== 'super_admin' && pgUser.empresaId !== sesion.pgEmpresaId) {
+      return res.status(403).json({ success: false, error: 'No puedes editar usuarios de otra empresa' });
     }
 
-    usuario.nombre = nombre || usuario.nombre;
-    usuario.username = username || usuario.username;
-    usuario.rol = rol || usuario.rol;
-    usuario.modulosPermitidos = modulosPermitidos || usuario.modulosPermitidos;
+    const data = {};
+    if (nombre   !== undefined) data.nombre   = nombre;
+    if (username !== undefined) data.username = username.toLowerCase().trim();
+    if (rol      !== undefined) data.rol      = rol;
 
+    // Reemplazar módulos si se proveen
+    if (modulosPermitidos !== undefined) {
+      await prisma.usuarioModulo.deleteMany({ where: { usuarioId: id } });
+      data.modulosPermitidos = {
+        create: modulosPermitidos.map(m => ({ modulo: m }))
+      };
+    }
+
+    // Reemplazar áreas si se proveen
     if (areasPermitidas !== undefined) {
       const areasNorm = (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean);
-      const empresaRef = usuario.empresaId;
-      if (areasNorm.length > 0 && empresaRef) {
-        const areasValidas = await Area.find({
-          empresaId: empresaRef,
-          nombre: { $in: areasNorm },
-          estado: 'activa'
+      await prisma.usuarioArea.deleteMany({ where: { usuarioId: id } });
+      if (areasNorm.length > 0 && pgUser.empresaId) {
+        const areasPg = await prisma.area.findMany({
+          where: { empresaId: pgUser.empresaId, nombre: { in: areasNorm } }
         });
-        const nombresValidos = areasValidas.map(a => a.nombre);
-        // Conservar áreas previamente asignadas aunque ahora estén inactivas
-        const areasAnteriores = usuario.areasPermitidas || [];
-        const areasHistoricas = areasAnteriores.filter(a => !areasNorm.includes(a));
-        const invalidas = areasNorm.filter(a => !nombresValidos.includes(a) && !areasAnteriores.includes(a));
-        if (invalidas.length > 0) {
-          return res.status(400).json({
-            success: false,
-            error: `Áreas no válidas o inactivas para nuevas asignaciones: ${invalidas.join(', ')}`
-          });
-        }
-        usuario.areasPermitidas = areasNorm;
-      } else {
-        usuario.areasPermitidas = areasNorm;
+        data.areas = { create: areasPg.map(a => ({ areaId: a.id })) };
       }
     }
 
-    await usuario.save();
-    res.json({ success: true, usuario });
+    const actualizado = await prisma.usuario.update({ where: { id }, data });
+
+    // ── Sync MongoDB ──────────────────────────────────────────────────────────
+    try {
+      const areasNorm2 = areasPermitidas !== undefined
+        ? (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean)
+        : undefined;
+      const mongoUpdate = {};
+      if (nombre   !== undefined) mongoUpdate.nombre   = nombre;
+      if (username !== undefined) mongoUpdate.username = username.toLowerCase().trim();
+      if (rol      !== undefined) mongoUpdate.rol      = rol;
+      if (modulosPermitidos !== undefined) mongoUpdate.modulosPermitidos = modulosPermitidos;
+      if (areasNorm2        !== undefined) mongoUpdate.areasPermitidas   = areasNorm2;
+      await Usuario.findOneAndUpdate({ username: pgUser.username }, mongoUpdate);
+    } catch (syncErr) {
+      console.warn('⚠️ Sync MongoDB editarUsuario fallida:', syncErr.message);
+    }
+
+    res.json({ success: true, usuario: actualizado });
   } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     res.status(500).json({ success: false, error: 'Error al editar usuario' });
   }
 };
 
 /**
- * Cambiar contraseña de usuario (admin o super_admin)
+ * Cambiar contraseña de usuario (admin o super_admin) — id = PostgreSQL UUID
  */
 exports.cambiarContrasena = async (req, res) => {
   try {
-    const usuarioSesion = req.session.usuario;
-    const rolesPermitidos = ['admin', 'super_admin'];
-    if (!usuarioSesion || !rolesPermitidos.includes(usuarioSesion.rol)) {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
       return res.status(403).json({ success: false, error: 'No tienes permisos para cambiar contraseñas' });
     }
     const { id } = req.params;
     const { password } = req.body;
     if (!password) return res.status(400).json({ success: false, error: 'Contraseña requerida' });
-    const usuario = await Usuario.findById(id);
-    if (!usuario) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
 
-    if (usuarioSesion.rol !== 'super_admin') {
-      if (usuario.empresaId?.toString() !== usuarioSesion.empresaId?.toString()) {
-        return res.status(403).json({ success: false, error: 'No puedes cambiar contraseña de usuario de otra empresa' });
-      }
+    const pgUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+
+    if (sesion.rol !== 'super_admin' && pgUser.empresaId !== sesion.pgEmpresaId) {
+      return res.status(403).json({ success: false, error: 'No puedes cambiar contraseña de usuario de otra empresa' });
     }
 
-    usuario.password = password;
-    await usuario.save();
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await prisma.usuario.update({ where: { id }, data: { passwordHash } });
+
+    // Sync MongoDB
+    try {
+      await Usuario.findOneAndUpdate({ username: pgUser.username }, { password: passwordHash });
+    } catch (syncErr) {
+      console.warn('⚠️ Sync MongoDB cambiarContrasena fallida:', syncErr.message);
+    }
+
     res.json({ success: true });
   } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     res.status(500).json({ success: false, error: 'Error al cambiar contraseña' });
   }
 };
@@ -301,14 +401,28 @@ exports.cambiarMiContrasena = async (req, res) => {
     if (passwordNueva.length < 4) {
       return res.status(400).json({ success: false, error: 'La contraseña debe tener al menos 4 caracteres' });
     }
-    const usuario = await Usuario.findById(req.session.usuario.id);
-    if (!usuario) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-    const passwordValida = await usuario.comparePassword(passwordActual);
+
+    const pgId = req.session.usuario.pgId;
+    if (!pgId) return res.status(404).json({ success: false, error: 'Usuario no encontrado en PostgreSQL' });
+
+    const pgUser = await prisma.usuario.findUnique({ where: { id: pgId } });
+    if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+
+    const passwordValida = await bcrypt.compare(passwordActual, pgUser.passwordHash);
     if (!passwordValida) {
       return res.status(401).json({ success: false, error: 'La contraseña actual es incorrecta' });
     }
-    usuario.password = passwordNueva;
-    await usuario.save();
+
+    const nuevoHash = await bcrypt.hash(passwordNueva, 12);
+    await prisma.usuario.update({ where: { id: pgId }, data: { passwordHash: nuevoHash } });
+
+    // Sync MongoDB
+    try {
+      await Usuario.findOneAndUpdate({ username: pgUser.username }, { password: nuevoHash });
+    } catch (syncErr) {
+      console.warn('⚠️ Sync MongoDB cambiarMiContrasena fallida:', syncErr.message);
+    }
+
     res.json({ success: true, message: 'Contraseña actualizada correctamente' });
   } catch (error) {
     console.error('Error al cambiar contraseña:', error);
@@ -317,28 +431,34 @@ exports.cambiarMiContrasena = async (req, res) => {
 };
 
 /**
- * Eliminar usuario (admin o super_admin)
+ * Eliminar usuario (admin o super_admin) — id = PostgreSQL UUID
  */
 exports.eliminarUsuario = async (req, res) => {
   try {
-    const usuarioSesion = req.session.usuario;
-    const rolesPermitidos = ['admin', 'super_admin'];
-    if (!usuarioSesion || !rolesPermitidos.includes(usuarioSesion.rol)) {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
       return res.status(403).json({ success: false, error: 'No tienes permisos para eliminar usuarios' });
     }
     const { id } = req.params;
-    const usuario = await Usuario.findById(id);
-    if (!usuario) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
 
-    if (usuarioSesion.rol !== 'super_admin') {
-      if (usuario.empresaId?.toString() !== usuarioSesion.empresaId?.toString()) {
-        return res.status(403).json({ success: false, error: 'No puedes eliminar usuarios de otra empresa' });
-      }
+    const pgUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+
+    if (sesion.rol !== 'super_admin' && pgUser.empresaId !== sesion.pgEmpresaId) {
+      return res.status(403).json({ success: false, error: 'No puedes eliminar usuarios de otra empresa' });
     }
 
-    await usuario.deleteOne();
+    // Sync MongoDB primero (para no perder referencia si PG falla)
+    try {
+      await Usuario.findOneAndDelete({ username: pgUser.username });
+    } catch (syncErr) {
+      console.warn('⚠️ Sync MongoDB eliminarUsuario fallida:', syncErr.message);
+    }
+
+    await prisma.usuario.delete({ where: { id } });
     res.json({ success: true });
   } catch (error) {
+    if (error.code === 'P2025') return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     res.status(500).json({ success: false, error: 'Error al eliminar usuario' });
   }
 };

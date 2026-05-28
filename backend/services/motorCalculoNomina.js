@@ -15,12 +15,8 @@ const isSameOrBefore    = require('dayjs/plugin/isSameOrBefore');
 dayjs.extend(customParseFormat);
 dayjs.extend(isSameOrBefore);
 
-const Empleado          = require('../models/Empleado');
-const ParametroNomina   = require('../models/ParametroNomina');
-const ConceptoNomina    = require('../models/ConceptoNomina');
-const LiquidacionNomina = require('../models/LiquidacionNomina');
-const NovedadNomina     = require('../models/NovedadNomina');
-const { buscarTurnoPorDocumentoYRango, buscarTurnosPorAreaYRango } = require('../models/turnoModel');
+const prisma = require('../lib/prisma');
+const { buscarTurnoPorDocumentoYRango } = require('../models/turnoModel');
 const { generarFestivosColombiaAño } = require('./festivosService');
 
 // ── Códigos de parámetros requeridos ──────────────────────────────────────────
@@ -230,7 +226,7 @@ function aplicarConceptos(conceptos, horas, salarioBase, diasTrabajados, params,
     if (valor === 0 && concepto.tipo !== 'informativo') continue;
 
     const detalle = {
-      conceptoId:     concepto._id || null,
+      conceptoId:     concepto._id ?? concepto.id ?? null,
       codigoConcepto: concepto.codigo,
       nombreConcepto: concepto.nombre,
       tipo:           concepto.tipo,
@@ -296,19 +292,107 @@ function validarFechas(fechaInicio, fechaFin) {
   }
 }
 
-async function cargarYValidarParametros(empresaId, fechaRef) {
-  const mapa = await ParametroNomina.obtenerMapaVigente(
-    empresaId, CODIGOS_REQUERIDOS, fechaRef
-  );
+async function cargarYValidarParametros(pgEmpresaId, fechaRef) {
+  const fechaD = new Date(fechaRef);
+
+  // Carga todos los parámetros requeridos (sin filtro de vigencia ni estado)
+  // para poder dar diagnóstico detallado
+  const todosLosRequeridos = await prisma.parametroNomina.findMany({
+    where: { empresaId: pgEmpresaId, codigo: { in: CODIGOS_REQUERIDOS } },
+    orderBy: { vigenciaDesde: 'desc' }
+  });
+
+  // Carga sólo los vigentes y activos (los que realmente se usarán)
+  const vigentes = await prisma.parametroNomina.findMany({
+    where: {
+      empresaId:     pgEmpresaId,
+      codigo:        { in: CODIGOS_REQUERIDOS },
+      estado:        'activo',
+      vigenciaDesde: { lte: fechaD },
+      OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: fechaD } }]
+    },
+    orderBy: { vigenciaDesde: 'desc' }
+  });
+
+  const mapa = {};
+  for (const p of vigentes) {
+    if (!(p.codigo in mapa)) mapa[p.codigo] = Number(p.valor);
+  }
+
   const clavesCriticas = ['SMLV', 'AUX_TRANSPORTE', 'PORCENTAJE_SALUD_EMPLEADO', 'PORCENTAJE_PENSION_EMPLEADO'];
   const faltantes = clavesCriticas.filter(c => !(c in mapa));
+
   if (faltantes.length > 0) {
+    // Buscar todos los params de la empresa para dar sugerencias de código similar
+    const todosEmpresa = await prisma.parametroNomina.findMany({
+      where: { empresaId: pgEmpresaId },
+      select: { codigo: true, estado: true, vigenciaDesde: true, vigenciaHasta: true }
+    });
+
+    const lineas = faltantes.map(codigo => {
+      const existentes = todosLosRequeridos.filter(p => p.codigo === codigo);
+      if (existentes.length === 0) {
+        // Buscar código similar (por prefijo o contenido)
+        const similar = todosEmpresa.find(p =>
+          p.codigo !== codigo && (
+            p.codigo.includes(codigo.substring(0, 4)) ||
+            codigo.includes(p.codigo.substring(0, 4))
+          )
+        );
+        const sugerencia = similar ? ` (¿Quiso decir "${similar.codigo}"?)` : '';
+        return `• ${codigo}: no existe${sugerencia}. Créelo en Parámetros de Nómina.`;
+      }
+      const inactivos  = existentes.filter(p => p.estado !== 'activo');
+      const sinVigencia = existentes.filter(p => p.estado === 'activo' && new Date(p.vigenciaDesde) > fechaD);
+      const vencidos   = existentes.filter(p => p.estado === 'activo' && p.vigenciaHasta && new Date(p.vigenciaHasta) < fechaD);
+      if (sinVigencia.length > 0) {
+        const vd = sinVigencia[0].vigenciaDesde.toISOString().slice(0, 10);
+        return `• ${codigo}: existe pero su vigencia inicia el ${vd} y el periodo inicia el ${fechaD.toISOString().slice(0, 10)}.`;
+      }
+      if (vencidos.length > 0) {
+        const vh = vencidos[0].vigenciaHasta.toISOString().slice(0, 10);
+        return `• ${codigo}: existe pero venció el ${vh}.`;
+      }
+      if (inactivos.length > 0) {
+        return `• ${codigo}: existe pero está inactivo. Actívelo en Parámetros de Nómina.`;
+      }
+      return `• ${codigo}: no encontrado para la fecha de referencia ${fechaD.toISOString().slice(0, 10)}.`;
+    });
+
     const err = new Error(
-      `No existen parámetros de nómina vigentes para el periodo seleccionado. Faltantes: ${faltantes.join(', ')}.`
+      `No existen parámetros de nómina vigentes para el periodo seleccionado:\n${lineas.join('\n')}`
     );
     err.status = 400; throw err;
   }
+
+  // Cargar también parámetros opcionales si existen
+  const opcionales = await prisma.parametroNomina.findMany({
+    where: {
+      empresaId:     pgEmpresaId,
+      codigo:        { notIn: CODIGOS_REQUERIDOS },
+      estado:        'activo',
+      vigenciaDesde: { lte: fechaD },
+      OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: fechaD } }]
+    }
+  });
+  for (const p of opcionales) {
+    if (!(p.codigo in mapa)) mapa[p.codigo] = Number(p.valor);
+  }
+
   return mapa;
+}
+
+async function cargarConceptosPG(pgEmpresaId, fechaRef) {
+  const fechaD = new Date(fechaRef);
+  return prisma.conceptoNomina.findMany({
+    where: {
+      empresaId:    pgEmpresaId,
+      estado:       'activo',
+      vigenciaDesde: { lte: fechaD },
+      OR: [{ vigenciaHasta: null }, { vigenciaHasta: { gte: fechaD } }]
+    },
+    orderBy: [{ orden: 'asc' }, { tipo: 'asc' }]
+  });
 }
 
 // ── calcularIndividual ────────────────────────────────────────────────────────
@@ -324,7 +408,7 @@ async function cargarYValidarParametros(empresaId, fechaRef) {
  * @param {boolean}  [opts.guardar=true]   Persistir la liquidación en BD
  * @returns {Promise<Object>}              Resultado completo de la liquidación
  */
-async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId, usuarioId, guardar = true }) {
+async function calcularIndividual({ documento, fechaInicio, fechaFin, pgEmpresaId, pgUsuarioId, empresaId = null, usuarioId = null, guardar = true }) {
   // ── 1. Validar documento
   if (!documento || !String(documento).trim()) {
     const err = new Error('El documento del empleado es requerido.');
@@ -334,14 +418,14 @@ async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId,
   // ── 2. Validar fechas
   validarFechas(fechaInicio, fechaFin);
 
-  // ── 3. Cargar parámetros vigentes desde BD
+  // ── 3. Cargar parámetros vigentes desde PostgreSQL
   const fechaRef = new Date(fechaInicio);
-  const params   = await cargarYValidarParametros(empresaId, fechaRef);
+  const params   = await cargarYValidarParametros(pgEmpresaId, fechaRef);
 
-  // ── 4. Buscar empleado en la empresa (nunca confiar en empresaId del frontend)
-  const empleado = await Empleado.findOne({
-    documento: String(documento).trim(),
-    empresaId
+  // ── 4. Buscar empleado en PostgreSQL
+  const empleado = await prisma.empleado.findFirst({
+    where: { documento: String(documento).trim(), empresaId: pgEmpresaId },
+    include: { area: { select: { nombre: true } } }
   });
 
   if (!empleado) {
@@ -349,20 +433,14 @@ async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId,
     err.status = 404; throw err;
   }
 
-  // ── 5. Validar empresa del empleado (seguridad multiempresa)
-  if (String(empleado.empresaId) !== String(empresaId)) {
-    const err = new Error('El empleado no pertenece a la empresa autenticada.');
-    err.status = 403; throw err;
-  }
-
-  // ── 6. Validar que el empleado está activo
+  // ── 5. Validar que el empleado está activo
   if (empleado.estado !== 'activo') {
     const err = new Error(`El empleado está ${empleado.estado}. No se puede calcular nómina para empleados inactivos.`);
     err.status = 400; throw err;
   }
 
-  // ── 7. Salario del empleado (siempre del modelo Empleado, nunca del frontend)
-  const salarioBase = empleado.salario;
+  // ── 6. Salario del empleado (siempre del modelo, nunca del frontend)
+  const salarioBase = Number(empleado.salario);
 
   // ── 8. Buscar turnos del periodo
   const turno = await buscarTurnoPorDocumentoYRango(
@@ -413,16 +491,18 @@ async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId,
   const festivosSet = buildFestivosSet(fechaInicio, fechaFin);
   const horas       = calcularHorasCronograma(cronograma, params, festivosSet);
 
-  // ── 10. Cargar conceptos activos de la empresa
-  const conceptos = await ConceptoNomina.obtenerVigentes(empresaId, fechaRef);
+  // ── 10. Cargar conceptos activos de la empresa desde PostgreSQL
+  const conceptos = await cargarConceptosPG(pgEmpresaId, fechaRef);
 
-  // ── 11. Cargar novedades del periodo
-  const novedades = await NovedadNomina.find({
-    empresaId,
-    empleadoId: empleado._id,
-    estado: 'activa',
-    fechaInicio: { $lte: new Date(fechaFin) },
-    fechaFin:    { $gte: new Date(fechaInicio) }
+  // ── 11. Cargar novedades del periodo desde PostgreSQL
+  const novedades = await prisma.novedadNomina.findMany({
+    where: {
+      empresaId:  pgEmpresaId,
+      empleadoId: empleado.id,
+      estado:     'activa',
+      fechaInicio: { lte: new Date(fechaFin) },
+      fechaFin:    { gte: new Date(fechaInicio) }
+    }
   });
 
   // ── 12. Aplicar conceptos y calcular totales
@@ -435,13 +515,13 @@ async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId,
   // ── 13. Construir resultado
   const resultado = {
     empleado: {
-      id:        empleado._id,
+      id:        empleado.id,
       documento: empleado.documento,
       nombre:    `${empleado.nombre} ${empleado.apellidos || ''}`.trim(),
-      area:      turno?.area || empleado.area || '',
+      area:      turno?.area || empleado.area?.nombre || '',
       cargo:     empleado.cargo || ''
     },
-    empresa:    { id: empresaId },
+    empresa:    { id: pgEmpresaId },
     periodo:    { inicio: fechaInicio, fin: fechaFin, diasTrabajados: horas.diasTrabajados },
     salarioBase,
     horas: {
@@ -461,28 +541,36 @@ async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId,
     parametrosUsados: params
   };
 
-  // ── 14. Guardar liquidación en BD
+  // ── 14. Guardar liquidación en PostgreSQL
   if (guardar) {
-    const liq = new LiquidacionNomina({
-      empresaId,
-      empleadoId:       empleado._id,
-      documentoEmpleado: empleado.documento,
-      nombreEmpleado:   `${empleado.nombre} ${empleado.apellidos || ''}`.trim(),
-      areaNombre:       resultado.empleado.area,
-      periodoInicio:    new Date(fechaInicio),
-      periodoFin:       new Date(fechaFin),
-      salarioBase,
-      diasTrabajados:   horas.diasTrabajados,
-      totalDevengado,
-      totalDeducciones,
-      netoPagar,
-      estado:           'borrador',
-      calculadoPor:     usuarioId,
-      parametrosUsados: params,
-      detalles
+    const liq = await prisma.liquidacionNomina.create({
+      data: {
+        empresaId:        pgEmpresaId,
+        empleadoId:       empleado.id,
+        periodoInicio:    new Date(fechaInicio),
+        periodoFin:       new Date(fechaFin),
+        salarioBase:      salarioBase,
+        diasTrabajados:   horas.diasTrabajados,
+        totalDevengado:   totalDevengado,
+        totalDeducciones: totalDeducciones,
+        netoPagar:        netoPagar,
+        estado:           'borrador',
+        calculadoPorId:   pgUsuarioId || null,
+        detalles: {
+          create: detalles.map(d => ({
+            conceptoId:     typeof d.conceptoId === 'string' ? d.conceptoId : null,
+            codigoConcepto: d.codigoConcepto,
+            nombreConcepto: d.nombreConcepto,
+            tipo:           d.tipo,
+            cantidad:       d.cantidad   || 0,
+            base:           d.base       || 0,
+            porcentaje:     d.porcentaje || 0,
+            valor:          d.valor
+          }))
+        }
+      }
     });
-    await liq.save();
-    resultado.liquidacionId = liq._id;
+    resultado.liquidacionId = liq.id;
     resultado.estadoLiquidacion = liq.estado;
   }
 
@@ -501,7 +589,7 @@ async function calcularIndividual({ documento, fechaInicio, fechaFin, empresaId,
  * @param {ObjectId} opts.usuarioId     Usuario que calcula
  * @returns {Promise<Object>}
  */
-async function calcularPorArea({ areaId, fechaInicio, fechaFin, empresaId, usuarioId }) {
+async function calcularPorArea({ areaId, fechaInicio, fechaFin, pgEmpresaId, pgUsuarioId, empresaId = null, usuarioId = null }) {
   validarFechas(fechaInicio, fechaFin);
 
   if (!areaId) {
@@ -509,19 +597,16 @@ async function calcularPorArea({ areaId, fechaInicio, fechaFin, empresaId, usuar
     err.status = 400; throw err;
   }
 
-  // Validar que el área pertenece a la empresa (multiempresa)
-  const Area = require('../models/Area');
-  const area = await Area.findOne({ _id: areaId, empresaId });
+  // Validar que el área pertenece a la empresa (PostgreSQL)
+  const area = await prisma.area.findFirst({ where: { id: areaId, empresaId: pgEmpresaId } });
   if (!area) {
     const err = new Error('El área no existe o no pertenece a su empresa.');
     err.status = 403; throw err;
   }
 
-  // Buscar empleados activos del área
-  const empleados = await Empleado.find({
-    empresaId,
-    areaId,
-    estado: 'activo'
+  // Buscar empleados activos del área en PostgreSQL
+  const empleados = await prisma.empleado.findMany({
+    where: { empresaId: pgEmpresaId, areaId, estado: 'activo' }
   });
 
   const resultados = [];
@@ -531,7 +616,7 @@ async function calcularPorArea({ areaId, fechaInicio, fechaFin, empresaId, usuar
     try {
       const liq = await calcularIndividual({
         documento: emp.documento,
-        fechaInicio, fechaFin, empresaId, usuarioId,
+        fechaInicio, fechaFin, pgEmpresaId, pgUsuarioId, empresaId, usuarioId,
         guardar: true
       });
       resultados.push(liq);
@@ -544,7 +629,7 @@ async function calcularPorArea({ areaId, fechaInicio, fechaFin, empresaId, usuar
   const totalNetoPagarArea = resultados.reduce((s, r) => s + r.netoPagar, 0);
 
   return {
-    area: { id: area._id, nombre: area.nombre },
+    area: { id: area.id, nombre: area.nombre },
     periodo: { inicio: fechaInicio, fin: fechaFin },
     totalEmpleados:    empleados.length,
     procesados:        resultados.length,

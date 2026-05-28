@@ -24,6 +24,24 @@ const tablasDescansoService = require('../services/tablasDescansoService');
 const turnosService = require('../services/turnosService');
 const horariosService = require('../services/horariosService');
 
+// ========== HELPER UNIVERSAL DE EMPLEADO ==========
+/**
+ * Devuelve el documento Mongoose de un empleado aceptando tanto
+ * UUID de PostgreSQL (fase de migración) como MongoDB ObjectId (legado).
+ * Garantiza que Turno (MongoDB) siempre recibe un ObjectId válido.
+ */
+async function resolverMongoEmpleado(anyId) {
+  const isPgUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    .test(String(anyId || ''));
+  if (isPgUuid) {
+    const prisma = require('../lib/prisma');
+    const pgEmp  = await prisma.empleado.findUnique({ where: { id: anyId } });
+    if (!pgEmp) return null;
+    return Empleado.findOne({ documento: pgEmp.documento });
+  }
+  return Empleado.findById(anyId);
+}
+
 // ========== HELPER PARA FECHAS ==========
 /**
  * Clona una fecha sin problemas de zona horaria
@@ -155,7 +173,7 @@ exports.obtenerEmpleados = async (req, res) => {
         }
       } else {
         // Si no se especifica área, filtrar por todas las permitidas
-        const todosEmpleados = await empleadosService.obtenerEmpleados(null, req.empresaId);
+        const todosEmpleados = await empleadosService.obtenerEmpleados(null, req.empresaId, req.pgEmpresaId);
         console.log('🔍 Total empleados en BD:', todosEmpleados.length);
         const empleadosFiltrados = todosEmpleados.filter(e => {
           const areaEmpleado = normalizarArea(e.area);
@@ -167,7 +185,7 @@ exports.obtenerEmpleados = async (req, res) => {
       }
     }
 
-    const empleados = await empleadosService.obtenerEmpleados(area, empresaId);
+    const empleados = await empleadosService.obtenerEmpleados(area, empresaId, req.pgEmpresaId);
     res.json(empleados);
   } catch (error) {
     console.error('❌ Error en obtenerEmpleados:', error);
@@ -177,15 +195,15 @@ exports.obtenerEmpleados = async (req, res) => {
 
 exports.crearEmpleado = async (req, res) => {
   try {
-    // super_admin puede especificar empresaId en el body
-    let empresaId = req.empresaId;
+    let mongoEmpresaId = req.empresaId;
+    let pgEmpresaId    = req.pgEmpresaId;
     if (req.esSuperAdmin && req.body.empresaId) {
-      empresaId = req.body.empresaId;
+      pgEmpresaId = req.body.empresaId; // super_admin envía PG UUID
     }
-    if (!empresaId) {
+    if (!pgEmpresaId && !mongoEmpresaId) {
       return res.status(400).json({ error: 'Debe seleccionar una empresa para crear el empleado.' });
     }
-    const empleado = await empleadosService.crearEmpleado(req.body, empresaId);
+    const empleado = await empleadosService.crearEmpleado(req.body, mongoEmpresaId, pgEmpresaId);
     res.status(201).json({ message: 'Empleado creado exitosamente', empleado });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -197,7 +215,7 @@ exports.crearEmpleadosCSV = async (req, res) => {
     console.log(' DEBUG CSV - Datos recibidos:', req.body);
     const { empleados } = req.body;
     console.log(' DEBUG CSV - Array empleados:', empleados?.length || 'undefined');
-    const resultados = await empleadosService.procesarEmpleadosCSV(empleados, req.empresaId);
+    const resultados = await empleadosService.procesarEmpleadosCSV(empleados, req.empresaId, req.pgEmpresaId);
 
     res.json({
       mensaje: 'Importación CSV completada',
@@ -344,7 +362,7 @@ exports.asignarTurnosTaquilleros = async (req, res) => {
 
       try {
         // Verificar que el empleado existe
-        const empleado = await empleadosService.obtenerEmpleadoPorId(empleadoId, req.empresaId);
+        const empleado = await empleadosService.obtenerEmpleadoPorId(empleadoId, req.pgEmpresaId);
 
         if (!empleado) {
           resultados.push({
@@ -370,7 +388,7 @@ exports.asignarTurnosTaquilleros = async (req, res) => {
 
         // Crear el turno CON CRONOGRAMA DETALLADO (función avanzada)
         const nuevoTurno = {
-          empleadoId,
+          empleadoId: empleado._id || empleadoId,
           nombreEmpleado: empleado.nombre,
           documentoEmpleado: empleado.documento,
           area: empleado.area,
@@ -506,7 +524,7 @@ exports.asignarTurnosAdministrativos = async (req, res) => {
 
       try {
         // Obtener datos del empleado
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
 
         if (!empleado) {
           resultados.push({
@@ -526,7 +544,7 @@ exports.asignarTurnosAdministrativos = async (req, res) => {
 
         // Crear registro de turno administrativo usando el servicio (con historial)
         const nuevoTurno = await turnosService.crearTurno({
-          empleadoId,
+          empleadoId: empleado._id,
           nombreEmpleado: nombre,
           documentoEmpleado: documento,
           cargo: cargo || 'Administrativo',
@@ -739,7 +757,7 @@ exports.asignarTurnosCentroControl = async (req, res) => {
 
       try {
         // Obtener datos del empleado
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
 
         if (!empleado) {
           resultados.push({
@@ -775,7 +793,7 @@ exports.asignarTurnosCentroControl = async (req, res) => {
         }
 
         // Buscar turno existente del empleado
-        let turnoExistente = await Turno.findOne({ empleadoId });
+        let turnoExistente = await Turno.findOne({ empleadoId: empleado._id });
 
         if (turnoExistente) {
           // Eliminar días solapados de turnos anteriores (sobrescribir)
@@ -830,7 +848,7 @@ exports.asignarTurnosCentroControl = async (req, res) => {
           }
 
           turnoExistente = new Turno({
-            empleadoId,
+            empleadoId: empleado._id,
             nombreEmpleado: nombre,
             documentoEmpleado: documento,
             cargo: cargo || 'Operador Centro Control',
@@ -975,7 +993,7 @@ exports.asignarTurnosOperaciones = async (req, res) => {
       let nombre = 'Desconocido';
 
       try {
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
 
         if (!empleado) {
           resultados.push({
@@ -1009,7 +1027,7 @@ exports.asignarTurnosOperaciones = async (req, res) => {
         }
 
         // Buscar turno existente del empleado
-        let turnoExistente = await Turno.findOne({ empleadoId });
+        let turnoExistente = await Turno.findOne({ empleadoId: empleado._id });
 
         if (turnoExistente) {
           // Eliminar días solapados de turnos anteriores (sobrescribir)
@@ -1060,7 +1078,7 @@ exports.asignarTurnosOperaciones = async (req, res) => {
           }
 
           turnoExistente = new Turno({
-            empleadoId,
+            empleadoId: empleado._id,
             nombreEmpleado: nombre,
             documentoEmpleado: documento,
             cargo: cargo || 'Operador',
@@ -1657,7 +1675,7 @@ exports.obtenerTurnosEmpleado = async (req, res) => {
     const { id: empleadoId } = req.params;
     const { inicio, fin } = req.query;
 
-    const empleado = await empleadosService.obtenerEmpleadoPorId(empleadoId, req.empresaId);
+    const empleado = await empleadosService.obtenerEmpleadoPorId(empleadoId, req.pgEmpresaId);
     if (!empleado) {
       return res.status(404).json({ error: 'Empleado no encontrado' });
     }
@@ -2020,7 +2038,7 @@ exports.asignarTurnosConductores = async (req, res) => {
       let nombre = 'Desconocido';
 
       try {
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
 
         if (!empleado) {
           resultados.push({
@@ -2052,7 +2070,7 @@ exports.asignarTurnosConductores = async (req, res) => {
         }
 
         // Buscar turno existente del empleado
-        let turnoExistente = await Turno.findOne({ empleadoId });
+        let turnoExistente = await Turno.findOne({ empleadoId: empleado._id });
 
         if (turnoExistente) {
           // Eliminar días solapados de turnos anteriores (sobrescribir)
@@ -2103,7 +2121,7 @@ exports.asignarTurnosConductores = async (req, res) => {
           }
 
           turnoExistente = new Turno({
-            empleadoId,
+            empleadoId: empleado._id,
             nombreEmpleado: nombre,
             documentoEmpleado: documento,
             cargo: cargo || 'Conductor',
@@ -2395,7 +2413,7 @@ exports.asignarTurnosMantenimiento = async (req, res) => {
       let nombre = 'Desconocido';
 
       try {
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
 
         if (!empleado) {
           resultados.push({
@@ -2429,7 +2447,7 @@ exports.asignarTurnosMantenimiento = async (req, res) => {
         }
 
         // Buscar turno existente del empleado
-        let turnoExistente = await Turno.findOne({ empleadoId });
+        let turnoExistente = await Turno.findOne({ empleadoId: empleado._id });
 
         if (turnoExistente) {
           // Eliminar días solapados de turnos anteriores (sobrescribir)
@@ -2480,7 +2498,7 @@ exports.asignarTurnosMantenimiento = async (req, res) => {
           }
 
           turnoExistente = new Turno({
-            empleadoId,
+            empleadoId: empleado._id,
             nombreEmpleado: nombre,
             documentoEmpleado: documento,
             cargo: cargo || 'Técnico Mantenimiento',
@@ -2707,38 +2725,22 @@ function generarCronogramaMantenimientoAuto(fechaInicio, fechaFin, festivos, tur
 
 exports.obtenerAreas = async (req, res) => {
   try {
-    const filtroEmpresa = req.empresaId ? { empresaId: req.empresaId } : {};
-    let areas = await Empleado.distinct('area', filtroEmpresa);
+    const prisma = require('../lib/prisma');
+    const where = { estado: 'activo' };
+    if (req.pgEmpresaId) where.empresaId = req.pgEmpresaId;
 
-    console.log('🔍 DEBUG obtenerAreas:');
-    console.log('  - Áreas en BD:', areas);
-    console.log('  - Usuario en sesión:', req.session.usuario);
+    const areasPg = await prisma.area.findMany({
+      where,
+      select: { nombre: true },
+      orderBy: { nombre: 'asc' }
+    });
+    let areas = [...new Set(areasPg.map(a => a.nombre))];
 
-    // Mapeo de áreas para compatibilidad
-    const mapeoAreas = {
-      'CENTRO_CONTROL': 'CENTRO DE CONTROL',
-      'CENTRO DE CONTROL': 'CENTRO DE CONTROL'
-    };
-    const normalizarArea = (a) => mapeoAreas[a] || a;
-
-    // Filtrar áreas si el usuario no es admin
-    if (req.session.usuario && req.session.usuario.rol !== 'admin') {
-      const areasPermitidasOriginales = req.session.usuario.areasPermitidas || [];
-      // Normalizar las áreas permitidas del usuario
-      const areasPermitidas = areasPermitidasOriginales.map(normalizarArea);
-
-      console.log('  - Áreas permitidas (original):', areasPermitidasOriginales);
-      console.log('  - Áreas permitidas (normalizado):', areasPermitidas);
-
-      // Filtrar áreas por permisos
-      areas = areas.filter(area => {
-        const areaNormalizada = normalizarArea(area);
-        const permitida = areasPermitidas.includes(areaNormalizada);
-        console.log(`  - Comparando "${area}" (norm: "${areaNormalizada}") -> ${permitida ? '✅' : '❌'}`);
-        return permitida;
-      });
-
-      console.log('  - Áreas filtradas finales:', areas);
+    // Filtrar áreas si el usuario no es admin/super_admin
+    const sesion = req.session.usuario;
+    if (sesion && !['admin', 'super_admin'].includes(sesion.rol)) {
+      const areasPermitidas = sesion.areasPermitidas || [];
+      areas = areas.filter(a => areasPermitidas.includes(a));
     }
 
     res.json({ areas });
@@ -2762,7 +2764,7 @@ exports.asignarTurnoIndividual = async (req, res) => {
       diasDescanso = [] // Array con los días de la semana que descansa [0=Domingo, 1=Lunes, ..., 6=Sábado]
     } = req.body;
 
-    const empleado = await Empleado.findById(empleadoId);
+    const empleado = await resolverMongoEmpleado(empleadoId);
     if (!empleado) throw new Error('Empleado no encontrado');
 
     const inicio = new Date(fechaInicio + 'T00:00:00');
@@ -2823,7 +2825,7 @@ exports.asignarTurnoIndividual = async (req, res) => {
     }
 
     // Buscar turno existente del empleado o crear uno nuevo
-    let turnoExistente = await Turno.findOne({ empleadoId });
+    let turnoExistente = await Turno.findOne({ empleadoId: empleado._id });
 
     if (turnoExistente) {
       // Eliminar días solapados de turnos anteriores (sobrescribir)
@@ -2857,7 +2859,7 @@ exports.asignarTurnoIndividual = async (req, res) => {
     } else {
       // Crear nuevo documento de turno
       turnoExistente = new Turno({
-        empleadoId,
+        empleadoId: empleado._id,
         nombreEmpleado: empleado.nombre,
         documentoEmpleado: empleado.documento,
         cargo: empleado.cargo || 'Empleado',
@@ -2986,11 +2988,11 @@ exports.asignarTurnosPorArea = async (req, res) => {
       };
 
       for (const empleadoId of empleadosIds) {
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
         if (!empleado) continue;
 
         // Buscar o crear documento de turno para este empleado
-        let documentoTurno = await Turno.findOne({ empleadoId });
+        let documentoTurno = await Turno.findOne({ empleadoId: empleado._id });
 
         if (!documentoTurno) {
           // Crear nuevo documento para el empleado
@@ -3126,7 +3128,7 @@ exports.asignarTurnosPorArea = async (req, res) => {
       const Empleado = require('../models/Empleado');
 
       for (const empleadoId of empleadosIds) {
-        const empleado = await Empleado.findById(empleadoId);
+        const empleado = await resolverMongoEmpleado(empleadoId);
         if (!empleado) continue;
 
         const fechaActual = new Date(inicio);
@@ -3151,7 +3153,7 @@ exports.asignarTurnosPorArea = async (req, res) => {
 
           if (debeCrearTurno) {
             const turno = new Turno({
-              empleado: empleadoId,
+              empleado: empleado._id,
               fecha: new Date(fechaActual),
               horaInicio: horaInicioTurno,
               horaFin: horaFinTurno,
@@ -3451,12 +3453,21 @@ exports.eliminarTurno = async (req, res) => {
 
 exports.eliminarEmpleado = async (req, res) => {
   try {
-    const empleado = await Empleado.findByIdAndDelete(req.params.id);
-    if (!empleado) throw new Error('Empleado no encontrado');
-
-    // TambiÃ©n eliminar los turnos asociados
-    await Turno.deleteMany({ empleado: req.params.id });
-
+    // Intentar por UUID de PostgreSQL primero
+    const prisma = require('../lib/prisma');
+    const pgId = req.params.id;
+    const empPg = await prisma.empleado.findUnique({ where: { id: pgId } }).catch(() => null);
+    if (empPg) {
+      // Sync MongoDB
+      await Empleado.findOneAndDelete({ documento: empPg.documento }).catch(() => {});
+      // PG cascade elimina turnos PG asociados
+      await prisma.empleado.delete({ where: { id: pgId } });
+    } else {
+      // Fallback MongoDB (ID antiguo)
+      const empleado = await Empleado.findByIdAndDelete(pgId);
+      if (!empleado) throw new Error('Empleado no encontrado');
+      await Turno.deleteMany({ empleado: pgId });
+    }
     res.json({ message: 'Empleado eliminado exitosamente' });
   } catch (error) {
     res.status(500).json({ error: error.message });

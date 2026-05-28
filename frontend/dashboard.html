@@ -101,6 +101,48 @@
             background: linear-gradient(135deg, rgba(255,82,82,1) 0%, rgba(211,47,47,1) 100%);
             box-shadow: 0 6px 20px rgba(211,47,47,0.3);
         }
+        /* ── Logo empresa ── */
+        .empresa-logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 8px;
+        }
+        .empresa-logo-wrap img {
+            max-height: 52px;
+            max-width: 130px;
+            object-fit: contain;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.12);
+            padding: 4px;
+        }
+        /* ── Selector de empresa (super_admin) ── */
+        .empresa-selector-wrap {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 7px 12px;
+        }
+        .empresa-selector-wrap label {
+            font-size: 0.78em;
+            opacity: 0.85;
+            white-space: nowrap;
+        }
+        .empresa-selector-wrap select {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.35);
+            color: white;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 0.85em;
+            cursor: pointer;
+            max-width: 220px;
+        }
+        .empresa-selector-wrap select option { color: #333; background: white; }
     </style>
 </head>
 <body>
@@ -108,8 +150,15 @@
         <div class="header">
             <div class="header-user" id="header-user"></div>
             <div class="header-title">
-                <h1>🏢 Sistema de Gestión Empresarial</h1>
+                <div class="empresa-logo-wrap" id="empresa-logo-wrap">
+                    <img id="empresa-logo" src="" alt="" style="display:none;">
+                    <h1 id="header-titulo">🏢 Sistema de Gestión Empresarial</h1>
+                </div>
                 <p id="nombre-empresa">Cargando...</p>
+                <div class="empresa-selector-wrap" id="empresa-selector-wrap">
+                    <label>🏢 EMPRESA</label>
+                    <select id="empresa-select" onchange="cambiarEmpresaActiva(this.value)"></select>
+                </div>
             </div>
             <div class="header-user" id="header-user-right"></div>
         </div>
@@ -283,7 +332,6 @@
             }
         }
         function mostrarNombreUsuario() {
-            // Mostrar nombre de empresa en el subtítulo
             const subtitulo = document.getElementById('nombre-empresa');
             if (usuarioSesion.rol === 'super_admin') {
                 subtitulo.textContent = '🌐 Vista Global — Super Administrador';
@@ -291,6 +339,15 @@
                 subtitulo.textContent = usuarioSesion.nombreEmpresa;
             } else {
                 subtitulo.textContent = 'Sistema de Gestión';
+            }
+
+            // Logo dinámico de la empresa
+            const logoEl = document.getElementById('empresa-logo');
+            if (usuarioSesion.logoUrl) {
+                logoEl.src = usuarioSesion.logoUrl;
+                logoEl.alt = usuarioSesion.nombreEmpresa || 'Logo empresa';
+                logoEl.style.display = 'block';
+                document.getElementById('header-titulo').textContent = 'Sistema de Gestión Empresarial';
             }
 
             const rolLabel = usuarioSesion.rol === 'super_admin' ? 'Super Admin' : usuarioSesion.rol;
@@ -303,6 +360,67 @@
                     <button class="btn-logout" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>
                 </div>
             `;
+
+            // Selector de empresa para super_admin
+            if (usuarioSesion.rol === 'super_admin') {
+                cargarSelectorEmpresas();
+            }
+        }
+
+        async function cargarSelectorEmpresas() {
+            try {
+                const res  = await fetch('/api/me/empresas');
+                const data = await res.json();
+                if (!data.success) return;
+
+                const sel = document.getElementById('empresa-select');
+                sel.innerHTML = '<option value="">— Seleccionar empresa —</option>';
+                data.empresas.forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = e.id;
+                    opt.textContent = e.nombre + (e.estado !== 'activa' ? ' (inactiva)' : '');
+                    if (e.activa) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+
+                document.getElementById('empresa-selector-wrap').style.display = 'flex';
+            } catch (_) {}
+        }
+
+        async function cambiarEmpresaActiva(empresaId) {
+            if (!empresaId) return;
+            try {
+                const res  = await fetch('/api/me/empresa-activa', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ empresaId })
+                });
+                const data = await res.json();
+                if (!data.success) return;
+
+                // Actualizar sesión local
+                usuarioSesion.pgEmpresaId    = data.empresa.id;
+                usuarioSesion.nombreEmpresa  = data.empresa.nombre;
+                usuarioSesion.logoUrl        = data.empresa.logoUrl;
+                usuarioSesion.modulosPermitidos = data.empresa.modulosHabilitados || [];
+
+                document.getElementById('nombre-empresa').textContent = data.empresa.nombre;
+
+                const logoEl = document.getElementById('empresa-logo');
+                if (data.empresa.logoUrl) {
+                    logoEl.src = data.empresa.logoUrl;
+                    logoEl.alt = data.empresa.nombre;
+                    logoEl.style.display = 'block';
+                } else {
+                    logoEl.style.display = 'none';
+                    logoEl.src = '';
+                }
+
+                configurarModulos();
+                cargarResumenDashboard();
+            } catch (err) {
+                console.error('Error al cambiar empresa:', err);
+            }
         }
         
         function abrirModalPassword() {
