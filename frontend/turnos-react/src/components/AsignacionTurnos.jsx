@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 
-function AsignacionTurnos() {
+function AsignacionTurnos({ sesion = null, isActive = false }) {
   const [empleados, setEmpleados] = useState([])
   const [empleadosFiltrados, setEmpleadosFiltrados] = useState([])
   const [busqueda, setBusqueda] = useState('')
   const [filtroArea, setFiltroArea] = useState('')
+  const [loadingEmpleados, setLoadingEmpleados] = useState(false)
+  const [errorEmpleados, setErrorEmpleados] = useState(null)
   const [formData, setFormData] = useState({
     empleadoId: '',
     fechaInicio: '',
@@ -33,9 +35,17 @@ function AsignacionTurnos() {
   ]
 
   useEffect(() => {
-    cargarEmpleados()
-    cargarAreas()
-  }, [])
+    if (sesion !== null) {
+      cargarEmpleados()
+      cargarAreas()
+    }
+  }, [sesion])
+
+  useEffect(() => {
+    if (isActive && sesion !== null && empleados.length === 0 && !loadingEmpleados) {
+      cargarEmpleados()
+    }
+  }, [isActive])
 
   // Filtrar empleados cuando cambia la búsqueda o el filtro de área
   useEffect(() => {
@@ -59,15 +69,22 @@ function AsignacionTurnos() {
   }, [empleados, busqueda, filtroArea])
 
   const cargarEmpleados = async () => {
+    setLoadingEmpleados(true)
+    setErrorEmpleados(null)
     try {
       const response = await fetch('/api/turnos/empleados')
       const data = await response.json()
-      if (response.ok) {
+      if (response.ok && Array.isArray(data)) {
         setEmpleados(data)
         setEmpleadosFiltrados(data)
+      } else if (!response.ok) {
+        setErrorEmpleados(data.error || `Error ${response.status} al cargar empleados`)
       }
     } catch (err) {
+      setErrorEmpleados('No se pudo conectar con el servidor para cargar empleados.')
       console.error('Error al cargar empleados:', err)
+    } finally {
+      setLoadingEmpleados(false)
     }
   }
 
@@ -183,6 +200,18 @@ function AsignacionTurnos() {
         
         {error && <div className="alert alert-error">❌ {error}</div>}
         {success && <div className="alert alert-success">✅ {success}</div>}
+        {errorEmpleados && (
+          <div className="alert alert-error">
+            ⚠️ {errorEmpleados}
+            <button
+              onClick={cargarEmpleados}
+              style={{ marginLeft: '12px', padding: '4px 10px', borderRadius: '6px', border: '1px solid', cursor: 'pointer' }}
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+        {loadingEmpleados && <div className="loading">Cargando empleados...</div>}
 
         {/* Barra de filtros y búsqueda */}
         <div style={{

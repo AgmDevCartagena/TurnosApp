@@ -66,7 +66,7 @@ function App() {
         </div>
 
         <div className={`tab-content ${activeTab === 'asignacion' ? 'active' : ''}`}>
-          <AsignacionTurnos />
+          <AsignacionTurnos sesion={sesion} isActive={activeTab === 'asignacion'} />
         </div>
 
         <div className={`tab-content ${activeTab === 'asignacion-area' ? 'active' : ''}`}>
