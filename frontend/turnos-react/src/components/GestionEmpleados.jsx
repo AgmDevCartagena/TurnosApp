@@ -274,12 +274,12 @@ function GestionEmpleados({ sesion }) {
             >
               <option value="">– Todas las empresas –</option>
               {empresas.map(e => (
-                <option key={e._id} value={e._id}>{e.nombre}</option>
+                <option key={e.id || e._id} value={e.id || e._id}>{e.nombre}</option>
               ))}
             </select>
             {empresaFiltro && (
               <span style={{ fontSize: '0.83em', color: '#666' }}>
-                Mostrando empleados de: <strong>{empresas.find(e => e._id === empresaFiltro)?.nombre}</strong>
+                Mostrando empleados de: <strong>{empresas.find(e => (e.id || e._id) === empresaFiltro)?.nombre}</strong>
               </span>
             )}
           </div>

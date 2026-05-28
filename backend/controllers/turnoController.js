@@ -141,8 +141,15 @@ exports.obtenerEmpleados = async (req, res) => {
 
     // super_admin puede filtrar por empresa via ?empresaId=
     let empresaId = req.empresaId;
+    let pgEmpresaIdFiltro = req.pgEmpresaId;
     if (req.esSuperAdmin && req.query.empresaId) {
-      empresaId = req.query.empresaId;
+      const qId = req.query.empresaId;
+      const esPgUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qId);
+      if (esPgUuid) {
+        pgEmpresaIdFiltro = qId;   // UUID de PostgreSQL
+      } else {
+        empresaId = qId;            // ObjectId de MongoDB
+      }
     }
 
     // Mapeo de áreas para compatibilidad (Usuario usa CENTRO_CONTROL, Empleado usa CENTRO DE CONTROL)
@@ -185,7 +192,7 @@ exports.obtenerEmpleados = async (req, res) => {
       }
     }
 
-    const empleados = await empleadosService.obtenerEmpleados(area, empresaId, req.pgEmpresaId);
+    const empleados = await empleadosService.obtenerEmpleados(area, empresaId, pgEmpresaIdFiltro);
     res.json(empleados);
   } catch (error) {
     console.error('❌ Error en obtenerEmpleados:', error);
