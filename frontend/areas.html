@@ -244,8 +244,8 @@
 
       (data.empresas || []).forEach(emp => {
         const opt = document.createElement('option');
-        opt.value = emp._id;
-        opt.textContent = `${emp.nombre}${emp.estado !== 'activa' ? ' (inactiva)' : ''}`;
+        opt.value = emp.id || emp._id;
+        opt.textContent = `${emp.nombre}${emp.estado !== 'activo' ? ' (inactiva)' : ''}`;
         select.appendChild(opt);
       });
     } catch (e) {
