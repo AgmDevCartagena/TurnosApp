@@ -350,7 +350,7 @@
     try {
       // Filtrar por empresa cuando es super_admin
       const empId = empresaIdOverride || (sesionActual?.rol !== 'super_admin' ? null : document.getElementById('campo-empresa')?.value || null);
-      const url = empId ? `/api/areas?estado=activa&empresaId=${empId}` : '/api/areas?estado=activa';
+      const url = empId ? `/api/areas?estado=activo&empresaId=${empId}` : '/api/areas?estado=activo';
       const res  = await fetch(url);
       const data = await res.json();
       const areasRaw = (data.areas || []);

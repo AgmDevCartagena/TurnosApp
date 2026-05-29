@@ -41,8 +41,8 @@
     tr:hover td { background: #fafbff; }
 
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78em; font-weight: 600; }
-    .badge-activa   { background: #e8f5e9; color: #2e7d32; }
-    .badge-inactiva { background: #fce4ec; color: #c62828; }
+    .badge-activo   { background: #e8f5e9; color: #2e7d32; }
+    .badge-inactivo { background: #fce4ec; color: #c62828; }
 
     .code-tag { display: inline-block; background: #e8eaf6; color: #5c6bc0; border-radius: 5px; padding: 2px 8px; font-size: 0.78em; font-weight: 600; font-family: monospace; }
 
@@ -139,8 +139,8 @@
       <div style="display:flex;gap:10px;align-items:center;">
         <select id="filtro-estado" onchange="aplicarFiltros()" style="padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:0.88em;">
           <option value="">Todos los estados</option>
-          <option value="activa">Solo activas</option>
-          <option value="inactiva">Solo inactivas</option>
+          <option value="activo">Solo activas</option>
+          <option value="inactivo">Solo inactivas</option>
         </select>
         <input type="text" id="buscador" placeholder="🔍 Buscar área..." style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.88em;width:220px;" oninput="aplicarFiltros()">
       </div>
@@ -174,8 +174,8 @@
         <div class="form-group" id="grupo-estado" style="display:none;">
           <label>Estado</label>
           <select id="campo-estado">
-            <option value="activa">Activa</option>
-            <option value="inactiva">Inactiva</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
           </select>
         </div>
       </div>
@@ -312,8 +312,8 @@
 
   function actualizarStats(lista) {
     document.getElementById('stat-total').textContent     = lista.length;
-    document.getElementById('stat-activas').textContent   = lista.filter(a => a.estado === 'activa').length;
-    document.getElementById('stat-inactivas').textContent = lista.filter(a => a.estado === 'inactiva').length;
+    document.getElementById('stat-activas').textContent   = lista.filter(a => a.estado === 'activo').length;
+    document.getElementById('stat-inactivas').textContent = lista.filter(a => a.estado === 'inactivo').length;
   }
 
   function aplicarFiltros() {
@@ -342,7 +342,7 @@
 
     const encabezadoEmpresa = esSuperAdmin ? '<th>Empresa</th>' : '';
     const filas = lista.map(a => {
-      const esActiva   = a.estado === 'activa';
+      const esActiva   = a.estado === 'activo';
       const empNombre  = a.empresaId?.nombre || '—';
       const celdaEmpresa = esSuperAdmin
         ? `<td style="font-size:0.85em;color:#667eea;font-weight:600;">${empNombre}</td>`
@@ -355,12 +355,12 @@
         ${celdaEmpresa}
         <td><span class="badge badge-${a.estado}">${a.estado}</span></td>
         <td style="white-space:nowrap">
-          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${a._id}')">✏️ Editar</button>
+          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${a.id || a._id}')">✏️ Editar</button>
           <button class="btn-sm btn-toggle ${esActiva ? 'inactivar' : ''}"
-            onclick="toggleEstado('${a._id}', '${esActiva ? 'inactiva' : 'activa'}')">
+            onclick="toggleEstado('${a.id || a._id}', '${esActiva ? 'inactivo' : 'activo'}')">
             ${esActiva ? '⏸ Inactivar' : '▶ Activar'}
           </button>
-          <button class="btn-sm btn-del" onclick="eliminarArea('${a._id}', '${a.nombre}')">🗑️</button>
+          <button class="btn-sm btn-del" onclick="eliminarArea('${a.id || a._id}', '${a.nombre}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -393,11 +393,11 @@
 
   // ── Modal editar ────────────────────────────────────────────────────────────
   function abrirModalEditar(id) {
-    const a = areas.find(x => x._id === id);
+    const a = areas.find(x => (x.id || x._id) === id);
     if (!a) return;
     modoEdicion = true;
     document.getElementById('modal-titulo').textContent = `✏️ Editar: ${a.nombre}`;
-    document.getElementById('campo-id').value = a._id;
+    document.getElementById('campo-id').value = a.id || a._id;
     document.getElementById('campo-nombre').value = a.nombre;
     document.getElementById('campo-codigo').value = a.codigo || '';
     document.getElementById('campo-descripcion').value = a.descripcion || '';
@@ -448,7 +448,7 @@
 
   // ── Toggle estado ───────────────────────────────────────────────────────────
   async function toggleEstado(id, nuevoEstado) {
-    const accion = nuevoEstado === 'inactiva' ? 'inactivar' : 'activar';
+    const accion = nuevoEstado === 'inactivo' ? 'inactivar' : 'activar';
     if (!confirm(`¿Seguro que deseas ${accion} esta área?`)) return;
     try {
       const res  = await fetch(`/api/areas/${id}/estado`, {
@@ -456,7 +456,7 @@
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
-      mostrarAlerta(`✅ Área ${nuevoEstado === 'activa' ? 'activada' : 'inactivada'} correctamente.`, 'success');
+      mostrarAlerta(`✅ Área ${nuevoEstado === 'activo' ? 'activada' : 'inactivada'} correctamente.`, 'success');
       await cargarAreas();
     } catch (e) {
       mostrarAlerta('Error: ' + e.message, 'error');
