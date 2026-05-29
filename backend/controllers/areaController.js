@@ -65,10 +65,13 @@ exports.crearArea = async (req, res) => {
       return res.status(400).json({ success: false, error: 'El nombre del área es requerido' });
     }
 
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let eid;
     if (isSuperAdmin(req)) {
       eid = req.body.empresaId;
-      if (!eid) return res.status(400).json({ success: false, error: 'empresaId es requerido para super_admin' });
+      if (!eid || !UUID_RE.test(eid)) {
+        return res.status(400).json({ success: false, error: 'Selecciona una empresa válida antes de crear el área.' });
+      }
     } else {
       eid = pgEmpresaId(req);
       if (!eid) return res.status(403).json({ success: false, error: 'Sin empresa asignada' });
