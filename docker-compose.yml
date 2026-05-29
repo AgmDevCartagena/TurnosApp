@@ -67,6 +67,7 @@ services:
     volumes:
       - ./backend/utils:/app/utils
       - ./backend/uploads:/app/uploads
+      - ./frontend:/app/public
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/auth/verificar-sesion"]
       interval: 30s
