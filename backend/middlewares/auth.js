@@ -1,123 +1,147 @@
-/**
- * Middleware para verificar acceso a área específica
- */
-function requireArea(area) {
-  return (req, res, next) => {
-    if (!req.session || !req.session.autenticado) {
-      return res.status(401).json({
-        success: false,
-        error: 'No autenticado'
-      });
-    }
-    const areasPermitidas = req.session.usuario.areasPermitidas || [];
-    if (!areasPermitidas.includes(area)) {
-      return res.status(403).json({
-        success: false,
-        error: `No tienes acceso al área de ${area}`
-      });
-    }
-    next();
-  };
+'use strict';
+
+const permisosService = require('../services/permisosService');
+
+// ─── Helper interno ────────────────────────────────────────────────────────────
+function _noAuth(res, msg = 'No autenticado') {
+  return res.status(401).json({ success: false, error: msg, redirect: '/login.html' });
 }
+function _forbidden(res, msg = 'Acceso denegado') {
+  return res.status(403).json({ success: false, error: msg });
+}
+
+// ─── 1. AuthGuard ─────────────────────────────────────────────────────────────
 /**
- * Middleware de autenticación
- * Verifica que el usuario esté autenticado antes de acceder a rutas protegidas
+ * Verifica sesión activa. Redirige a login.html si es petición de navegador.
  */
-
 function requireAuth(req, res, next) {
-  console.log('🔐 Middleware requireAuth - URL:', req.url);
-  console.log('🔐 Autenticado:', !!req.session?.autenticado);
-  
-  if (req.session && req.session.autenticado) {
-    return next();
-  }
-
-  console.log('❌ Autenticación fallida');
-  
-  // Si la petición es AJAX/API, devolver JSON
+  if (req.session?.autenticado) return next();
   if (req.xhr || req.headers.accept?.includes('application/json')) {
-    return res.status(401).json({ 
-      success: false,
-      error: 'No autenticado',
-      redirect: '/login.html'
-    });
+    return _noAuth(res);
   }
-
-  // Si es petición del navegador, redirigir
   res.redirect('/login.html');
 }
 
+// ─── 2. requireAdmin ──────────────────────────────────────────────────────────
 /**
- * Middleware para verificar rol de administrador
+ * Requiere rol admin o super_admin (global).
  */
 function requireAdmin(req, res, next) {
-  if (!req.session || !req.session.autenticado) {
-    return res.status(401).json({ 
-      success: false,
-      error: 'No autenticado'
-    });
+  if (!req.session?.autenticado) return _noAuth(res);
+  const rol = req.session.usuario.rol;
+  if (!['admin', 'super_admin'].includes(rol)) {
+    return _forbidden(res, 'Se requiere rol de administrador');
   }
-
-  const rolesAdmin = ['admin', 'super_admin'];
-  if (!rolesAdmin.includes(req.session.usuario.rol)) {
-    return res.status(403).json({ 
-      success: false,
-      error: 'Acceso denegado: Se requiere rol de administrador'
-    });
-  }
-
   next();
 }
 
+// ─── 3. requireSuperAdmin ─────────────────────────────────────────────────────
+function requireSuperAdmin(req, res, next) {
+  if (!req.session?.autenticado) return _noAuth(res);
+  if (req.session.usuario.rol !== 'super_admin') {
+    return _forbidden(res, 'Se requiere rol super_admin');
+  }
+  next();
+}
+
+// ─── 4. CompanyContextGuard ───────────────────────────────────────────────────
 /**
- * Middleware para verificar acceso a módulo específico
+ * Valida que la sesión tenga empresa activa y que siga activa en BD.
+ * super_admin sin empresa no es bloqueado (puede operar globalmente).
+ * Expone: req.esSuperAdmin, req.pgEmpresaId
+ */
+function requireCompanyContext(req, res, next) {
+  if (!req.session?.autenticado) return _noAuth(res);
+  const s = req.session.usuario;
+  req.esSuperAdmin = s.esSuperAdmin || s.rol === 'super_admin';
+  req.pgEmpresaId  = s.pgEmpresaId || null;
+  req.pgId         = s.pgId || s.id || null;
+  req.empresaId    = s.pgEmpresaId || null; // alias para turnoController legacy
+  next();
+}
+
+// ─── 5. requireModulo ─────────────────────────────────────────────────────────
+/**
+ * Verifica que el módulo esté en la lista de módulos permitidos de la sesión.
+ * super_admin siempre pasa.
  */
 function requireModulo(modulo) {
   return (req, res, next) => {
-    console.log('📋 Middleware requireModulo - Módulo requerido:', modulo);
-    console.log('📋 Usuario:', req.session?.usuario?.usuario);
-    console.log('📋 Módulos permitidos:', req.session?.usuario?.modulosPermitidos);
-    
-    if (!req.session || !req.session.autenticado) {
-      console.log('❌ No autenticado en requireModulo');
-      return res.status(401).json({ 
-        success: false,
-        error: 'No autenticado'
-      });
+    if (!req.session?.autenticado) return _noAuth(res);
+    const s = req.session.usuario;
+    if (s.esSuperAdmin || s.rol === 'super_admin') return next();
+    const permitidos = s.modulosPermitidos || [];
+    if (!permitidos.includes(modulo)) {
+      return _forbidden(res, `No tienes acceso al módulo de ${modulo}`);
     }
+    next();
+  };
+}
 
-    const modulosPermitidos = req.session.usuario.modulosPermitidos || [];
-    
-    if (!modulosPermitidos.includes(modulo)) {
-      console.log('❌ No tiene acceso al módulo:', modulo);
-      return res.status(403).json({ 
-        success: false,
-        error: `No tienes acceso al módulo de ${modulo}`
-      });
+// ─── 6. PermissionGuard ───────────────────────────────────────────────────────
+/**
+ * Verifica permiso granular contra la sesión (no consulta BD por performance).
+ * Para validación estricta usa requirePermisoStrict.
+ * super_admin siempre pasa.
+ */
+function requirePermiso(codigoPermiso) {
+  return (req, res, next) => {
+    if (!req.session?.autenticado) return _noAuth(res);
+    const s = req.session.usuario;
+    if (s.esSuperAdmin || s.rol === 'super_admin') return next();
+    const permisos = s.permisosEfectivos || [];
+    if (!permisos.includes(codigoPermiso)) {
+      return _forbidden(res, `No tienes permiso: ${codigoPermiso}`);
     }
-
-    console.log('✅ Acceso permitido al módulo:', modulo);
     next();
   };
 }
 
 /**
- * Middleware para verificar rol de super administrador global
+ * Versión estricta: recalcula permisos desde BD (más lento, para operaciones críticas).
+ * super_admin siempre pasa.
  */
-function requireSuperAdmin(req, res, next) {
-  if (!req.session || !req.session.autenticado) {
-    return res.status(401).json({ success: false, error: 'No autenticado' });
-  }
-  if (req.session.usuario.rol !== 'super_admin') {
-    return res.status(403).json({ success: false, error: 'Se requiere rol super_admin' });
-  }
-  next();
+function requirePermisoStrict(codigoPermiso) {
+  return async (req, res, next) => {
+    if (!req.session?.autenticado) return _noAuth(res);
+    const s = req.session.usuario;
+    if (s.esSuperAdmin || s.rol === 'super_admin') return next();
+    if (!s.pgId || !s.pgEmpresaId) return _forbidden(res, 'Sin empresa activa en sesión');
+    try {
+      const tiene = await permisosService.tienePermiso(s.pgId, s.pgEmpresaId, codigoPermiso);
+      if (!tiene) return _forbidden(res, `No tienes permiso: ${codigoPermiso}`);
+      next();
+    } catch (err) {
+      console.error('Error en requirePermisoStrict:', err);
+      res.status(500).json({ success: false, error: 'Error validando permisos' });
+    }
+  };
+}
+
+// ─── 7. requireArea (legacy + nuevo) ─────────────────────────────────────────
+/**
+ * Verifica acceso a área por nombre (legacy) o por ID.
+ */
+function requireArea(area) {
+  return (req, res, next) => {
+    if (!req.session?.autenticado) return _noAuth(res);
+    const s = req.session.usuario;
+    if (s.esSuperAdmin || s.rol === 'super_admin') return next();
+    const areas = s.areasPermitidas || [];
+    if (!areas.includes(area)) {
+      return _forbidden(res, `No tienes acceso al área de ${area}`);
+    }
+    next();
+  };
 }
 
 module.exports = {
   requireAuth,
   requireAdmin,
+  requireSuperAdmin,
+  requireCompanyContext,
   requireModulo,
+  requirePermiso,
+  requirePermisoStrict,
   requireArea,
-  requireSuperAdmin
 };

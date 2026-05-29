@@ -1,34 +1,123 @@
-﻿const bcrypt  = require('bcryptjs');
-const prisma  = require('../lib/prisma');
-// MongoDB — solo para sincronización mientras turnoController no está migrado
+﻿'use strict';
+
+const bcrypt          = require('bcryptjs');
+const prisma          = require('../lib/prisma');
+const permisosService = require('../services/permisosService');
+// MongoDB — solo para turnoController legacy (NO para autenticación)
 const Usuario = require('../models/Usuario');
 const Empresa = require('../models/Empresa');
 
+// ─── Helper: construir sesión base ────────────────────────────────────────────
+function _buildSession(pgUser, empresaId, ctx) {
+  return {
+    pgId:              pgUser.id,
+    id:                pgUser.id,
+    username:          pgUser.username,
+    nombre:            pgUser.nombre,
+    correo:            pgUser.correo || null,
+    rol:               pgUser.rol,
+    activo:            pgUser.activo,
+    pgEmpresaId:       empresaId || null,
+    nombreEmpresa:     ctx?.empresa?.nombre   || null,
+    logoUrl:           ctx?.empresa?.logoUrl  || null,
+    colorTema:         ctx?.empresa?.colorTema || '#667eea',
+    rolEmpresa:        ctx?.rol?.codigo        || null,
+    modulosPermitidos: ctx?.modulosActivos     || [],
+    areasPermitidas:   (ctx?.areasPermitidas   || []).map(a => a.nombre),
+    areasPermitidasIds:(ctx?.areasPermitidas   || []).map(a => a.id),
+    permisosEfectivos: ctx?.permisosEfectivos  || [],
+    esSuperAdmin:      pgUser.rol === 'super_admin',
+  };
+}
+
 /**
- * Login de usuario
+ * POST /api/auth/login
+ * Autentica contra PostgreSQL. Soporta usuarios con una o varias empresas.
  */
 exports.login = async (req, res) => {
   try {
     const { username, password } = req.body;
-
     if (!username || !password) {
       return res.status(400).json({ success: false, error: 'Usuario y contraseña son requeridos' });
     }
 
-    const usuario = await Usuario.findOne({ username: username.toLowerCase().trim(), activo: true });
+    // ── Fuente de verdad: PostgreSQL ──────────────────────────────────────────
+    const pgUser = await prisma.usuario.findUnique({
+      where: { username: username.toLowerCase().trim() }
+    });
 
-    if (!usuario) {
+    if (!pgUser || !pgUser.activo) {
+      // Fallback a MongoDB para usuarios legacy no migrados aún
+      return await _loginMongoDB(req, res, username, password);
+    }
+
+    const passwordValida = await bcrypt.compare(password, pgUser.passwordHash);
+    if (!passwordValida) {
       return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
     }
 
+    await prisma.usuario.update({ where: { id: pgUser.id }, data: { ultimoAcceso: new Date() } });
+
+    // ── Obtener empresas asignadas ─────────────────────────────────────────────
+    const empresasAsignadas = await permisosService.listarEmpresasDeUsuario(pgUser.id);
+
+    // super_admin: sin restricción de empresa
+    if (pgUser.rol === 'super_admin') {
+      const sesionData = _buildSession(pgUser, pgUser.empresaId, null);
+      req.session.usuario   = sesionData;
+      req.session.autenticado = true;
+      return res.json({
+        success: true,
+        usuario: { ...sesionData, empresasAsignadas, requiereSeleccionEmpresa: false }
+      });
+    }
+
+    // Usuario sin empresas activas asignadas
+    if (empresasAsignadas.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: 'Su usuario no tiene empresas activas asignadas. Contacte al administrador.'
+      });
+    }
+
+    // Si tiene exactamente una empresa → auto-seleccionar
+    let empresaActiva = empresasAsignadas.find(e => e.esDefault) || empresasAsignadas[0];
+    const ctx = await permisosService.obtenerContextoEmpresa(pgUser.id, empresaActiva.id);
+
+    const sesionData = _buildSession(pgUser, empresaActiva.id, ctx);
+    req.session.usuario   = sesionData;
+    req.session.autenticado = true;
+
+    res.json({
+      success: true,
+      usuario: {
+        ...sesionData,
+        empresasAsignadas,
+        requiereSeleccionEmpresa: empresasAsignadas.length > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ success: false, error: 'Error al iniciar sesión' });
+  }
+};
+
+/**
+ * Fallback MongoDB para usuarios legacy aún no migrados a PostgreSQL.
+ * @private
+ */
+async function _loginMongoDB(req, res, username, password) {
+  try {
+    const usuario = await Usuario.findOne({ username: username.toLowerCase().trim(), activo: true });
+    if (!usuario) {
+      return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
+    }
     const passwordValida = await usuario.comparePassword(password);
     if (!passwordValida) {
       return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
     }
 
-    // Validar empresa activa (excepto super_admin)
     let empresa = null;
-    let modulosEmpresa = ['turnos', 'nomina'];
     if (usuario.rol !== 'super_admin' && usuario.empresaId) {
       empresa = await Empresa.findById(usuario.empresaId);
       if (!empresa || empresa.estado === 'inactiva') {
@@ -37,68 +126,38 @@ exports.login = async (req, res) => {
           error: 'La empresa asignada está inactiva o no existe. Contacta al administrador.'
         });
       }
-      modulosEmpresa = empresa.modulosHabilitados || ['turnos', 'nomina'];
     }
-
     usuario.ultimoAcceso = new Date();
     await usuario.save();
 
-    const modulosEfectivos = (usuario.modulosPermitidos || []).filter(m => modulosEmpresa.includes(m));
-
-    // Lookup en PostgreSQL para obtener UUIDs (migración gradual)
-    let pgId = null;
-    let pgEmpresaId = null;
-    let logoUrl = null;
-    try {
-      const pgUser = await prisma.usuario.findUnique({ where: { username: usuario.username } });
-      if (pgUser) {
-        pgId = pgUser.id;
-        pgEmpresaId = pgUser.empresaId || null;
-        await prisma.usuario.update({ where: { id: pgUser.id }, data: { ultimoAcceso: new Date() } });
-        if (pgEmpresaId) {
-          const pgEmpresa = await prisma.empresa.findUnique({
-            where: { id: pgEmpresaId },
-            select: { logoUrl: true }
-          });
-          logoUrl = pgEmpresa?.logoUrl || null;
-        }
-      }
-    } catch (_) { /* PostgreSQL no disponible o usuario no migrado aún */ }
-
     req.session.usuario = {
-      id: usuario._id,
-      pgId,
+      id: usuario._id.toString(),
+      pgId: null,
       username: usuario.username,
       nombre: usuario.nombre,
       rol: usuario.rol,
-      modulosPermitidos: modulosEfectivos,
+      modulosPermitidos: usuario.modulosPermitidos || [],
       areasPermitidas: usuario.areasPermitidas || [],
-      empresaId: usuario.empresaId || null,
-      pgEmpresaId,
-      nombreEmpresa: empresa ? empresa.nombre : null,
-      logoUrl
+      areasPermitidasIds: [],
+      permisosEfectivos: [],
+      empresaId: usuario.empresaId?.toString() || null,
+      pgEmpresaId: null,
+      nombreEmpresa: empresa?.nombre || null,
+      logoUrl: null,
+      esSuperAdmin: usuario.rol === 'super_admin',
+      _legacy: true
     };
     req.session.autenticado = true;
 
-    res.json({
+    return res.json({
       success: true,
-      usuario: {
-        username: usuario.username,
-        nombre: usuario.nombre,
-        rol: usuario.rol,
-        modulosPermitidos: modulosEfectivos,
-        areasPermitidas: usuario.areasPermitidas || [],
-        empresaId: usuario.empresaId || null,
-        pgEmpresaId,
-        nombreEmpresa: empresa ? empresa.nombre : null,
-        logoUrl
-      }
+      usuario: { ...req.session.usuario, empresasAsignadas: [], requiereSeleccionEmpresa: false }
     });
-  } catch (error) {
-    console.error('Error en login:', error);
-    res.status(500).json({ success: false, error: 'Error al iniciar sesión' });
+  } catch (err) {
+    console.error('Error login MongoDB fallback:', err);
+    return res.status(401).json({ success: false, error: 'Usuario o contraseña incorrectos' });
   }
-};
+}
 
 /**
  * Logout de usuario
@@ -112,13 +171,115 @@ exports.logout = (req, res) => {
 };
 
 /**
- * Verificar sesión actual
+ * GET /api/auth/verificar-sesion
  */
 exports.verificarSesion = (req, res) => {
   if (req.session && req.session.autenticado) {
     res.json({ success: true, autenticado: true, usuario: req.session.usuario });
   } else {
     res.json({ success: true, autenticado: false });
+  }
+};
+
+/**
+ * GET /api/auth/me
+ * Retorna perfil completo con contexto de empresa activa.
+ */
+exports.me = async (req, res) => {
+  try {
+    if (!req.session?.autenticado) {
+      return res.status(401).json({ success: false, error: 'No autenticado' });
+    }
+    const sesion = req.session.usuario;
+
+    // Empresas asignadas (para mostrar selector)
+    let empresasAsignadas = [];
+    if (sesion.pgId) {
+      empresasAsignadas = await permisosService.listarEmpresasDeUsuario(sesion.pgId);
+    }
+
+    res.json({
+      success: true,
+      usuario: {
+        ...sesion,
+        empresasAsignadas,
+        requiereSeleccionEmpresa: empresasAsignadas.length > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error en /me:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener perfil' });
+  }
+};
+
+/**
+ * POST /api/auth/switch-company
+ * Cambia la empresa activa en sesión y recalcula permisos.
+ * Body: { empresaId: string }
+ */
+exports.switchCompany = async (req, res) => {
+  try {
+    if (!req.session?.autenticado) {
+      return res.status(401).json({ success: false, error: 'No autenticado' });
+    }
+    const sesion   = req.session.usuario;
+    const { empresaId } = req.body;
+
+    if (!empresaId) {
+      return res.status(400).json({ success: false, error: 'empresaId es requerido' });
+    }
+
+    // super_admin puede cambiar a cualquier empresa activa
+    if (sesion.esSuperAdmin) {
+      const empresa = await prisma.empresa.findUnique({
+        where: { id: empresaId },
+        select: { id: true, nombre: true, estado: true, logoUrl: true, colorTema: true }
+      });
+      if (!empresa || empresa.estado !== 'activa') {
+        return res.status(404).json({ success: false, error: 'Empresa no encontrada o inactiva' });
+      }
+      req.session.usuario = {
+        ...sesion,
+        pgEmpresaId:   empresa.id,
+        nombreEmpresa: empresa.nombre,
+        logoUrl:       empresa.logoUrl || null,
+        colorTema:     empresa.colorTema,
+      };
+      req.session.autenticado = true;
+      return res.json({
+        success: true,
+        usuario: req.session.usuario,
+        empresasAsignadas: await permisosService.listarEmpresasDeUsuario(sesion.pgId)
+      });
+    }
+
+    // Usuario normal: validar que la empresa esté asignada
+    if (!sesion.pgId) {
+      return res.status(403).json({ success: false, error: 'No se puede cambiar empresa en cuenta legacy' });
+    }
+
+    const ctx = await permisosService.obtenerContextoEmpresa(sesion.pgId, empresaId);
+    if (!ctx) {
+      return res.status(403).json({
+        success: false,
+        error: 'No tiene acceso a esa empresa o está inactiva'
+      });
+    }
+
+    const pgUser = await prisma.usuario.findUnique({ where: { id: sesion.pgId } });
+    const nuevaSesion = _buildSession(pgUser, empresaId, ctx);
+    req.session.usuario   = nuevaSesion;
+    req.session.autenticado = true;
+
+    const empresasAsignadas = await permisosService.listarEmpresasDeUsuario(sesion.pgId);
+
+    res.json({
+      success: true,
+      usuario: { ...nuevaSesion, empresasAsignadas, requiereSeleccionEmpresa: false }
+    });
+  } catch (error) {
+    console.error('Error en switch-company:', error);
+    res.status(500).json({ success: false, error: 'Error al cambiar empresa' });
   }
 };
 
@@ -427,6 +588,210 @@ exports.cambiarMiContrasena = async (req, res) => {
   } catch (error) {
     console.error('Error al cambiar contraseña:', error);
     res.status(500).json({ success: false, error: 'Error al cambiar contraseña' });
+  }
+};
+
+/**
+ * PATCH /api/auth/usuarios/:id/estado
+ * Activa o inactiva un usuario.
+ */
+exports.toggleEstadoUsuario = async (req, res) => {
+  try {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
+      return res.status(403).json({ success: false, error: 'No tienes permisos' });
+    }
+    const { id } = req.params;
+    const pgUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    if (sesion.rol !== 'super_admin' && pgUser.empresaId !== sesion.pgEmpresaId) {
+      return res.status(403).json({ success: false, error: 'No puedes modificar usuarios de otra empresa' });
+    }
+    const actualizado = await prisma.usuario.update({
+      where: { id },
+      data:  { activo: !pgUser.activo }
+    });
+    try {
+      await Usuario.findOneAndUpdate({ username: pgUser.username }, { activo: actualizado.activo });
+    } catch (_) {}
+    res.json({ success: true, activo: actualizado.activo });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Error al cambiar estado' });
+  }
+};
+
+/**
+ * PUT /api/auth/usuarios/:id/empresas
+ * Reemplaza las empresas asignadas al usuario (multiempresa).
+ * Body: { empresas: [{ empresaId, rolId, modulos?, areas?, permisos? }] }
+ */
+exports.actualizarEmpresasUsuario = async (req, res) => {
+  try {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
+      return res.status(403).json({ success: false, error: 'No tienes permisos' });
+    }
+    const { id } = req.params;
+    const { empresas } = req.body;
+
+    if (!Array.isArray(empresas) || empresas.length === 0) {
+      return res.status(400).json({ success: false, error: 'Debe asignar al menos una empresa' });
+    }
+
+    const pgUser = await prisma.usuario.findUnique({ where: { id } });
+    if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    await prisma.$transaction(async (tx) => {
+      for (const cfg of empresas) {
+        const { empresaId, rolId, modulos = [], areas = [], permisos = [] } = cfg;
+        if (!UUID_RE.test(empresaId)) throw new Error(`empresaId inválido: ${empresaId}`);
+        if (!UUID_RE.test(rolId))     throw new Error(`rolId inválido para empresa ${empresaId}`);
+
+        // Validar empresa activa
+        const emp = await tx.empresa.findUnique({ where: { id: empresaId } });
+        if (!emp || emp.estado !== 'activa') throw new Error(`Empresa ${empresaId} inactiva o inexistente`);
+
+        // Upsert UsuarioEmpresa
+        const ue = await tx.usuarioEmpresa.upsert({
+          where:  { usuarioId_empresaId: { usuarioId: id, empresaId } },
+          update: { rolId, estado: 'activo', updatedAt: new Date() },
+          create: { usuarioId: id, empresaId, rolId, estado: 'activo' }
+        });
+
+        // Módulos
+        if (modulos.length > 0) {
+          await tx.usuarioEmpresaModulo.deleteMany({ where: { usuarioEmpresaId: ue.id } });
+          const modulosDb = await tx.modulo.findMany({ where: { codigo: { in: modulos } } });
+          await tx.usuarioEmpresaModulo.createMany({
+            data: modulosDb.map(m => ({ usuarioEmpresaId: ue.id, moduloId: m.id, activo: true })),
+            skipDuplicates: true
+          });
+        }
+
+        // Áreas — deben pertenecer a la empresa
+        if (areas.length > 0) {
+          await tx.usuarioEmpresaArea.deleteMany({ where: { usuarioEmpresaId: ue.id } });
+          const areasDb = await tx.area.findMany({
+            where: { id: { in: areas }, empresaId, estado: 'activo' }
+          });
+          const invalidas = areas.filter(a => !areasDb.find(db => db.id === a));
+          if (invalidas.length > 0) throw new Error(`Áreas inválidas o de otra empresa: ${invalidas.join(', ')}`);
+          await tx.usuarioEmpresaArea.createMany({
+            data: areasDb.map(a => ({ usuarioEmpresaId: ue.id, areaId: a.id })),
+            skipDuplicates: true
+          });
+        }
+
+        // Permisos adicionales directos
+        if (permisos.length > 0) {
+          await tx.usuarioEmpresaPermiso.deleteMany({ where: { usuarioEmpresaId: ue.id } });
+          const permisosDb = await tx.permiso.findMany({ where: { codigo: { in: permisos } } });
+          await tx.usuarioEmpresaPermiso.createMany({
+            data: permisosDb.map(p => ({ usuarioEmpresaId: ue.id, permisoId: p.id, permitido: true })),
+            skipDuplicates: true
+          });
+        }
+      }
+    });
+
+    res.json({ success: true, message: 'Empresas del usuario actualizadas' });
+  } catch (error) {
+    console.error('Error en actualizarEmpresasUsuario:', error);
+    res.status(500).json({ success: false, error: error.message || 'Error al actualizar empresas' });
+  }
+};
+
+/**
+ * PUT /api/auth/usuarios/:id/empresas/:empresaId/configuracion
+ * Actualiza la configuración (rol, áreas, módulos, permisos) de un usuario en una empresa.
+ */
+exports.configurarUsuarioEnEmpresa = async (req, res) => {
+  try {
+    const sesion = req.session.usuario;
+    if (!sesion || !['admin', 'super_admin'].includes(sesion.rol)) {
+      return res.status(403).json({ success: false, error: 'No tienes permisos' });
+    }
+    const { id, empresaId } = req.params;
+    const { rolId, modulos, areas, permisos } = req.body;
+
+    const ue = await prisma.usuarioEmpresa.findUnique({
+      where: { usuarioId_empresaId: { usuarioId: id, empresaId } }
+    });
+    if (!ue) return res.status(404).json({ success: false, error: 'El usuario no tiene asignada esa empresa' });
+
+    await prisma.$transaction(async (tx) => {
+      if (rolId) await tx.usuarioEmpresa.update({ where: { id: ue.id }, data: { rolId } });
+
+      if (Array.isArray(modulos)) {
+        await tx.usuarioEmpresaModulo.deleteMany({ where: { usuarioEmpresaId: ue.id } });
+        const mods = await tx.modulo.findMany({ where: { codigo: { in: modulos } } });
+        await tx.usuarioEmpresaModulo.createMany({
+          data: mods.map(m => ({ usuarioEmpresaId: ue.id, moduloId: m.id })),
+          skipDuplicates: true
+        });
+      }
+
+      if (Array.isArray(areas)) {
+        await tx.usuarioEmpresaArea.deleteMany({ where: { usuarioEmpresaId: ue.id } });
+        const areasDb = await tx.area.findMany({ where: { id: { in: areas }, empresaId } });
+        await tx.usuarioEmpresaArea.createMany({
+          data: areasDb.map(a => ({ usuarioEmpresaId: ue.id, areaId: a.id })),
+          skipDuplicates: true
+        });
+      }
+
+      if (Array.isArray(permisos)) {
+        await tx.usuarioEmpresaPermiso.deleteMany({ where: { usuarioEmpresaId: ue.id } });
+        const permsDb = await tx.permiso.findMany({ where: { codigo: { in: permisos } } });
+        await tx.usuarioEmpresaPermiso.createMany({
+          data: permsDb.map(p => ({ usuarioEmpresaId: ue.id, permisoId: p.id, permitido: true })),
+          skipDuplicates: true
+        });
+      }
+    });
+
+    res.json({ success: true, message: 'Configuración actualizada' });
+  } catch (error) {
+    console.error('Error en configurarUsuarioEnEmpresa:', error);
+    res.status(500).json({ success: false, error: 'Error al configurar usuario en empresa' });
+  }
+};
+
+/**
+ * GET /api/auth/roles
+ */
+exports.listarRoles = async (req, res) => {
+  try {
+    const roles = await prisma.rol.findMany({
+      where: { estado: 'activo' },
+      orderBy: { nombre: 'asc' }
+    });
+    res.json({ success: true, roles });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Error al listar roles' });
+  }
+};
+
+/**
+ * GET /api/auth/permisos
+ * Retorna permisos agrupados por módulo.
+ */
+exports.listarPermisos = async (req, res) => {
+  try {
+    const permisos = await prisma.permiso.findMany({
+      where: { estado: 'activo' },
+      orderBy: [{ modulo: 'asc' }, { accion: 'asc' }]
+    });
+    const agrupados = permisos.reduce((acc, p) => {
+      if (!acc[p.modulo]) acc[p.modulo] = [];
+      acc[p.modulo].push(p);
+      return acc;
+    }, {});
+    res.json({ success: true, permisos, agrupados });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Error al listar permisos' });
   }
 };
 
