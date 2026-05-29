@@ -285,6 +285,8 @@ exports.switchCompany = async (req, res) => {
 
 /**
  * Crear usuario (admin o super_admin)
+ * Soporta payload multiempresa: { ..., empresas: [{ empresaId, rolId, modulos?, areas?, permisos? }] }
+ * Mantiene compatibilidad con payload legacy: { ..., empresaId, modulosPermitidos, areasPermitidas }
  */
 exports.crearUsuario = async (req, res) => {
   try {
@@ -293,80 +295,93 @@ exports.crearUsuario = async (req, res) => {
       return res.status(403).json({ success: false, error: 'No tienes permisos para crear usuarios' });
     }
 
-    const { username, password, nombre, rol, modulosPermitidos, areasPermitidas, empresaId } = req.body;
+    const { username, password, nombre, correo, rol, empresas, modulosPermitidos, areasPermitidas, empresaId } = req.body;
     if (!username || !password || !nombre) {
-      return res.status(400).json({ success: false, error: 'Datos incompletos' });
+      return res.status(400).json({ success: false, error: 'Datos incompletos: username, password y nombre son requeridos' });
     }
 
     const usernameNorm = username.toLowerCase().trim();
-
-    // Empresa: admin usa la suya, super_admin elige
-    const pgEmpresaId = sesion.rol === 'super_admin'
-      ? (empresaId || null)
-      : (sesion.pgEmpresaId || null);
-
-    // Verificar unicidad en PostgreSQL
     const existe = await prisma.usuario.findUnique({ where: { username: usernameNorm } });
     if (existe) return res.status(400).json({ success: false, error: 'El usuario ya existe' });
 
-    const modulos = modulosPermitidos || ['turnos', 'nomina'];
-    const areasNorm = (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean);
-
-    // Validar y obtener IDs de áreas en PostgreSQL
-    let areasPg = [];
-    if (areasNorm.length > 0 && pgEmpresaId) {
-      areasPg = await prisma.area.findMany({
-        where: { empresaId: pgEmpresaId, nombre: { in: areasNorm }, estado: 'activo' }
-      });
-      const nombresValidos = areasPg.map(a => a.nombre);
-      const invalidas = areasNorm.filter(a => !nombresValidos.includes(a));
-      if (invalidas.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: `Áreas no válidas o inactivas: ${invalidas.join(', ')}`
-        });
-      }
-    }
-
     const passwordHash = await bcrypt.hash(password, 12);
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    // ── PostgreSQL (fuente de verdad) ──────────────────────────────────────────
+    // ── Determinar empresa legacy para backward compat ──────────────────────
+    const pgEmpresaIdLegacy = sesion.rol === 'super_admin'
+      ? (empresaId || (empresas?.[0]?.empresaId) || null)
+      : (sesion.pgEmpresaId || null);
+
+    // ── Crear usuario base ──────────────────────────────────────────────────
     const pgUser = await prisma.usuario.create({
       data: {
-        username:  usernameNorm,
+        username:     usernameNorm,
         passwordHash,
         nombre,
-        rol:       rol || 'usuario',
-        empresaId: pgEmpresaId,
-        activo:    true,
+        correo:       correo || null,
+        rol:          rol || 'usuario',
+        empresaId:    pgEmpresaIdLegacy,
+        activo:       true,
         modulosPermitidos: {
-          create: modulos.map(m => ({ modulo: m }))
-        },
-        areas: {
-          create: areasPg.map(a => ({ areaId: a.id }))
+          create: (modulosPermitidos || ['turnos', 'nomina']).map(m => ({ modulo: m }))
         }
       }
     });
 
-    // ── MongoDB (sync para turnoController no migrado) ─────────────────────────
+    // ── Asignar empresas multiempresa (nuevo modelo) ────────────────────────
+    const empresasPayload = empresas && empresas.length > 0
+      ? empresas
+      : (pgEmpresaIdLegacy ? [{ empresaId: pgEmpresaIdLegacy, rolId: null, modulos: modulosPermitidos || [], areas: areasPermitidas || [], permisos: [] }] : []);
+
+    for (const cfg of empresasPayload) {
+      const { empresaId: eId, rolId, modulos = [], areas = [], permisos = [] } = cfg;
+      if (!eId || !UUID_RE.test(eId)) continue;
+      if (!rolId || !UUID_RE.test(rolId)) continue;
+
+      const ue = await prisma.usuarioEmpresa.create({
+        data: { usuarioId: pgUser.id, empresaId: eId, rolId, estado: 'activo' }
+      });
+
+      if (modulos.length > 0) {
+        const modsDb = await prisma.modulo.findMany({ where: { codigo: { in: modulos } } });
+        await prisma.usuarioEmpresaModulo.createMany({
+          data: modsDb.map(m => ({ usuarioEmpresaId: ue.id, moduloId: m.id })),
+          skipDuplicates: true
+        });
+      }
+
+      if (areas.length > 0) {
+        const areasDb = await prisma.area.findMany({ where: { id: { in: areas }, empresaId: eId } });
+        await prisma.usuarioEmpresaArea.createMany({
+          data: areasDb.map(a => ({ usuarioEmpresaId: ue.id, areaId: a.id })),
+          skipDuplicates: true
+        });
+      }
+
+      if (permisos.length > 0) {
+        const permsDb = await prisma.permiso.findMany({ where: { codigo: { in: permisos } } });
+        await prisma.usuarioEmpresaPermiso.createMany({
+          data: permsDb.map(p => ({ usuarioEmpresaId: ue.id, permisoId: p.id, permitido: true })),
+          skipDuplicates: true
+        });
+      }
+    }
+
+    // ── Sync MongoDB legacy ─────────────────────────────────────────────────
     try {
-      // Obtener empresaId MongoDB correspondiente al pgEmpresaId
-      const pgEmpresa = pgEmpresaId
-        ? await prisma.empresa.findUnique({ where: { id: pgEmpresaId }, select: { nit: true, nombre: true } })
+      const pgEmpresa = pgEmpresaIdLegacy
+        ? await prisma.empresa.findUnique({ where: { id: pgEmpresaIdLegacy }, select: { nit: true, nombre: true } })
         : null;
       const mongoEmpresa = pgEmpresa
         ? await Empresa.findOne({ $or: [{ nit: pgEmpresa.nit }, { nombre: pgEmpresa.nombre }] })
         : null;
-
       await Usuario.create({
-        username:         usernameNorm,
-        password:         passwordHash,
-        nombre,
-        rol:              rol || 'usuario',
-        modulosPermitidos: modulos,
-        areasPermitidas:  areasNorm,
-        empresaId:        mongoEmpresa?._id || null,
-        activo:           true
+        username: usernameNorm, password: passwordHash, nombre,
+        rol: rol || 'usuario',
+        modulosPermitidos: modulosPermitidos || ['turnos', 'nomina'],
+        areasPermitidas: (areasPermitidas || []).map(a => (typeof a === 'string' ? a : a.nombre)).filter(Boolean),
+        empresaId: mongoEmpresa?._id || null,
+        activo: true
       });
     } catch (syncErr) {
       console.warn('⚠️ Sync MongoDB fallida (no crítico):', syncErr.message);
@@ -375,15 +390,7 @@ exports.crearUsuario = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Usuario creado exitosamente',
-      usuario: {
-        id:               pgUser.id,
-        username:         pgUser.username,
-        nombre:           pgUser.nombre,
-        rol:              pgUser.rol,
-        modulosPermitidos: modulos,
-        areasPermitidas:  areasNorm,
-        empresaId:        pgEmpresaId
-      }
+      usuario: { id: pgUser.id, username: pgUser.username, nombre: pgUser.nombre, rol: pgUser.rol }
     });
   } catch (error) {
     console.error('Error al crear usuario:', error);
@@ -412,22 +419,40 @@ exports.listarUsuarios = async (req, res) => {
     const usuarios = await prisma.usuario.findMany({
       where,
       select: {
-        id: true, username: true, nombre: true, rol: true,
+        id: true, username: true, nombre: true, correo: true, rol: true,
         activo: true, ultimoAcceso: true, createdAt: true,
         empresaId: true,
         empresa:  { select: { nombre: true } },
         modulosPermitidos: true,
-        areas: { include: { area: { select: { nombre: true } } } }
+        areas: { include: { area: { select: { nombre: true } } } },
+        empresas: {
+          include: {
+            empresa: { select: { id: true, nombre: true } },
+            rol:     { select: { id: true, codigo: true, nombre: true } },
+            modulos: { include: { modulo: { select: { codigo: true } } } },
+            areas:   { include: { area:   { select: { id: true, nombre: true } } } },
+            permisos:{ include: { permiso:{ select: { codigo: true } } } }
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    // Normalizar para compatibilidad con frontend
     const resultado = usuarios.map(u => ({
       ...u,
       modulosPermitidos: u.modulosPermitidos.map(m => m.modulo),
       areasPermitidas:   u.areas.map(ua => ua.area.nombre),
-      nombreEmpresa:     u.empresa?.nombre || null
+      nombreEmpresa:     u.empresa?.nombre || null,
+      empresasAsignadas: u.empresas.map(ue => ({
+        empresaId:   ue.empresa.id,
+        empresaNombre: ue.empresa.nombre,
+        rolId:       ue.rol.id,
+        rolCodigo:   ue.rol.codigo,
+        rolNombre:   ue.rol.nombre,
+        modulos:     ue.modulos.map(m => m.modulo.codigo),
+        areas:       ue.areas.map(a => ({ id: a.area.id, nombre: a.area.nombre })),
+        permisos:    ue.permisos.map(p => p.permiso.codigo)
+      }))
     }));
 
     res.json({ success: true, usuarios: resultado });
@@ -447,21 +472,30 @@ exports.editarUsuario = async (req, res) => {
       return res.status(403).json({ success: false, error: 'No tienes permisos para editar usuarios' });
     }
     const { id } = req.params;
-    const { nombre, username, rol, modulosPermitidos, areasPermitidas } = req.body;
+    const { nombre, username, correo, rol, activo, modulosPermitidos, areasPermitidas, empresas } = req.body;
 
     const pgUser = await prisma.usuario.findUnique({ where: { id } });
     if (!pgUser) return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
 
-    if (sesion.rol !== 'super_admin' && pgUser.empresaId !== sesion.pgEmpresaId) {
-      return res.status(403).json({ success: false, error: 'No puedes editar usuarios de otra empresa' });
+    // Validar aislamiento de empresa (admin solo edita usuarios de su empresa)
+    if (sesion.rol !== 'super_admin') {
+      const tieneAcceso = pgUser.empresaId === sesion.pgEmpresaId
+        || (await prisma.usuarioEmpresa.findUnique({
+              where: { usuarioId_empresaId: { usuarioId: id, empresaId: sesion.pgEmpresaId || '' } }
+           })) !== null;
+      if (!tieneAcceso) {
+        return res.status(403).json({ success: false, error: 'No puedes editar usuarios de otra empresa' });
+      }
     }
 
     const data = {};
     if (nombre   !== undefined) data.nombre   = nombre;
+    if (correo   !== undefined) data.correo   = correo || null;
     if (username !== undefined) data.username = username.toLowerCase().trim();
     if (rol      !== undefined) data.rol      = rol;
+    if (activo   !== undefined) data.activo   = activo === true || activo === 'true';
 
-    // Reemplazar módulos si se proveen
+    // Reemplazar módulos legacy si se proveen
     if (modulosPermitidos !== undefined) {
       await prisma.usuarioModulo.deleteMany({ where: { usuarioId: id } });
       data.modulosPermitidos = {
@@ -469,8 +503,8 @@ exports.editarUsuario = async (req, res) => {
       };
     }
 
-    // Reemplazar áreas si se proveen
-    if (areasPermitidas !== undefined) {
+    // Reemplazar áreas legacy si se proveen (sin contexto multiempresa)
+    if (areasPermitidas !== undefined && (!empresas || empresas.length === 0)) {
       const areasNorm = (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean);
       await prisma.usuarioArea.deleteMany({ where: { usuarioId: id } });
       if (areasNorm.length > 0 && pgUser.empresaId) {
@@ -485,15 +519,12 @@ exports.editarUsuario = async (req, res) => {
 
     // ── Sync MongoDB ──────────────────────────────────────────────────────────
     try {
-      const areasNorm2 = areasPermitidas !== undefined
-        ? (areasPermitidas || []).map(a => a.toUpperCase().trim()).filter(Boolean)
-        : undefined;
       const mongoUpdate = {};
       if (nombre   !== undefined) mongoUpdate.nombre   = nombre;
       if (username !== undefined) mongoUpdate.username = username.toLowerCase().trim();
       if (rol      !== undefined) mongoUpdate.rol      = rol;
+      if (activo   !== undefined) mongoUpdate.activo   = data.activo;
       if (modulosPermitidos !== undefined) mongoUpdate.modulosPermitidos = modulosPermitidos;
-      if (areasNorm2        !== undefined) mongoUpdate.areasPermitidas   = areasNorm2;
       await Usuario.findOneAndUpdate({ username: pgUser.username }, mongoUpdate);
     } catch (syncErr) {
       console.warn('⚠️ Sync MongoDB editarUsuario fallida:', syncErr.message);

@@ -8,6 +8,41 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; }
 
+        /* ── Multiempresa additions ── */
+        .empresa-card { border: 2px solid #e0e0e0; border-radius: 10px; padding: 12px 16px; cursor: pointer; transition: all .18s; display: flex; align-items: center; gap: 10px; background: #fafafa; }
+        .empresa-card:hover { border-color: #667eea; background: #f0f2ff; }
+        .empresa-card.selected { border-color: #667eea; background: #eef0ff; }
+        .empresa-card input[type=checkbox] { width: 17px; height: 17px; accent-color: #667eea; flex-shrink: 0; }
+        .empresa-card .emp-nombre { font-weight: 600; font-size: 0.9em; color: #333; }
+        .empresa-card .emp-rol { font-size: 0.76em; color: #888; margin-top: 2px; }
+        #grid-empresas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; max-height: 220px; overflow-y: auto; padding: 4px 2px; }
+
+        .acordeon { border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+        .acordeon-header { padding: 12px 16px; background: #f5f6ff; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .acordeon-header:hover { background: #eaecff; }
+        .acordeon-header .emp-tag { font-weight: 700; color: #3949ab; font-size: 0.92em; }
+        .acordeon-header .chevron { transition: transform .2s; font-size: 0.85em; color: #888; }
+        .acordeon-header.open .chevron { transform: rotate(180deg); }
+        .acordeon-body { padding: 16px; display: none; border-top: 1px solid #eee; background: white; }
+        .acordeon-body.open { display: block; }
+
+        .permisos-grupo { margin-bottom: 14px; }
+        .permisos-grupo-titulo { font-size: 0.78em; font-weight: 700; color: #667eea; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e8eaf6; }
+        .pill-sm { display: inline-flex; align-items: center; gap: 4px; padding: 4px 11px; border: 1.5px solid #ddd; border-radius: 14px; cursor: pointer; font-size: 0.78em; font-weight: 600; color: #666; transition: all .15s; user-select: none; margin: 2px; }
+        .pill-sm:hover { border-color: #667eea; color: #667eea; }
+        .pill-sm.active { border-color: #667eea; background: #667eea; color: white; }
+        .pill-sm input { display: none; }
+        .section-title { font-size: 0.8em; font-weight: 700; color: #444; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: #eee; }
+
+        .badge-empresa { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.72em; font-weight: 700; background: #e8eaf6; color: #3949ab; margin: 1px; }
+        .badge-activo   { background: #e8f5e9; color: #2e7d32; }
+        .badge-inactivo { background: #fce4ec; color: #c62828; }
+        .toggle-activo { cursor: pointer; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; border: none; transition: all .15s; }
+        .modal { background: white; border-radius: 16px; width: 800px; max-width: 97vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideIn .2s ease; margin-bottom: 40px; }
+        .search-inline { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85em; margin-bottom: 10px; }
+        .search-inline:focus { outline: none; border-color: #667eea; }
+
         .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
         .header h1 { font-size: 1.5em; }
         .header p  { font-size: 0.9em; opacity: 0.85; margin-top: 2px; }
@@ -109,7 +144,7 @@
     </div>
 </div>
 
-<!-- Modal crear / editar usuario -->
+<!-- Modal crear / editar usuario (multiempresa) -->
 <div class="modal-overlay" id="modal-usuario">
   <div class="modal">
     <div class="modal-header">
@@ -120,14 +155,8 @@
       <div class="modal-alert" id="modal-alert"></div>
       <input type="hidden" id="campo-id">
 
-      <!-- Selector de empresa (solo super_admin) -->
-      <div class="form-group" id="grupo-empresa" style="display:none;margin-bottom:14px;">
-        <label>Empresa *</label>
-        <select id="campo-empresa" onchange="onCambioEmpresa()" style="width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.92em;">
-          <option value="">– Seleccione una empresa –</option>
-        </select>
-      </div>
-
+      <!-- ── A. Datos básicos ── -->
+      <p class="section-title">📋 Datos básicos</p>
       <div class="form-row">
         <div class="form-group">
           <label>Nombre completo *</label>
@@ -135,40 +164,51 @@
         </div>
         <div class="form-group">
           <label>Usuario *</label>
-          <input id="campo-username" type="text" placeholder="jperez">
+          <input id="campo-username" type="text" placeholder="jperez" autocomplete="off">
         </div>
       </div>
       <div class="form-row">
+        <div class="form-group">
+          <label>Correo electrónico</label>
+          <input id="campo-correo" type="email" placeholder="juan@empresa.com">
+        </div>
         <div class="form-group" id="grupo-password">
           <label>Contraseña *</label>
-          <input id="campo-password" type="password" placeholder="Mín. 4 caracteres">
+          <input id="campo-password" type="password" placeholder="Mín. 4 caracteres" autocomplete="new-password">
         </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
-          <label>Rol *</label>
+          <label>Rol global del sistema</label>
           <select id="campo-rol">
             <option value="usuario">Usuario</option>
             <option value="admin">Administrador</option>
             <option value="gestor_turnos">Gestor Turnos</option>
             <option value="gestor_nomina">Gestor Nómina</option>
             <option value="consulta">Solo Consulta</option>
+            <option value="super_admin" id="opt-super-admin" style="display:none">Super Admin</option>
+          </select>
+        </div>
+        <div class="form-group" id="grupo-estado-usuario" style="display:none">
+          <label>Estado</label>
+          <select id="campo-activo">
+            <option value="true">Activo</option>
+            <option value="false">Inactivo</option>
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label>Módulos permitidos</label>
-        <div class="check-grid" id="check-modulos">
-          <label class="check-pill" data-val="turnos"><input type="checkbox" value="turnos">📅 Turnos</label>
-          <label class="check-pill" data-val="nomina"><input type="checkbox" value="nomina">💰 Nómina</label>
-        </div>
+
+      <!-- ── B. Empresas asignadas ── -->
+      <p class="section-title" style="margin-top:18px;">🏢 Empresas asignadas</p>
+      <input class="search-inline" id="buscador-empresas-modal" placeholder="🔍 Buscar empresa..." oninput="filtrarEmpresasModal()">
+      <div id="grid-empresas">
+        <span style="color:#aaa;font-size:0.85em;">Cargando empresas...</span>
       </div>
-      <div class="form-group">
-        <label style="display:flex;justify-content:space-between;align-items:center;">
-          Áreas permitidas
-          <a href="/areas.html" target="_blank" style="font-size:0.78em;color:#667eea;font-weight:500;">⚙️ Gestionar áreas</a>
-        </label>
-        <div class="check-grid" id="check-areas">
-          <span style="color:#aaa;font-size:0.85em;">Cargando áreas...</span>
-        </div>
+
+      <!-- ── C. Configuración por empresa (acordeón) ── -->
+      <div id="seccion-config-empresas" style="margin-top:18px;display:none">
+        <p class="section-title">⚙️ Configuración por empresa</p>
+        <div id="acordeones-empresas"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -205,245 +245,412 @@
 </div>
 
 <script>
-  let usuarios = [];
-  let modoEdicion = false;
-  let sesionActual = null;
+  // ── Estado global ──────────────────────────────────────────────────────────
+  let usuarios         = [];
+  let modoEdicion      = false;
+  let sesionActual     = null;
   let todasLasEmpresas = [];
+  let todosLosRoles    = [];
+  let todosLosPermisos = {};   // { modulo: [permiso, ...] }
+  let configPorEmpresa = {};   // { empresaId: { rolId, modulos[], areas[], permisos[] } }
+  const ICONOS_MOD = { turnos:'📅', nomina:'💰', usuarios:'👥', parametros:'⚙️', reportes:'📊', empresas:'🏢', areas:'📍' };
 
-  // ── Auth ─────────────────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────────
   async function verificarSesion() {
     try {
       const res = await fetch('/api/auth/verificar-sesion');
       const data = await res.json();
       if (!data.autenticado) { window.location.href = '/login.html'; return null; }
-      const rolesPermitidos = ['admin', 'super_admin'];
-      if (!rolesPermitidos.includes(data.usuario.rol)) {
+      if (!['admin', 'super_admin'].includes(data.usuario.rol)) {
         showMsg('No tienes permisos para gestionar usuarios.', 'error');
         setTimeout(() => window.location.href = '/dashboard.html', 2000);
         return null;
       }
-      document.getElementById('info-usuario').textContent = `${data.usuario.nombre} · ${data.usuario.rol}`;
+      document.getElementById('info-usuario').textContent =
+        `${data.usuario.nombre} · ${data.usuario.rol}` +
+        (data.usuario.nombreEmpresa ? ` · ${data.usuario.nombreEmpresa}` : '');
       sesionActual = data.usuario;
+      if (sesionActual.rol === 'super_admin') {
+        document.getElementById('opt-super-admin').style.display = '';
+      }
       return data.usuario;
-    } catch {
-      window.location.href = '/login.html';
-      return null;
-    }
+    } catch { window.location.href = '/login.html'; return null; }
   }
 
-  // ── Cargar usuarios ───────────────────────────────────────────────────────
+  // ── Cargar usuarios ────────────────────────────────────────────────────────
   async function cargarUsuarios() {
     try {
       const res = await fetch('/api/auth/usuarios');
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) { window.location.href = '/login.html'; return; }
-        throw new Error(`Error ${res.status}`);
-      }
+      if (!res.ok) { if (res.status === 401) window.location.href = '/login.html'; throw new Error(`Error ${res.status}`); }
       const data = await res.json();
-      if (data.success) {
-        usuarios = data.usuarios;
-        renderTabla(usuarios);
-      } else {
-        showMsg(data.error || 'Error al cargar usuarios.', 'error');
-      }
-    } catch (err) {
-      showMsg('Error de red: ' + err.message, 'error');
-    }
+      if (data.success) { usuarios = data.usuarios; renderTabla(usuarios); }
+      else showMsg(data.error || 'Error al cargar usuarios.', 'error');
+    } catch (err) { showMsg('Error de red: ' + err.message, 'error'); }
   }
 
   function filtrarTabla() {
     const q = document.getElementById('buscador').value.toLowerCase();
-    const filtrados = usuarios.filter(u =>
+    renderTabla(usuarios.filter(u =>
       u.nombre?.toLowerCase().includes(q) ||
       u.username?.toLowerCase().includes(q) ||
-      u.rol?.toLowerCase().includes(q)
-    );
-    renderTabla(filtrados);
+      (u.correo || '').toLowerCase().includes(q)
+    ));
   }
 
-  // ── Render tabla ──────────────────────────────────────────────────────────
+  // ── Render tabla ───────────────────────────────────────────────────────────
   function renderTabla(lista) {
     const c = document.getElementById('tabla-container');
-    if (!lista.length) {
-      c.innerHTML = '<div class="empty-state">No hay usuarios registrados.</div>';
-      return;
-    }
-    const iconMod = { turnos: '📅', nomina: '💰' };
-    const esSuperAdmin = sesionActual?.rol === 'super_admin';
+    if (!lista.length) { c.innerHTML = '<div class="empty-state">No hay usuarios registrados.</div>'; return; }
+    const esSA = sesionActual?.rol === 'super_admin';
     const filas = lista.map(u => {
-      const empresaNombre = todasLasEmpresas.find(e => e.id === u.empresaId)?.nombre || (u.empresaId ? '–' : '<span style="color:#ccc">Sin empresa</span>');
-      return `
-      <tr>
-        <td><strong>${u.nombre}</strong></td>
+      const empresasBadges = (u.empresasAsignadas || []).length > 0
+        ? u.empresasAsignadas.map(e => `<span class="badge-empresa">${e.empresaNombre}</span>`).join('')
+        : (u.nombreEmpresa ? `<span class="badge-empresa">${u.nombreEmpresa}</span>` : '<span style="color:#ccc">—</span>');
+      const estadoBadge = u.activo
+        ? `<span class="badge-activo" style="padding:2px 10px;border-radius:10px;font-size:0.8em;font-weight:600;">Activo</span>`
+        : `<span class="badge-inactivo" style="padding:2px 10px;border-radius:10px;font-size:0.8em;font-weight:600;">Inactivo</span>`;
+      return `<tr style="${!u.activo ? 'opacity:.55' : ''}">
+        <td><strong>${u.nombre}</strong>${u.correo ? `<br><small style="color:#888">${u.correo}</small>` : ''}</td>
         <td><code>${u.username}</code></td>
         <td><span class="badge badge-${u.rol}">${u.rol}</span></td>
-        <td style="font-size:1.2em">${(u.modulosPermitidos||[]).map(m=>iconMod[m]||m).join(' ')}</td>
-        <td style="max-width:160px">${(u.areasPermitidas||[]).map(a=>`<span style="background:#e8eaf6;color:#3949ab;border-radius:5px;padding:2px 7px;font-size:0.76em;font-weight:600;margin-right:3px;display:inline-block;margin-bottom:2px;">${a}</span>`).join('')||'<span style="color:#ccc">—</span>'}</td>
-        ${esSuperAdmin ? `<td style="font-size:0.82em;color:#555">${empresaNombre}</td>` : ''}
+        <td style="max-width:200px">${empresasBadges}</td>
+        <td>${estadoBadge}</td>
         <td style="white-space:nowrap">
           <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u.id}')">✏️ Editar</button>
-          <button class="btn-sm btn-pass" onclick="abrirModalPass('${u.id}')">🔑 Contraseña</button>
-          <button class="btn-sm btn-del"  onclick="eliminarUsuario('${u.id}')">🗑️</button>
+          <button class="btn-sm btn-pass" onclick="abrirModalPass('${u.id}')">🔑</button>
+          <button class="btn-sm" style="background:${u.activo ? '#fff3e0' : '#e8f5e9'};color:${u.activo ? '#e65100' : '#2e7d32'}" onclick="toggleEstado('${u.id}')">${u.activo ? '🔴' : '🟢'}</button>
+          <button class="btn-sm btn-del" onclick="eliminarUsuario('${u.id}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
-    const thEmpresa = esSuperAdmin ? '<th>Empresa</th>' : '';
-    c.innerHTML = `<table>
-      <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Módulos</th><th>Áreas</th>${thEmpresa}<th>Acciones</th></tr></thead>
-      <tbody>${filas}</tbody>
-    </table>`;
+    c.innerHTML = `<table><thead><tr>
+      <th>Nombre</th><th>Usuario</th><th>Rol global</th><th>Empresas</th><th>Estado</th><th>Acciones</th>
+    </tr></thead><tbody>${filas}</tbody></table>`;
   }
 
-  // ── Checkboxes helpers ────────────────────────────────────────────────────
-  function initPills(containerId) {
-    document.querySelectorAll(`#${containerId} .check-pill`).forEach(pill => {
-      pill.addEventListener('click', function(e) {
-        e.preventDefault();
-        const cb = this.querySelector('input');
-        cb.checked = !cb.checked;
-        this.classList.toggle('active', cb.checked);
-      });
-    });
-  }
-
-  function setPills(containerId, valores) {
-    document.querySelectorAll(`#${containerId} .check-pill`).forEach(pill => {
-      const val = pill.dataset.val;
-      const activo = (valores || []).includes(val);
-      pill.querySelector('input').checked = activo;
-      pill.classList.toggle('active', activo);
-    });
-  }
-
-  // ── Cargar empresas (super_admin) ────────────────────────────────────────
+  // ── Cargar catálogos ───────────────────────────────────────────────────────
   async function cargarEmpresas() {
-    if (sesionActual?.rol !== 'super_admin') return;
     try {
       const res  = await fetch('/api/empresas');
       const data = await res.json();
       todasLasEmpresas = (data.empresas || []).filter(e => e.estado === 'activa');
-      const sel = document.getElementById('campo-empresa');
-      sel.innerHTML = '<option value="">– Seleccione una empresa –</option>';
-      todasLasEmpresas.forEach(e => {
-        const opt = document.createElement('option');
-        opt.value = e.id; opt.textContent = e.nombre;
-        sel.appendChild(opt);
-      });
-      document.getElementById('grupo-empresa').style.display = 'block';
     } catch {}
   }
 
-  // Cuando cambia la empresa en el modal, recargar las áreas disponibles
-  async function onCambioEmpresa() {
-    const empresaId = document.getElementById('campo-empresa').value;
-    await cargarAreasPills([], empresaId || null);
+  async function cargarRoles() {
+    try {
+      const res = await fetch('/api/auth/roles');
+      const data = await res.json();
+      todosLosRoles = data.roles || [];
+    } catch {}
   }
 
-  /**
-   * Carga áreas desde /api/areas y renderiza pills dinámicos.
-   * @param {string[]} seleccionadas - nombres de áreas ya asignadas al usuario
-   * @param {string|null} empresaIdOverride - empresa a filtrar (super_admin)
-   */
-  async function cargarAreasPills(seleccionadas = [], empresaIdOverride = null) {
-    const container = document.getElementById('check-areas');
-    container.innerHTML = '<span style="color:#aaa;font-size:0.85em;">Cargando áreas...</span>';
+  async function cargarPermisos() {
     try {
-      // Filtrar por empresa cuando es super_admin
-      const empId = empresaIdOverride || (sesionActual?.rol !== 'super_admin' ? null : document.getElementById('campo-empresa')?.value || null);
-      const url = empId ? `/api/areas?estado=activo&empresaId=${empId}` : '/api/areas?estado=activo';
-      const res  = await fetch(url);
+      const res = await fetch('/api/auth/permisos');
       const data = await res.json();
-      const areasRaw = (data.areas || []);
-      // Filtrar por empresa si super_admin y hay empresaId seleccionado
-      const areas = (empId && sesionActual?.rol === 'super_admin')
-        ? areasRaw.filter(a => a.empresaId === empId || (a.empresaId && a.empresaId.toString ? a.empresaId.toString() === empId : false))
-        : areasRaw;
+      todosLosPermisos = data.agrupados || {};
+    } catch {}
+  }
 
-      if (areas.length === 0) {
-        const msg = (empId && sesionActual?.rol === 'super_admin')
-          ? '⚠️ Seleccione primero una empresa para ver sus áreas.'
-          : '⚠️ No hay áreas activas registradas.';
-        container.innerHTML = `<span style="color:#e65100;font-size:0.85em;">${msg}
-          <a href="/areas.html" target="_blank" style="color:#667eea;">Crear áreas →</a></span>`;
+  // ── Render grid de empresas en el modal ────────────────────────────────────
+  function renderGridEmpresas(empresasSeleccionadas = []) {
+    const grid    = document.getElementById('grid-empresas');
+    const empList = sesionActual?.rol === 'super_admin'
+      ? todasLasEmpresas
+      : todasLasEmpresas.filter(e => e.id === sesionActual?.pgEmpresaId);
+
+    if (!empList.length) {
+      grid.innerHTML = '<span style="color:#aaa;font-size:0.85em;">No hay empresas disponibles.</span>';
+      return;
+    }
+    grid.innerHTML = empList.map(e => {
+      const cfg    = configPorEmpresa[e.id];
+      const selec  = empresasSeleccionadas.includes(e.id);
+      const rolLbl = cfg ? (todosLosRoles.find(r => r.id === cfg.rolId)?.nombre || '') : '';
+      return `<label class="empresa-card${selec ? ' selected' : ''}" data-id="${e.id}">
+        <input type="checkbox" value="${e.id}" ${selec ? 'checked' : ''} onchange="onToggleEmpresa('${e.id}', this.checked)">
+        <div><div class="emp-nombre">🏢 ${e.nombre}</div>${rolLbl ? `<div class="emp-rol">Rol: ${rolLbl}</div>` : ''}</div>
+      </label>`;
+    }).join('');
+
+    // Sincronizar clase selected al hacer click en la card (no solo en el checkbox)
+    grid.querySelectorAll('.empresa-card').forEach(card => {
+      card.addEventListener('click', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        const cb = this.querySelector('input');
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change'));
+        this.classList.toggle('selected', cb.checked);
+      });
+    });
+  }
+
+  function filtrarEmpresasModal() {
+    const q = document.getElementById('buscador-empresas-modal').value.toLowerCase();
+    document.querySelectorAll('#grid-empresas .empresa-card').forEach(card => {
+      const nombre = card.querySelector('.emp-nombre').textContent.toLowerCase();
+      card.style.display = nombre.includes(q) ? '' : 'none';
+    });
+  }
+
+  function getEmpresasSeleccionadas() {
+    return Array.from(document.querySelectorAll('#grid-empresas input:checked')).map(cb => cb.value);
+  }
+
+  // ── Toggle empresa → crear / destruir acordeón ─────────────────────────────
+  async function onToggleEmpresa(empresaId, checked) {
+    const card = document.querySelector(`.empresa-card[data-id="${empresaId}"]`);
+    if (card) card.classList.toggle('selected', checked);
+
+    if (checked) {
+      if (!configPorEmpresa[empresaId]) configPorEmpresa[empresaId] = { rolId: '', modulos: [], areas: [], permisos: [] };
+      await crearAcordeon(empresaId);
+    } else {
+      eliminarAcordeon(empresaId);
+    }
+    const hayConfig = Object.keys(configPorEmpresa).length > 0;
+    document.getElementById('seccion-config-empresas').style.display = hayConfig ? '' : 'none';
+  }
+
+  async function crearAcordeon(empresaId) {
+    const emp = todasLasEmpresas.find(e => e.id === empresaId);
+    if (!emp) return;
+    const existente = document.getElementById(`acord-${empresaId}`);
+    if (existente) { existente.style.display = ''; return; }
+
+    const cfg = configPorEmpresa[empresaId] || { rolId: '', modulos: [], areas: [], permisos: [] };
+
+    // Opciones de rol
+    const optsRol = todosLosRoles.map(r =>
+      `<option value="${r.id}" ${cfg.rolId === r.id ? 'selected' : ''}>${r.nombre}</option>`
+    ).join('');
+
+    // Opciones de módulos
+    const TODOS_MODS = ['turnos','nomina','usuarios','parametros','reportes','empresas','areas'];
+    const pillsMod = TODOS_MODS.map(m => {
+      const activo = cfg.modulos.includes(m);
+      return `<label class="pill-sm${activo ? ' active' : ''}" data-val="${m}" data-emp="${empresaId}" data-tipo="modulo">
+        <input type="checkbox" value="${m}" ${activo ? 'checked' : ''}>${ICONOS_MOD[m]||m} ${m}
+      </label>`;
+    }).join('');
+
+    // Áreas (se cargan async)
+    const divAreas = `<div class="check-grid" id="areas-${empresaId}" style="margin-top:6px"><span style="color:#aaa;font-size:0.83em;">Cargando áreas...</span></div>`;
+
+    // Permisos agrupados por módulo
+    let htmlPermisos = '';
+    for (const [mod, perms] of Object.entries(todosLosPermisos)) {
+      const pillsPerm = perms.map(p => {
+        const activo = cfg.permisos.includes(p.codigo);
+        return `<label class="pill-sm${activo ? ' active' : ''}" data-val="${p.codigo}" data-emp="${empresaId}" data-tipo="permiso">
+          <input type="checkbox" value="${p.codigo}" ${activo ? 'checked' : ''}>${p.nombre}
+        </label>`;
+      }).join('');
+      htmlPermisos += `<div class="permisos-grupo">
+        <div class="permisos-grupo-titulo">${ICONOS_MOD[mod]||''} ${mod}</div>
+        <div>${pillsPerm}</div>
+      </div>`;
+    }
+
+    const acordeon = document.createElement('div');
+    acordeon.className = 'acordeon';
+    acordeon.id = `acord-${empresaId}`;
+    acordeon.innerHTML = `
+      <div class="acordeon-header open" onclick="toggleAcordeon('${empresaId}')">
+        <span class="emp-tag">🏢 ${emp.nombre}</span>
+        <span class="chevron">▼</span>
+      </div>
+      <div class="acordeon-body open" id="body-${empresaId}">
+        <div class="form-group">
+          <label class="section-title">Rol en esta empresa</label>
+          <select id="rol-emp-${empresaId}" onchange="onCampoEmpresa('${empresaId}','rol',this.value)" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9em;">
+            <option value="">– Seleccione un rol –</option>
+            ${optsRol}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="section-title">Módulos</label>
+          <div class="check-grid" id="mods-${empresaId}">${pillsMod}</div>
+        </div>
+        <div class="form-group">
+          <label class="section-title" style="display:flex;justify-content:space-between">
+            Áreas
+            <a href="/areas.html" target="_blank" style="font-size:0.78em;color:#667eea;font-weight:500;">⚙️ Gestionar</a>
+          </label>
+          ${divAreas}
+        </div>
+        <div class="form-group">
+          <label class="section-title">Permisos específicos <small style="font-weight:400;color:#aaa">(opcionales — heredados del rol)</small></label>
+          <div id="perms-${empresaId}">${htmlPermisos}</div>
+        </div>
+      </div>`;
+
+    document.getElementById('acordeones-empresas').appendChild(acordeon);
+    document.getElementById('seccion-config-empresas').style.display = '';
+    initPillsDinamicos(acordeon, empresaId);
+
+    // Cargar áreas async
+    cargarAreasParaEmpresa(empresaId, cfg.areas || []);
+  }
+
+  function eliminarAcordeon(empresaId) {
+    const el = document.getElementById(`acord-${empresaId}`);
+    if (el) el.remove();
+    delete configPorEmpresa[empresaId];
+  }
+
+  function toggleAcordeon(empresaId) {
+    const header = document.querySelector(`#acord-${empresaId} .acordeon-header`);
+    const body   = document.getElementById(`body-${empresaId}`);
+    header?.classList.toggle('open');
+    body?.classList.toggle('open');
+  }
+
+  // ── Cargar áreas de una empresa ────────────────────────────────────────────
+  async function cargarAreasParaEmpresa(empresaId, seleccionadas = []) {
+    const container = document.getElementById(`areas-${empresaId}`);
+    if (!container) return;
+    try {
+      const res  = await fetch(`/api/areas?estado=activo&empresaId=${empresaId}`);
+      const data = await res.json();
+      const areas = (data.areas || []).filter(a => a.empresaId === empresaId);
+      if (!areas.length) {
+        container.innerHTML = '<span style="color:#aaa;font-size:0.83em;">No hay áreas activas en esta empresa.</span>';
         return;
       }
-
-      // Construir pills para áreas activas
-      const pillsHTML = areas.map(a => {
-        const checked = seleccionadas.includes(a.nombre);
-        return `<label class="check-pill${checked ? ' active' : ''}" data-val="${a.nombre}">
-          <input type="checkbox" value="${a.nombre}"${checked ? ' checked' : ''}>🏢 ${a.nombre}
+      container.innerHTML = areas.map(a => {
+        const activo = seleccionadas.includes(a.id || a._id);
+        return `<label class="pill-sm${activo ? ' active' : ''}" data-val="${a.id || a._id}" data-emp="${empresaId}" data-tipo="area">
+          <input type="checkbox" value="${a.id || a._id}" ${activo ? 'checked' : ''}>📍 ${a.nombre}
         </label>`;
       }).join('');
-
-      // Pills extra para áreas previamente asignadas que ahora están inactivas
-      const areasInactivasAsignadas = seleccionadas.filter(
-        s => !areas.find(a => a.nombre === s)
-      );
-      const pillsInactivasHTML = areasInactivasAsignadas.map(nombre => {
-        return `<label class="check-pill active" data-val="${nombre}" title="Área inactiva — historial" style="opacity:0.55;border-style:dashed;cursor:default;">
-          <input type="checkbox" value="${nombre}" checked disabled>⏸ ${nombre}
-        </label>`;
-      }).join('');
-
-      container.innerHTML = pillsHTML + pillsInactivasHTML;
-      initPills('check-areas');
+      initPillsDinamicos(container, empresaId);
     } catch {
-      container.innerHTML = '<span style="color:#c62828;font-size:0.85em;">Error cargando áreas. Intenta de nuevo.</span>';
+      container.innerHTML = '<span style="color:#c62828;font-size:0.83em;">Error cargando áreas.</span>';
     }
   }
 
-  function getChecked(containerId) {
-    return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(cb => cb.value);
+  // ── Pills dinámicos ────────────────────────────────────────────────────────
+  function initPillsDinamicos(container, empresaId) {
+    container.querySelectorAll('.pill-sm').forEach(pill => {
+      pill.addEventListener('click', function(e) {
+        if (e.target.tagName === 'INPUT') return;
+        const cb = this.querySelector('input');
+        cb.checked = !cb.checked;
+        this.classList.toggle('active', cb.checked);
+        actualizarConfigPorEmpresa(empresaId);
+      });
+      pill.querySelector('input')?.addEventListener('change', function() {
+        pill.classList.toggle('active', this.checked);
+        actualizarConfigPorEmpresa(empresaId);
+      });
+    });
   }
 
-  // ── Modal crear usuario ───────────────────────────────────────────────────
+  function onCampoEmpresa(empresaId, campo, valor) {
+    if (!configPorEmpresa[empresaId]) configPorEmpresa[empresaId] = { rolId: '', modulos: [], areas: [], permisos: [] };
+    if (campo === 'rol') configPorEmpresa[empresaId].rolId = valor;
+    actualizarEmpresaCardRol(empresaId);
+  }
+
+  function actualizarConfigPorEmpresa(empresaId) {
+    if (!configPorEmpresa[empresaId]) configPorEmpresa[empresaId] = { rolId: '', modulos: [], areas: [], permisos: [] };
+    const get = (tipo) => Array.from(document.querySelectorAll(`[data-emp="${empresaId}"][data-tipo="${tipo}"] input:checked`)).map(cb => cb.value);
+    configPorEmpresa[empresaId].modulos  = get('modulo');
+    configPorEmpresa[empresaId].areas    = get('area');
+    configPorEmpresa[empresaId].permisos = get('permiso');
+  }
+
+  function actualizarEmpresaCardRol(empresaId) {
+    const card = document.querySelector(`.empresa-card[data-id="${empresaId}"] .emp-rol`);
+    if (!card) return;
+    const cfg = configPorEmpresa[empresaId];
+    const rolNombre = todosLosRoles.find(r => r.id === cfg?.rolId)?.nombre || '';
+    card.textContent = rolNombre ? `Rol: ${rolNombre}` : '';
+  }
+
+  // ── Modal crear ────────────────────────────────────────────────────────────
   async function abrirModalCrear() {
     modoEdicion = false;
+    configPorEmpresa = {};
     document.getElementById('modal-titulo').textContent = '➕ Nuevo Usuario';
     document.getElementById('campo-id').value = '';
     document.getElementById('campo-nombre').value = '';
     document.getElementById('campo-username').value = '';
+    document.getElementById('campo-correo').value = '';
     document.getElementById('campo-password').value = '';
     document.getElementById('campo-rol').value = 'usuario';
-    document.getElementById('grupo-password').style.display = 'block';
+    document.getElementById('grupo-password').style.display = '';
     document.getElementById('campo-password').required = true;
-    setPills('check-modulos', []);
+    document.getElementById('grupo-estado-usuario').style.display = 'none';
+    document.getElementById('acordeones-empresas').innerHTML = '';
+    document.getElementById('seccion-config-empresas').style.display = 'none';
     ocultarModalAlerta();
+    renderGridEmpresas([]);
+
+    // Auto-seleccionar empresa si es admin (no super_admin)
+    if (sesionActual?.rol !== 'super_admin' && sesionActual?.pgEmpresaId) {
+      configPorEmpresa[sesionActual.pgEmpresaId] = { rolId: '', modulos: [], areas: [], permisos: [] };
+      await crearAcordeon(sesionActual.pgEmpresaId);
+      const cb = document.querySelector(`#grid-empresas input[value="${sesionActual.pgEmpresaId}"]`);
+      if (cb) { cb.checked = true; cb.closest('.empresa-card')?.classList.add('selected'); }
+    }
     document.getElementById('modal-usuario').classList.add('open');
-    await cargarAreasPills([]);
   }
 
-  // ── Modal editar usuario ──────────────────────────────────────────────────
+  // ── Modal editar ───────────────────────────────────────────────────────────
   async function abrirModalEditar(id) {
     const u = usuarios.find(x => x.id === id);
     if (!u) return;
     modoEdicion = true;
+    configPorEmpresa = {};
+
     document.getElementById('modal-titulo').textContent = `✏️ Editar: ${u.nombre}`;
     document.getElementById('campo-id').value = u.id;
     document.getElementById('campo-nombre').value = u.nombre || '';
     document.getElementById('campo-username').value = u.username || '';
+    document.getElementById('campo-correo').value = u.correo || '';
     document.getElementById('campo-password').value = '';
     document.getElementById('campo-rol').value = u.rol || 'usuario';
     document.getElementById('grupo-password').style.display = 'none';
     document.getElementById('campo-password').required = false;
-    setPills('check-modulos', u.modulosPermitidos);
+    document.getElementById('grupo-estado-usuario').style.display = '';
+    document.getElementById('campo-activo').value = u.activo ? 'true' : 'false';
+    document.getElementById('acordeones-empresas').innerHTML = '';
+    document.getElementById('seccion-config-empresas').style.display = 'none';
     ocultarModalAlerta();
-    document.getElementById('modal-usuario').classList.add('open');
-    // Para super_admin: pre-seleccionar la empresa del usuario
-    const selEmp = document.getElementById('campo-empresa');
-    if (selEmp && u.empresaId) {
-      selEmp.value = u.empresaId;
+
+    // Pre-cargar config por empresa desde datos del usuario
+    const empIdsAsignadas = [];
+    for (const ue of (u.empresasAsignadas || [])) {
+      configPorEmpresa[ue.empresaId] = {
+        rolId:    ue.rolId,
+        modulos:  ue.modulos || [],
+        areas:    ue.areas.map(a => a.id),
+        permisos: ue.permisos || []
+      };
+      empIdsAsignadas.push(ue.empresaId);
     }
-    await cargarAreasPills(u.areasPermitidas || [], u.empresaId || null);
+    renderGridEmpresas(empIdsAsignadas);
+    for (const eId of empIdsAsignadas) {
+      await crearAcordeon(eId);
+    }
+
+    document.getElementById('modal-usuario').classList.add('open');
   }
 
-  function cerrarModal() { document.getElementById('modal-usuario').classList.remove('open'); }
+  function cerrarModal() {
+    document.getElementById('modal-usuario').classList.remove('open');
+    document.getElementById('acordeones-empresas').innerHTML = '';
+    configPorEmpresa = {};
+  }
 
-  // ── Guardar usuario (crear o editar) ──────────────────────────────────────
+  // ── Guardar usuario ────────────────────────────────────────────────────────
   async function guardarUsuario() {
     const nombre   = document.getElementById('campo-nombre').value.trim();
     const username = document.getElementById('campo-username').value.trim();
+    const correo   = document.getElementById('campo-correo').value.trim();
     const password = document.getElementById('campo-password').value;
     const rol      = document.getElementById('campo-rol').value;
 
@@ -451,37 +658,55 @@
     if (!modoEdicion && !password) { mostrarModalAlerta('La contraseña es obligatoria.'); return; }
     if (!modoEdicion && password.length < 4) { mostrarModalAlerta('La contraseña debe tener al menos 4 caracteres.'); return; }
 
-    // Validar empresa para super_admin al crear
-    const selEmp = document.getElementById('campo-empresa');
-    if (!modoEdicion && sesionActual?.rol === 'super_admin' && selEmp && !selEmp.value) {
-      mostrarModalAlerta('Debe seleccionar una empresa para el nuevo usuario.');
-      return;
+    // Recopilar config de cada empresa antes de enviar
+    for (const empresaId of Object.keys(configPorEmpresa)) {
+      actualizarConfigPorEmpresa(empresaId);
+      const rolSel = document.getElementById(`rol-emp-${empresaId}`)?.value;
+      if (rolSel) configPorEmpresa[empresaId].rolId = rolSel;
     }
 
-    const payload = {
-      nombre, username, rol,
-      modulosPermitidos: getChecked('check-modulos'),
-      areasPermitidas:   getChecked('check-areas')
-    };
+    // Validar que cada empresa asignada tenga rol
+    for (const [eId, cfg] of Object.entries(configPorEmpresa)) {
+      if (!cfg.rolId) {
+        const emp = todasLasEmpresas.find(e => e.id === eId);
+        mostrarModalAlerta(`Selecciona un rol para la empresa "${emp?.nombre || eId}".`);
+        return;
+      }
+    }
+
+    const empresasPayload = Object.entries(configPorEmpresa).map(([eId, cfg]) => ({
+      empresaId: eId,
+      rolId:     cfg.rolId,
+      modulos:   cfg.modulos,
+      areas:     cfg.areas,
+      permisos:  cfg.permisos
+    }));
+
+    const id = document.getElementById('campo-id').value;
+    const payload = { nombre, username, correo, rol, empresas: empresasPayload };
     if (!modoEdicion) payload.password = password;
-    // Incluir empresaId si es super_admin
-    if (selEmp && selEmp.value) payload.empresaId = selEmp.value;
 
-    const id  = document.getElementById('campo-id').value;
-    const url = modoEdicion ? `/api/auth/usuarios/${id}` : '/api/auth/usuarios';
+    const url    = modoEdicion ? `/api/auth/usuarios/${id}` : '/api/auth/usuarios';
     const method = modoEdicion ? 'PUT' : 'POST';
-
     const btn = document.getElementById('btn-guardar');
     btn.disabled = true; btn.textContent = 'Guardando...';
 
     try {
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const res  = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+
+      // Si es edición y hay empresas en payload, actualizar asignaciones
+      if (modoEdicion && empresasPayload.length > 0) {
+        const resEmp = await fetch(`/api/auth/usuarios/${id}/empresas`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ empresas: empresasPayload })
+        });
+        const dataEmp = await resEmp.json();
+        if (!resEmp.ok || !dataEmp.success) throw new Error(dataEmp.error || 'Error al actualizar empresas');
+      }
+
       cerrarModal();
       showMsg(modoEdicion ? '✅ Usuario actualizado.' : '✅ Usuario creado.', 'success');
       await cargarUsuarios();
@@ -492,7 +717,20 @@
     }
   }
 
-  // ── Modal cambiar contraseña ──────────────────────────────────────────────
+  // ── Toggle estado ──────────────────────────────────────────────────────────
+  async function toggleEstado(id) {
+    const u = usuarios.find(x => x.id === id);
+    if (!confirm(`¿${u?.activo ? 'Desactivar' : 'Activar'} al usuario "${u?.username}"?`)) return;
+    try {
+      const res = await fetch(`/api/auth/usuarios/${id}/estado`, { method: 'PATCH' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+      showMsg(`✅ Usuario ${data.activo ? 'activado' : 'desactivado'}.`, 'success');
+      await cargarUsuarios();
+    } catch (e) { showMsg('Error: ' + e.message, 'error'); }
+  }
+
+  // ── Modal contraseña ───────────────────────────────────────────────────────
   function abrirModalPass(id) {
     const u = usuarios.find(x => x.id === id);
     if (!u) return;
@@ -504,7 +742,6 @@
     document.getElementById('pass-alert').style.display = 'none';
     document.getElementById('modal-password').classList.add('open');
   }
-
   function cerrarModalPass() { document.getElementById('modal-password').classList.remove('open'); }
 
   async function guardarPassword() {
@@ -512,70 +749,59 @@
     const pass = document.getElementById('campo-nueva-pass').value;
     const conf = document.getElementById('campo-conf-pass').value;
     const alertEl = document.getElementById('pass-alert');
-
-    const showPassAlert = (msg) => { alertEl.textContent = msg; alertEl.style.display = 'block'; };
-
-    if (!pass) { showPassAlert('Ingresa la nueva contraseña.'); return; }
-    if (pass.length < 4) { showPassAlert('Mínimo 4 caracteres.'); return; }
-    if (pass !== conf) { showPassAlert('Las contraseñas no coinciden.'); return; }
-
+    const show = msg => { alertEl.textContent = msg; alertEl.style.display = 'block'; };
+    if (!pass) { show('Ingresa la nueva contraseña.'); return; }
+    if (pass.length < 4) { show('Mínimo 4 caracteres.'); return; }
+    if (pass !== conf) { show('Las contraseñas no coinciden.'); return; }
     const btn = document.getElementById('btn-guardar-pass');
     btn.disabled = true; btn.textContent = 'Guardando...';
-
     try {
       const res = await fetch(`/api/auth/usuarios/${id}/password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pass })
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
       cerrarModalPass();
-      showMsg('✅ Contraseña actualizada correctamente.', 'success');
-    } catch (e) {
-      showPassAlert(e.message);
-    } finally {
-      btn.disabled = false; btn.textContent = '🔑 Cambiar';
-    }
+      showMsg('✅ Contraseña actualizada.', 'success');
+    } catch (e) { show(e.message); }
+    finally { btn.disabled = false; btn.textContent = '🔑 Cambiar'; }
   }
 
-  // ── Eliminar usuario ──────────────────────────────────────────────────────
+  // ── Eliminar usuario ───────────────────────────────────────────────────────
   async function eliminarUsuario(id) {
     const u = usuarios.find(x => x.id === id);
-    if (!confirm(`⚠️ ¿Eliminar al usuario "${u?.username}"? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`⚠️ ¿Eliminar al usuario "${u?.username}"? Esta acción es irreversible.`)) return;
     try {
       const res = await fetch(`/api/auth/usuarios/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
       showMsg('✅ Usuario eliminado.', 'success');
       await cargarUsuarios();
-    } catch (e) {
-      showMsg('Error: ' + e.message, 'error');
-    }
+    } catch (e) { showMsg('Error: ' + e.message, 'error'); }
   }
 
-  // ── Alertas ───────────────────────────────────────────────────────────────
+  // ── Helpers de alertas ─────────────────────────────────────────────────────
   function showMsg(text, type) {
     const el = document.getElementById('msg');
     el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block';
-    if (type === 'success') setTimeout(() => el.style.display = 'none', 4000);
+    if (type === 'success') setTimeout(() => el.style.display = 'none', 4500);
   }
   function mostrarModalAlerta(msg) {
     const el = document.getElementById('modal-alert');
     el.textContent = msg; el.style.display = 'block';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   function ocultarModalAlerta() { document.getElementById('modal-alert').style.display = 'none'; }
 
-  // Cerrar modales al click fuera
-  document.getElementById('modal-usuario').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModal(); });
+  document.getElementById('modal-usuario').addEventListener('click',  e => { if (e.target === e.currentTarget) cerrarModal(); });
   document.getElementById('modal-password').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModalPass(); });
 
-  // ── Init ─────────────────────────────────────────────────────────────────
+  // ── Init ───────────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
     const sesion = await verificarSesion();
     if (!sesion) return;
-    initPills('check-modulos');
-    await Promise.all([cargarUsuarios(), cargarEmpresas()]);
+    await Promise.all([cargarUsuarios(), cargarEmpresas(), cargarRoles(), cargarPermisos()]);
   });
 </script>
 </body>
