@@ -577,12 +577,12 @@ async function cargarStats() {
 async function cargarAreas() {
   try {
     const d = await apiFetch('/api/areas');
-    areas = (d.areas || []).filter(a => a.estado === 'activa');
+    areas = (d.areas || []).filter(a => a.estado === 'activo');
     const sel = document.getElementById('calcAreaId');
     sel.innerHTML = '<option value="">– Seleccione un área –</option>';
     areas.forEach(a => {
       const opt = document.createElement('option');
-      opt.value = a._id;
+      opt.value = a.id || a._id;
       opt.textContent = a.nombre;
       sel.appendChild(opt);
     });
