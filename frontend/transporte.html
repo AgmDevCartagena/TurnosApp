@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Programación de Transporte y Alimentación</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+    /* Header */
+    .header{background:linear-gradient(135deg,#1e3a5f 0%,#2e6da4 100%);color:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+    .header-title h1{font-size:1.35em;display:flex;align-items:center;gap:10px}
+    .header-title p{font-size:.82em;opacity:.85;margin-top:3px}
+    .header-actions{display:flex;gap:8px;align-items:center}
+    /* Empresa selector */
+    .empresa-selector-wrap{display:none;align-items:center;gap:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:5px 12px;margin-top:6px}
+    .empresa-selector-wrap label{font-size:.75em;opacity:.85;white-space:nowrap}
+    .empresa-selector-wrap select{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:3px 8px;font-size:.82em;cursor:pointer;max-width:200px}
+    .empresa-selector-wrap select option{color:#333;background:#fff}
+    /* Botones */
+    .btn{padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:.88em;font-weight:600;transition:all .2s}
+    .btn-primary{background:#2e6da4;color:#fff}.btn-primary:hover{background:#1e5a8a}
+    .btn-success{background:#2e7d32;color:#fff}.btn-success:hover{background:#1b5e20}
+    .btn-danger {background:#c62828;color:#fff}.btn-danger:hover{background:#b71c1c}
+    .btn-warning{background:#e65100;color:#fff}.btn-warning:hover{background:#bf360c}
+    .btn-outline{background:transparent;color:#2e6da4;border:1.5px solid #2e6da4}.btn-outline:hover{background:#e3f2fd}
+    .btn-back  {background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}.btn-back:hover{background:rgba(255,255,255,.25)}
+    .btn-sm    {padding:4px 10px;font-size:.78em;border-radius:6px}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    /* Layout */
+    .content{max-width:1280px;margin:24px auto;padding:0 20px}
+    /* Alert */
+    .alert{padding:11px 16px;border-radius:8px;margin-bottom:16px;font-size:.88em;font-weight:500}
+    .alert-success{background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+    .alert-error  {background:#fce4ec;color:#c62828;border:1px solid #f48fb1}
+    .alert-info   {background:#e3f2fd;color:#1565c0;border:1px solid #90caf9}
+    .alert-hidden {display:none}
+    /* Tabs */
+    .tabs{display:flex;gap:4px;background:#fff;border-radius:10px;padding:5px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px;flex-wrap:wrap}
+    .tab-btn{padding:9px 18px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:.87em;font-weight:600;color:#555;transition:all .2s}
+    .tab-btn.active{background:linear-gradient(135deg,#1e3a5f,#2e6da4);color:#fff;box-shadow:0 2px 8px rgba(30,58,95,.3)}
+    .tab-btn:hover:not(.active){background:#f0f2f5}
+    .tab-panel{display:none}.tab-panel.active{display:block}
+    /* Cards */
+    .card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:18px}
+    .card h2{font-size:1em;color:#1e3a5f;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    /* Tables */
+    .tbl-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;font-size:.85em}
+    th{background:#1e3a5f;color:#fff;padding:10px 12px;text-align:left;font-weight:600;white-space:nowrap}
+    td{padding:9px 12px;border-bottom:1px solid #e0e0e0;vertical-align:middle}
+    tr:hover{background:#f5f9ff}
+    /* Estado badges */
+    .badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:.75em;font-weight:700;text-transform:uppercase}
+    .badge-borrador {background:#fff9c4;color:#795548}
+    .badge-validada {background:#e3f2fd;color:#1565c0}
+    .badge-aprobada {background:#e8f5e9;color:#2e7d32}
+    .badge-enviada  {background:#f3e5f5;color:#6a1b9a}
+    .badge-cerrada  {background:#e0e0e0;color:#424242}
+    .badge-anulada  {background:#fce4ec;color:#c62828}
+    .badge-normal   {background:#e8f5e9;color:#2e7d32}
+    .badge-extendido{background:#fff9c4;color:#e65100}
+    .badge-turno_b  {background:#e3f2fd;color:#1565c0}
+    .badge-otro     {background:#f5f5f5;color:#555}
+    /* Forms */
+    .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px}
+    .form-group{display:flex;flex-direction:column;gap:4px}
+    .form-group label{font-size:.82em;font-weight:600;color:#444}
+    .form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1.5px solid #ccc;border-radius:8px;font-size:.88em;transition:border-color .2s}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#2e6da4;outline:none}
+    /* Modal */
+    .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:1000;justify-content:center;align-items:flex-start;padding-top:40px;overflow-y:auto}
+    .modal-overlay.active{display:flex}
+    .modal-box{background:#fff;border-radius:14px;padding:28px;width:100%;max-width:860px;box-shadow:0 8px 32px rgba(0,0,0,.22);animation:modalIn .22s ease;margin-bottom:40px}
+    .modal-box.modal-lg{max-width:1100px}
+    @keyframes modalIn{from{transform:scale(.93);opacity:0}to{transform:scale(1);opacity:1}}
+    .modal-box h2{font-size:1.1em;color:#1e3a5f;margin-bottom:18px}
+    .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid #eee}
+    /* Textarea grande para WhatsApp */
+    .wa-textarea{width:100%;height:220px;font-family:monospace;font-size:.84em;padding:12px;border:1.5px solid #ccc;border-radius:8px;resize:vertical}
+    .wa-textarea:focus{border-color:#2e6da4;outline:none}
+    /* Preview lista */
+    .preview-list{max-height:360px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px}
+    .preview-row{display:grid;grid-template-columns:auto 1fr 1fr 90px 90px 90px 90px;gap:8px;padding:8px 10px;border-bottom:1px solid #f0f0f0;align-items:center;font-size:.82em}
+    .preview-row:last-child{border-bottom:none}
+    .preview-row.header-row{background:#1e3a5f;color:#fff;font-weight:600;position:sticky;top:0}
+    .preview-row input,.preview-row select{padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:.8em;width:100%}
+    /* Formato WhatsApp output */
+    .wa-output{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:14px;font-family:monospace;font-size:.84em;white-space:pre-wrap;max-height:400px;overflow-y:auto}
+    /* Stats bar */
+    .stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px}
+    .stat-card{background:#fff;border-radius:10px;padding:14px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+    .stat-card .val{font-size:1.8em;font-weight:700;color:#1e3a5f}
+    .stat-card .lbl{font-size:.76em;color:#666;margin-top:2px}
+    /* Responsive */
+    @media(max-width:768px){.form-row{grid-template-columns:1fr}.preview-row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">
+    <h1>🚌 Programación de Transporte y Alimentación</h1>
+    <p id="headerEmpresa">Cargando...</p>
+    <div class="empresa-selector-wrap" id="empresaSelectorWrap">
+      <label>🏢 EMPRESA</label>
+      <select id="empresaSelect" onchange="cambiarEmpresaTransporte(this.value)"></select>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span id="headerUser" style="opacity:.85;font-size:.88em"></span>
+    <button class="btn btn-back" onclick="location.href='/dashboard.html'">← Dashboard</button>
+  </div>
+</div>
+
+<div class="content">
+  <div id="alertGlobal" class="alert alert-hidden"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('programaciones')">📋 Programaciones</button>
+    <button class="tab-btn" onclick="switchTab('catalogo')">⚙️ Catálogos</button>
+    <button class="tab-btn" onclick="switchTab('configuracion')">🔧 Config. Turnos</button>
+  </div>
+
+  <!-- ══ TAB: PROGRAMACIONES ══ -->
+  <div id="tab-programaciones" class="tab-panel active">
+    <div class="card">
+      <h2>📋 Programaciones de Transporte</h2>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <input type="date" id="filtroFecha" onchange="cargarProgramaciones()" style="padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em">
+        <select id="filtroEstado" onchange="cargarProgramaciones()" style="padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em">
+          <option value="">Todos los estados</option>
+          <option value="borrador">Borrador</option>
+          <option value="validada">Validada</option>
+          <option value="aprobada">Aprobada</option>
+          <option value="enviada">Enviada</option>
+          <option value="cerrada">Cerrada</option>
+        </select>
+        <button class="btn btn-primary" onclick="abrirModalCrear()">+ Nueva Programación</button>
+        <button class="btn btn-outline" onclick="abrirModalImportar()">📱 Importar WhatsApp</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Fecha</th><th>Hora Salida</th><th>Título</th><th>Tipo</th><th>Conductor</th><th>Placa</th><th>Estado</th><th>Personas</th><th>Acciones</th>
+          </tr></thead>
+          <tbody id="tbProgramaciones"><tr><td colspan="9" style="text-align:center;padding:24px;color:#999">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: CATÁLOGOS ══ -->
+  <div id="tab-catalogo" class="tab-panel">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px">
+      <!-- Conductores -->
+      <div class="card">
+        <h2>🧑‍✈️ Conductores
+          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="abrirModalConductor()">+ Agregar</button>
+        </h2>
+        <div id="listaConductores" style="font-size:.85em">Cargando...</div>
+      </div>
+      <!-- Vehículos -->
+      <div class="card">
+        <h2>🚗 Vehículos
+          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="abrirModalVehiculo()">+ Agregar</button>
+        </h2>
+        <div id="listaVehiculos" style="font-size:.85em">Cargando...</div>
+      </div>
+      <!-- Ubicaciones -->
+      <div class="card">
+        <h2>📍 Ubicaciones/Destinos
+          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="abrirModalUbicacion()">+ Agregar</button>
+        </h2>
+        <div id="listaUbicaciones" style="font-size:.85em">Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: CONFIG TURNOS ══ -->
+  <div id="tab-configuracion" class="tab-panel">
+    <div class="card">
+      <h2>🔧 Configuración de Turnos Operativos
+        <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="abrirModalConfigTurno()">+ Agregar</button>
+      </h2>
+      <p style="font-size:.82em;color:#666;margin-bottom:14px">Define los turnos parametrizados para esta empresa. Se usan para identificar automáticamente turno extendido, turno B y derechos de merienda/cena.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Código</th><th>Nombre</th><th>Horario</th><th>Extensión</th><th>Merienda</th><th>Cena</th><th>Resp.</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tbConfigTurnos"><tr><td colspan="9" style="text-align:center;padding:20px;color:#999">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: DETALLE PROGRAMACIÓN ══ -->
+<div id="modalDetalle" class="modal-overlay">
+  <div class="modal-box modal-lg">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 id="detalleTitulo">📋 Detalle de Programación</h2>
+      <button class="btn btn-sm btn-outline" onclick="cerrarModal('modalDetalle')">✕</button>
+    </div>
+
+    <!-- Header info -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;background:#f5f9ff;padding:12px;border-radius:8px;margin-bottom:16px;font-size:.85em">
+      <div><strong>Fecha:</strong> <span id="dtFecha">—</span></div>
+      <div><strong>Hora Salida:</strong> <span id="dtHora">—</span></div>
+      <div><strong>Conductor:</strong> <span id="dtConductor">—</span></div>
+      <div><strong>Placa:</strong> <span id="dtPlaca">—</span></div>
+      <div><strong>Estado:</strong> <span id="dtEstado">—</span></div>
+      <div><strong>Tipo:</strong> <span id="dtTipo">—</span></div>
+    </div>
+
+    <div class="tabs" style="margin-bottom:14px">
+      <button class="tab-btn active" onclick="switchDetalleTab('personal')">👥 Personal</button>
+      <button class="tab-btn" onclick="switchDetalleTab('alimentacion')">🍱 Alimentación</button>
+      <button class="tab-btn" onclick="switchDetalleTab('novedades')">📝 Novedades</button>
+      <button class="tab-btn" onclick="switchDetalleTab('whatsapp')">📱 Formato WhatsApp</button>
+    </div>
+
+    <!-- Personal -->
+    <div id="dTab-personal" class="tab-panel active">
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" onclick="abrirModalAgregarPersona()">+ Agregar persona</button>
+        <button class="btn btn-sm btn-outline" onclick="calcularServicios()">🍱 Calcular servicios</button>
+        <button class="btn btn-sm btn-success" onclick="cambiarEstadoProgramacion('validada')">✓ Validar</button>
+        <button class="btn btn-sm btn-warning" onclick="cambiarEstadoProgramacion('aprobada')">✅ Aprobar</button>
+        <button class="btn btn-sm btn-outline" onclick="cambiarEstadoProgramacion('enviada')">📤 Enviar</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo</th><th>Recogida/Destino</th><th>Merienda</th><th>Cena</th><th>Responsable</th><th>Acciones</th></tr></thead>
+          <tbody id="tbDetalles"><tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Sin personas</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Alimentación -->
+    <div id="dTab-alimentacion" class="tab-panel">
+      <div id="serviciosAlimentacion" style="font-size:.87em">Sin cálculo aún. Usa "Calcular servicios" en la pestaña Personal.</div>
+    </div>
+
+    <!-- Novedades -->
+    <div id="dTab-novedades" class="tab-panel">
+      <button class="btn btn-sm btn-primary" style="margin-bottom:12px" onclick="abrirModalNovedad()">+ Registrar novedad</button>
+      <div id="listaNovedades" style="font-size:.86em">Sin novedades.</div>
+    </div>
+
+    <!-- WhatsApp -->
+    <div id="dTab-whatsapp" class="tab-panel">
+      <button class="btn btn-primary" style="margin-bottom:12px" onclick="generarFormatoWhatsApp()">📱 Generar formato</button>
+      <button class="btn btn-outline" style="margin-bottom:12px" id="btnCopiarWA" onclick="copiarWA()" disabled>📋 Copiar</button>
+      <div id="waOutput" class="wa-output" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CREAR PROGRAMACIÓN ══ -->
+<div id="modalCrear" class="modal-overlay">
+  <div class="modal-box">
+    <h2>+ Nueva Programación de Transporte</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Fecha *</label>
+        <input type="date" id="nFecha">
+      </div>
+      <div class="form-group">
+        <label>Hora de Salida *</label>
+        <input type="time" id="nHoraSalida" value="19:00">
+      </div>
+      <div class="form-group">
+        <label>Tipo de Movimiento</label>
+        <select id="nTipoMov">
+          <option value="salida">Salida</option>
+          <option value="recogida">Recogida</option>
+          <option value="retorno">Retorno</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Conductor (catálogo)</label>
+        <select id="nConductorId"><option value="">— Sin asignar aún —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Conductor (manual/libre)</label>
+        <input type="text" id="nConductorManual" placeholder="Ej: 166 Nicolás">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Vehículo (catálogo)</label>
+        <select id="nVehiculoId"><option value="">— Sin asignar aún —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Placa (manual/libre)</label>
+        <input type="text" id="nPlacaManual" placeholder="Ej: TVD049">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Título / Descripción</label>
+      <input type="text" id="nTitulo" placeholder="Ej: Salida turno B - Sábado 30/05">
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Observaciones</label>
+      <textarea id="nObservaciones" rows="2" style="resize:vertical;padding:9px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalCrear')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarProgramacion()">Crear Programación</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: IMPORTAR WhatsApp ══ -->
+<div id="modalImportar" class="modal-overlay">
+  <div class="modal-box modal-lg">
+    <h2>📱 Importar Listado desde WhatsApp</h2>
+    <p style="font-size:.84em;color:#555;margin-bottom:12px">Pega el mensaje tal como llega desde WhatsApp. El sistema detectará fechas, áreas, nombres y horarios.</p>
+    <textarea id="waInput" class="wa-textarea" placeholder="SABADO 30/05&#10;&#10;✓CCTV&#10;Roció Melendez 07:00 a 16:00&#10;Jakelin Tamara 16:00 a 23:00&#10;&#10;✓lancheros&#10;Turno a&#10;Rusbel mejia 07:00 a 19:00&#10;Turno b&#10;Franklin García 19:00 a 07:00"></textarea>
+    <div style="display:flex;gap:10px;margin:12px 0">
+      <button class="btn btn-primary" onclick="analizarTexto()">🔍 Analizar listado</button>
+      <span id="parseStats" style="font-size:.84em;color:#555;align-self:center"></span>
+    </div>
+
+    <div id="previewWrap" style="display:none">
+      <h3 style="font-size:.9em;margin-bottom:8px;color:#1e3a5f">Vista previa — revisa y edita antes de confirmar:</h3>
+      <div class="preview-row header-row">
+        <span>#</span><span>Nombre</span><span>Área</span><span>Fecha</span><span>Inicio</span><span>Fin</span><span>Tipo</span>
+      </div>
+      <div id="previewList" class="preview-list"></div>
+
+      <div style="display:flex;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:180px">
+          <label>Programación destino *</label>
+          <select id="importarProgId">
+            <option value="">— Seleccionar o crear nueva —</option>
+            <option value="__nueva__">+ Crear nueva programación automáticamente</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:0 0 140px">
+          <label>Hora salida (si nueva)</label>
+          <input type="time" id="importarHora" value="19:00">
+        </div>
+        <div class="form-group" style="flex:0 0 140px">
+          <label>Tipo movimiento</label>
+          <select id="importarTipoMov">
+            <option value="salida">Salida</option>
+            <option value="recogida">Recogida</option>
+            <option value="retorno">Retorno</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalImportar')">Cancelar</button>
+      <button class="btn btn-success" id="btnConfirmarImport" style="display:none" onclick="confirmarImportacion()">✅ Confirmar importación</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: AGREGAR PERSONA ══ -->
+<div id="modalPersona" class="modal-overlay">
+  <div class="modal-box">
+    <h2>👤 Agregar Persona a Programación</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nombre *</label>
+        <input type="text" id="pNombre" placeholder="Ej: Diana Ledesma">
+      </div>
+      <div class="form-group">
+        <label>Documento</label>
+        <input type="text" id="pDocumento" placeholder="CC">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Área</label>
+        <input type="text" id="pArea" placeholder="Ej: CCTV">
+      </div>
+      <div class="form-group">
+        <label>Cargo</label>
+        <input type="text" id="pCargo">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Hora Inicio *</label>
+        <input type="time" id="pHoraIni" value="19:00">
+      </div>
+      <div class="form-group">
+        <label>Hora Fin *</label>
+        <input type="time" id="pHoraFin" value="07:00">
+      </div>
+      <div class="form-group">
+        <label>Fecha (si diferente a programación)</label>
+        <input type="date" id="pFecha">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ubicación/Destino (catálogo)</label>
+        <select id="pUbicacionId"><option value="">— Sin asignar —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Ubicación libre</label>
+        <input type="text" id="pUbicacionTexto" placeholder="Ej: BOMBA DE GALLO" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="grid-column:1/-1">
+        <label><input type="checkbox" id="pEsResponsable"> Es responsable de recibir meriendas/cenas</label>
+        <select id="pTipoResponsabilidad" style="margin-top:6px;padding:7px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em;display:none">
+          <option value="MERIENDA">Responsable de Meriendas</option>
+          <option value="CENA">Responsable de Cenas</option>
+          <option value="GENERAL">Responsable General</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Observación</label>
+      <input type="text" id="pObservacion">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalPersona')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPersona()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: NOVEDAD ══ -->
+<div id="modalNovedad" class="modal-overlay">
+  <div class="modal-box">
+    <h2>📝 Registrar Novedad</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tipo de Novedad *</label>
+        <select id="novTipo">
+          <option value="persona_no_asistio">Persona no asistió</option>
+          <option value="cambio_responsable">Cambio de responsable</option>
+          <option value="merienda_no_recibida">Merienda no recibida</option>
+          <option value="cena_incompleta">Cena incompleta</option>
+          <option value="cambio_turno">Cambio de turno</option>
+          <option value="persona_adicional">Persona adicional no reportada</option>
+          <option value="error_listado">Error en listado</option>
+          <option value="cambio_ruta">Cambio de ruta</option>
+          <option value="cambio_conductor">Cambio de conductor</option>
+          <option value="otra">Otra novedad</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Empleado afectado (opcional)</label>
+        <input type="text" id="novEmpleado">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Descripción *</label>
+      <textarea id="novDescripcion" rows="3" style="resize:vertical;padding:9px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em;width:100%"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalNovedad')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarNovedad()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CONDUCTOR ══ -->
+<div id="modalConductor" class="modal-overlay">
+  <div class="modal-box" style="max-width:480px">
+    <h2 id="modalConductorTitulo">+ Conductor</h2>
+    <input type="hidden" id="conductorEditId">
+    <div class="form-group" style="margin-bottom:12px"><label>Nombre *</label><input type="text" id="cNombre"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Documento</label><input type="text" id="cDocumento"></div>
+      <div class="form-group"><label>Teléfono</label><input type="text" id="cTelefono"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalConductor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConductor()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: VEHÍCULO ══ -->
+<div id="modalVehiculo" class="modal-overlay">
+  <div class="modal-box" style="max-width:480px">
+    <h2 id="modalVehiculoTitulo">+ Vehículo</h2>
+    <input type="hidden" id="vehiculoEditId">
+    <div class="form-row">
+      <div class="form-group"><label>Placa *</label><input type="text" id="vPlaca" style="text-transform:uppercase"></div>
+      <div class="form-group"><label>Capacidad</label><input type="number" id="vCapacidad" min="1"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px"><label>Descripción</label><input type="text" id="vDescripcion"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalVehiculo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarVehiculo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: UBICACIÓN ══ -->
+<div id="modalUbicacion" class="modal-overlay">
+  <div class="modal-box" style="max-width:480px">
+    <h2 id="modalUbicacionTitulo">+ Ubicación</h2>
+    <input type="hidden" id="ubicacionEditId">
+    <div class="form-group" style="margin-bottom:12px"><label>Nombre *</label><input type="text" id="uNombre" style="text-transform:uppercase" placeholder="Ej: BOMBA DE GALLO"></div>
+    <div class="form-group" style="margin-bottom:12px"><label>Descripción</label><input type="text" id="uDescripcion"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalUbicacion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarUbicacion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CONFIG TURNO ══ -->
+<div id="modalConfigTurno" class="modal-overlay">
+  <div class="modal-box" style="max-width:680px">
+    <h2 id="modalConfigTurnoTitulo">+ Configuración de Turno</h2>
+    <input type="hidden" id="ctEditId">
+    <div class="form-row">
+      <div class="form-group"><label>Código *</label><input type="text" id="ctCodigo" style="text-transform:uppercase" placeholder="TURNO_A"></div>
+      <div class="form-group"><label>Nombre *</label><input type="text" id="ctNombre" placeholder="Turno A Normal"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Hora Inicio *</label><input type="time" id="ctHoraIni"></div>
+      <div class="form-group"><label>Hora Fin *</label><input type="time" id="ctHoraFin"></div>
+      <div class="form-group"><label>Extensión desde</label><input type="time" id="ctExtIni"></div>
+      <div class="form-group"><label>Extensión hasta</label><input type="time" id="ctExtFin"></div>
+    </div>
+    <div class="form-row">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85em"><input type="checkbox" id="ctMerienda"> Genera Merienda</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85em"><input type="checkbox" id="ctCena"> Genera Cena</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85em"><input type="checkbox" id="ctResponsable"> Requiere Responsable</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85em"><input type="checkbox" id="ctExtendido"> Es Extendido</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85em"><input type="checkbox" id="ctNocturno"> Turno Nocturno</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalConfigTurno')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarConfigTurno()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ Estado global ══
+let sesion         = null;
+let programacionActualId = null;
+let programaciones = [];
+let conductores    = [];
+let vehiculos      = [];
+let ubicaciones    = [];
+let configTurnos   = [];
+let personasParseadas = [];
+
+const API = (p) => fetch(p, { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
+const POST = (p, b) => fetch(p, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+const PUT  = (p, b) => fetch(p, { method: 'PUT',  credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+const PATCH = (p, b) => fetch(p, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
+const DEL  = (p)    => fetch(p, { method: 'DELETE', credentials: 'include' });
+
+function showAlert(msg, tipo = 'info') {
+  const el = document.getElementById('alertGlobal');
+  el.className = `alert alert-${tipo}`;
+  el.textContent = msg;
+  setTimeout(() => { el.className = 'alert alert-hidden'; }, 5000);
+}
+function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
+function abrirModal(id)  { document.getElementById(id).classList.add('active'); }
+
+function switchTab(tab) {
+  document.querySelectorAll('#tab-programaciones,#tab-catalogo,#tab-configuracion').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (tab === 'catalogo')      cargarCatalogos();
+  if (tab === 'configuracion') cargarConfigTurnos();
+}
+
+function switchDetalleTab(tab) {
+  document.querySelectorAll('#dTab-personal,#dTab-alimentacion,#dTab-novedades,#dTab-whatsapp').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#modalDetalle .tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('dTab-' + tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (tab === 'alimentacion') cargarServiciosAlimentacion();
+  if (tab === 'novedades')    cargarNovedades();
+}
+
+// ══ INIT ══
+async function init() {
+  const r = await fetch('/api/auth/me', { credentials: 'include' });
+  if (!r.ok) { location.href = '/login.html'; return; }
+  const d = await r.json();
+  sesion = d.usuario || d;
+  document.getElementById('headerUser').textContent    = `👤 ${sesion.nombre || sesion.username} (${sesion.rol})`;
+  document.getElementById('headerEmpresa').textContent = sesion.empresa?.nombre || sesion.nombreEmpresa || '';
+  if (sesion.rol === 'super_admin') await cargarSelectorEmpresas();
+  await cargarProgramaciones();
+  await cargarCatalogosBase();
+}
+
+async function cargarSelectorEmpresas() {
+  try {
+    const r = await fetch('/api/me/empresas', { credentials: 'include' });
+    const d = await r.json();
+    if (!d.success) return;
+    const sel = document.getElementById('empresaSelect');
+    sel.innerHTML = '<option value="">— Seleccionar —</option>';
+    d.empresas.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.id; o.textContent = e.nombre;
+      if (e.activa || e.id === sesion?.pgEmpresaId) o.selected = true;
+      sel.appendChild(o);
+    });
+    document.getElementById('empresaSelectorWrap').style.display = 'flex';
+  } catch (_) {}
+}
+
+async function cambiarEmpresaTransporte(eid) {
+  if (!eid) return;
+  const r = await POST('/api/me/empresa-activa', { empresaId: eid });
+  const d = await r.json();
+  if (!d.success) return;
+  sesion.pgEmpresaId = d.empresa.id;
+  sesion.nombreEmpresa = d.empresa.nombre;
+  document.getElementById('headerEmpresa').textContent = d.empresa.nombre;
+  await cargarProgramaciones();
+  await cargarCatalogosBase();
+}
+
+// ══ PROGRAMACIONES ══
+async function cargarProgramaciones() {
+  const fecha  = document.getElementById('filtroFecha')?.value || '';
+  const estado = document.getElementById('filtroEstado')?.value || '';
+  let url = '/api/transporte/programaciones?';
+  if (fecha)  url += `fecha=${fecha}&`;
+  if (estado) url += `estado=${estado}&`;
+  const r = await API(url);
+  const d = await r.json();
+  if (!d.success) return;
+  programaciones = d.programaciones;
+  const tb = document.getElementById('tbProgramaciones');
+  if (!programaciones.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#999">No hay programaciones</td></tr>'; return; }
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  tb.innerHTML = programaciones.map(p => {
+    const f = new Date(p.fecha);
+    const fStr = `${f.getDate()} ${meses[f.getMonth()]} ${f.getFullYear()}`;
+    const cond  = p.conductor ? p.conductor.nombre : (p.conductorManual || '—');
+    const placa  = p.vehiculo  ? p.vehiculo.placa   : (p.placaManual    || '—');
+    return `<tr>
+      <td><strong>${fStr}</strong></td>
+      <td>${p.horaSalida}</td>
+      <td>${p.titulo || '—'}</td>
+      <td><span class="badge badge-${p.tipoMovimiento}">${p.tipoMovimiento}</span></td>
+      <td>${cond}</td>
+      <td>${placa}</td>
+      <td><span class="badge badge-${p.estado}">${p.estado}</span></td>
+      <td>${p._count?.detalles || 0}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-outline" onclick="abrirDetalle('${p.id}')">Ver</button>
+        ${['borrador','validada'].includes(p.estado) ? `<button class="btn btn-sm btn-danger" onclick="eliminarProgramacion('${p.id}')">✕</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function abrirDetalle(id) {
+  programacionActualId = id;
+  const r = await API(`/api/transporte/programaciones/${id}`);
+  const d = await r.json();
+  if (!d.success) { showAlert('Error al cargar programación', 'error'); return; }
+  const p = d.programacion;
+  const f = new Date(p.fecha);
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('detalleTitulo').textContent  = `📋 ${p.titulo || 'Programación ' + f.getDate() + ' ' + meses[f.getMonth()]}`;
+  document.getElementById('dtFecha').textContent        = `${f.getDate()} de ${meses[f.getMonth()]} de ${f.getFullYear()}`;
+  document.getElementById('dtHora').textContent         = p.horaSalida;
+  document.getElementById('dtConductor').textContent    = p.conductor ? p.conductor.nombre : (p.conductorManual || 'Sin asignar');
+  document.getElementById('dtPlaca').textContent        = p.vehiculo  ? p.vehiculo.placa   : (p.placaManual    || 'Sin asignar');
+  document.getElementById('dtEstado').innerHTML         = `<span class="badge badge-${p.estado}">${p.estado}</span>`;
+  document.getElementById('dtTipo').textContent         = p.tipoMovimiento;
+  renderDetalles(p.detalles || []);
+  abrirModal('modalDetalle');
+  // reset tabs
+  document.querySelectorAll('#modalDetalle .tabs .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('#dTab-personal,#dTab-alimentacion,#dTab-novedades,#dTab-whatsapp').forEach((p,i) => p.classList.toggle('active', i===0));
+}
+
+function renderDetalles(detalles) {
+  const tb = document.getElementById('tbDetalles');
+  if (!detalles.length) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Sin personas programadas</td></tr>'; return; }
+  tb.innerHTML = detalles.map((d, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${d.nombreEmpleado}</strong></td>
+      <td>${d.areaNombre || '—'}</td>
+      <td>${d.horaInicio} - ${d.horaFin}</td>
+      <td><span class="badge badge-${d.tipoProgramacion}">${d.tipoProgramacion}</span></td>
+      <td>
+        <input type="text" value="${d.ubicacionTexto || d.ubicacion?.nombre || ''}" placeholder="Destino..." 
+          style="width:140px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:.78em;text-transform:uppercase"
+          onblur="actualizarUbicacion('${d.id}', this.value)">
+      </td>
+      <td style="text-align:center">${d.requiereMerienda ? '✅' : '—'}</td>
+      <td style="text-align:center">${d.requiereCena    ? '✅' : '—'}</td>
+      <td style="text-align:center">${d.esResponsableAlimentacion ? '⭐' : '—'}</td>
+      <td>
+        <button class="btn btn-sm btn-danger" onclick="eliminarDetalle('${d.id}')">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function actualizarUbicacion(detalleId, ubicacionTexto) {
+  await PUT(`/api/transporte/programaciones/${programacionActualId}/detalles/${detalleId}`, { ubicacionTexto });
+}
+
+async function eliminarDetalle(detalleId) {
+  if (!confirm('¿Eliminar esta persona?')) return;
+  const r = await DEL(`/api/transporte/programaciones/${programacionActualId}/detalles/${detalleId}`);
+  const d = await r.json();
+  if (d.success) { abrirDetalle(programacionActualId); showAlert('Persona eliminada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+async function calcularServicios() {
+  const r = await POST(`/api/transporte/programaciones/${programacionActualId}/calcular-servicios`, {});
+  const d = await r.json();
+  if (d.success) {
+    showAlert(`Calculado: ${d.resumen.meriendas} meriendas, ${d.resumen.cenas} cenas`, 'success');
+    cargarServiciosAlimentacion();
+  } else showAlert(d.error, 'error');
+}
+
+async function cargarServiciosAlimentacion() {
+  const r = await API(`/api/transporte/programaciones/${programacionActualId}`);
+  const d = await r.json();
+  if (!d.success) return;
+  const s = d.programacion.serviciosAlimentacion || [];
+  const el = document.getElementById('serviciosAlimentacion');
+  if (!s.length) { el.innerHTML = '<p style="color:#999">No hay servicios calculados. Usa el botón "Calcular servicios".</p>'; return; }
+  el.innerHTML = s.map(sv => `
+    <div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px">
+      <strong>${sv.tipoServicio.toUpperCase()}</strong> — ${sv.cantidadPersonas} personas
+      <span class="badge badge-${sv.estado}" style="margin-left:8px">${sv.estado}</span>
+      <div style="margin-top:8px;display:flex;gap:10px;align-items:center;font-size:.84em">
+        <span>Responsable: <strong>${sv.responsableNombre || 'Sin asignar'}</strong></span>
+        <button class="btn btn-sm btn-outline" onclick="asignarResponsable('${sv.id}')">✏️ Asignar responsable</button>
+      </div>
+    </div>`).join('');
+}
+
+async function asignarResponsable(servicioId) {
+  const nombre = prompt('Nombre del responsable:');
+  if (!nombre?.trim()) return;
+  const r = await PUT(`/api/transporte/programaciones/${programacionActualId}/servicios/${servicioId}/responsable`, { responsableNombre: nombre });
+  const d = await r.json();
+  if (d.success) { cargarServiciosAlimentacion(); showAlert('Responsable asignado', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+async function cargarNovedades() {
+  const r = await API(`/api/transporte/programaciones/${programacionActualId}/novedades`);
+  const d = await r.json();
+  if (!d.success) return;
+  const el = document.getElementById('listaNovedades');
+  if (!d.novedades.length) { el.innerHTML = '<p style="color:#999">Sin novedades registradas.</p>'; return; }
+  el.innerHTML = d.novedades.map(n => `
+    <div style="border-left:4px solid #e65100;padding:8px 12px;margin-bottom:8px;background:#fff8f5;border-radius:0 6px 6px 0;font-size:.84em">
+      <strong>${n.tipoNovedad.replace(/_/g,' ').toUpperCase()}</strong>
+      ${n.empleadoNombre ? ` — ${n.empleadoNombre}` : ''}
+      <p style="margin-top:4px;color:#555">${n.descripcion}</p>
+      <small style="color:#999">${new Date(n.createdAt).toLocaleString()}</small>
+    </div>`).join('');
+}
+
+async function cambiarEstadoProgramacion(estado) {
+  const r = await PATCH(`/api/transporte/programaciones/${programacionActualId}/estado`, { estado });
+  const d = await r.json();
+  if (d.success) { showAlert('Estado actualizado a: ' + estado, 'success'); abrirDetalle(programacionActualId); cargarProgramaciones(); }
+  else showAlert(d.error, 'error');
+}
+
+async function generarFormatoWhatsApp() {
+  const r = await API(`/api/transporte/programaciones/${programacionActualId}/formato-whatsapp`);
+  const d = await r.json();
+  if (d.success) {
+    const el = document.getElementById('waOutput');
+    el.textContent = d.texto;
+    el.style.display = 'block';
+    document.getElementById('btnCopiarWA').disabled = false;
+  } else showAlert(d.error, 'error');
+}
+
+function copiarWA() {
+  const t = document.getElementById('waOutput').textContent;
+  navigator.clipboard.writeText(t).then(() => showAlert('Copiado al portapapeles ✅', 'success'));
+}
+
+// ══ CREAR PROGRAMACIÓN ══
+function abrirModalCrear() { abrirModal('modalCrear'); }
+
+async function guardarProgramacion() {
+  const body = {
+    fecha:           document.getElementById('nFecha').value,
+    horaSalida:      document.getElementById('nHoraSalida').value,
+    tipoMovimiento:  document.getElementById('nTipoMov').value,
+    titulo:          document.getElementById('nTitulo').value,
+    conductorId:     document.getElementById('nConductorId').value || null,
+    conductorManual: document.getElementById('nConductorManual').value,
+    vehiculoId:      document.getElementById('nVehiculoId').value || null,
+    placaManual:     document.getElementById('nPlacaManual').value,
+    observaciones:   document.getElementById('nObservaciones').value
+  };
+  if (!body.fecha || !body.horaSalida) { showAlert('Fecha y hora de salida son requeridas', 'error'); return; }
+  const r = await POST('/api/transporte/programaciones', body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalCrear'); cargarProgramaciones(); showAlert('Programación creada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+async function eliminarProgramacion(id) {
+  if (!confirm('¿Eliminar esta programación?')) return;
+  const r = await DEL(`/api/transporte/programaciones/${id}`);
+  const d = await r.json();
+  if (d.success) { cargarProgramaciones(); showAlert('Eliminada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+// ══ IMPORTAR WhatsApp ══
+function abrirModalImportar() {
+  // Poblar selector de programaciones
+  const sel = document.getElementById('importarProgId');
+  sel.innerHTML = '<option value="">— Seleccionar existente —</option><option value="__nueva__">+ Crear nueva automáticamente</option>';
+  programaciones.filter(p => ['borrador','validada'].includes(p.estado)).forEach(p => {
+    const f = new Date(p.fecha);
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = `${f.toLocaleDateString()} ${p.horaSalida} - ${p.titulo || p.tipoMovimiento}`;
+    sel.appendChild(o);
+  });
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('btnConfirmarImport').style.display = 'none';
+  document.getElementById('parseStats').textContent = '';
+  personasParseadas = [];
+  abrirModal('modalImportar');
+}
+
+async function analizarTexto() {
+  const texto = document.getElementById('waInput').value.trim();
+  if (!texto) { showAlert('Ingresa el texto a analizar', 'error'); return; }
+  const r = await POST('/api/transporte/importar-texto', { texto });
+  const d = await r.json();
+  if (!d.success) { showAlert(d.error, 'error'); return; }
+  personasParseadas = d.personas;
+  document.getElementById('parseStats').textContent = `✅ ${d.totalPersonas} personas detectadas, ${d.totalErrores} errores`;
+  const list = document.getElementById('previewList');
+  list.innerHTML = personasParseadas.map((p, i) => `
+    <div class="preview-row">
+      <span>${i+1}</span>
+      <input type="text" value="${p.nombreEmpleado}" onchange="personasParseadas[${i}].nombreEmpleado=this.value">
+      <input type="text" value="${p.areaNombre || ''}" onchange="personasParseadas[${i}].areaNombre=this.value">
+      <input type="date" value="${p.fecha || ''}" onchange="personasParseadas[${i}].fecha=this.value">
+      <input type="time" value="${p.horaInicio}" onchange="personasParseadas[${i}].horaInicio=this.value">
+      <input type="time" value="${p.horaFin}" onchange="personasParseadas[${i}].horaFin=this.value">
+      <select onchange="personasParseadas[${i}].tipoProgramacion=this.value">
+        ${['normal','extendido','turno_b','otro'].map(t => `<option value="${t}" ${p.tipoProgramacion===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>`).join('');
+  document.getElementById('previewWrap').style.display = 'block';
+  document.getElementById('btnConfirmarImport').style.display = d.totalPersonas > 0 ? 'inline-block' : 'none';
+}
+
+async function confirmarImportacion() {
+  if (!personasParseadas.length) return;
+  let progId = document.getElementById('importarProgId').value;
+
+  if (progId === '__nueva__') {
+    // Crear automáticamente con la primera fecha detectada
+    const fechas = personasParseadas.map(p => p.fecha).filter(Boolean).sort();
+    const fechaUsar = fechas[0] || new Date().toISOString().split('T')[0];
+    const r = await POST('/api/transporte/programaciones', {
+      fecha: fechaUsar,
+      horaSalida: document.getElementById('importarHora').value || '19:00',
+      tipoMovimiento: document.getElementById('importarTipoMov').value,
+      titulo: 'Importado desde WhatsApp'
+    });
+    const d = await r.json();
+    if (!d.success) { showAlert(d.error, 'error'); return; }
+    progId = d.programacion.id;
+  }
+
+  if (!progId) { showAlert('Selecciona o crea una programación destino', 'error'); return; }
+
+  const r = await POST(`/api/transporte/programaciones/${progId}/confirmar-importacion`, { personas: personasParseadas });
+  const d = await r.json();
+  if (d.success) {
+    cerrarModal('modalImportar');
+    cargarProgramaciones();
+    showAlert(`${d.creados} personas importadas. ${d.omitidos?.length || 0} omitidas.`, 'success');
+    programacionActualId = progId;
+    abrirDetalle(progId);
+  } else showAlert(d.error, 'error');
+}
+
+// ══ AGREGAR PERSONA ══
+function abrirModalAgregarPersona() {
+  // Poblar ubicaciones
+  const sel = document.getElementById('pUbicacionId');
+  sel.innerHTML = '<option value="">— Sin asignar —</option>';
+  ubicaciones.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.nombre; sel.appendChild(o); });
+  // Checkboxes responsable
+  document.getElementById('pEsResponsable').onchange = function() {
+    document.getElementById('pTipoResponsabilidad').style.display = this.checked ? 'block' : 'none';
+  };
+  abrirModal('modalPersona');
+}
+
+async function guardarPersona() {
+  const body = {
+    nombreEmpleado:   document.getElementById('pNombre').value,
+    documentoEmpleado: document.getElementById('pDocumento').value,
+    areaNombre:       document.getElementById('pArea').value,
+    cargo:            document.getElementById('pCargo').value,
+    horaInicio:       document.getElementById('pHoraIni').value,
+    horaFin:          document.getElementById('pHoraFin').value,
+    fecha:            document.getElementById('pFecha').value || null,
+    ubicacionId:      document.getElementById('pUbicacionId').value || null,
+    ubicacionTexto:   document.getElementById('pUbicacionTexto').value,
+    esResponsableAlimentacion: document.getElementById('pEsResponsable').checked,
+    tipoResponsabilidad: document.getElementById('pTipoResponsabilidad').value,
+    observacion:      document.getElementById('pObservacion').value
+  };
+  if (!body.nombreEmpleado?.trim() || !body.horaInicio || !body.horaFin) { showAlert('Nombre y horario son requeridos', 'error'); return; }
+  const r = await POST(`/api/transporte/programaciones/${programacionActualId}/detalles`, body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalPersona'); abrirDetalle(programacionActualId); showAlert('Persona agregada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+// ══ NOVEDADES ══
+function abrirModalNovedad() { abrirModal('modalNovedad'); }
+
+async function guardarNovedad() {
+  const body = {
+    tipoNovedad:    document.getElementById('novTipo').value,
+    descripcion:    document.getElementById('novDescripcion').value,
+    empleadoNombre: document.getElementById('novEmpleado').value
+  };
+  const r = await POST(`/api/transporte/programaciones/${programacionActualId}/novedades`, body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalNovedad'); cargarNovedades(); showAlert('Novedad registrada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+// ══ CATÁLOGOS BASE (para modales) ══
+async function cargarCatalogosBase() {
+  const [rc, rv, ru] = await Promise.all([
+    API('/api/transporte/conductores?estado=activo'),
+    API('/api/transporte/vehiculos?estado=activo'),
+    API('/api/transporte/ubicaciones?estado=activo')
+  ]);
+  const [dc, dv, du] = await Promise.all([rc.json(), rv.json(), ru.json()]);
+  conductores = dc.conductores || [];
+  vehiculos   = dv.vehiculos   || [];
+  ubicaciones = du.ubicaciones || [];
+  // Poblar selects en modal crear
+  const nCond = document.getElementById('nConductorId');
+  nCond.innerHTML = '<option value="">— Sin asignar aún —</option>';
+  conductores.forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.nombre; nCond.appendChild(o); });
+  const nVeh = document.getElementById('nVehiculoId');
+  nVeh.innerHTML = '<option value="">— Sin asignar aún —</option>';
+  vehiculos.forEach(v => { const o = document.createElement('option'); o.value = v.id; o.textContent = `${v.placa}${v.descripcion?' — '+v.descripcion:''}`; nVeh.appendChild(o); });
+}
+
+async function cargarCatalogos() {
+  await cargarCatalogosBase();
+  const el = document.getElementById('listaConductores');
+  el.innerHTML = conductores.length ? conductores.map(c => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0">
+      <span>🧑‍✈️ ${c.nombre}${c.documento?' · '+c.documento:''}</span>
+      <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('conductor','${c.id}','inactivo')">Inactivar</button>
+    </div>`).join('') : '<p style="color:#999;font-size:.85em">Sin conductores</p>';
+  const elv = document.getElementById('listaVehiculos');
+  elv.innerHTML = vehiculos.length ? vehiculos.map(v => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0">
+      <span>🚗 <strong>${v.placa}</strong>${v.descripcion?' · '+v.descripcion:''}</span>
+      <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('vehiculo','${v.id}','inactivo')">Inactivar</button>
+    </div>`).join('') : '<p style="color:#999;font-size:.85em">Sin vehículos</p>';
+  const elu = document.getElementById('listaUbicaciones');
+  elu.innerHTML = ubicaciones.length ? ubicaciones.map(u => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0">
+      <span>📍 ${u.nombre}</span>
+      <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('ubicacion','${u.id}','inactivo')">Inactivar</button>
+    </div>`).join('') : '<p style="color:#999;font-size:.85em">Sin ubicaciones</p>';
+}
+
+async function cambiarEstadoCat(tipo, id, estado) {
+  await PATCH(`/api/transporte/${tipo}s/${id}/estado`, { estado });
+  cargarCatalogos();
+}
+
+// ══ CONDUCTORES ══
+function abrirModalConductor(id) {
+  document.getElementById('conductorEditId').value = id || '';
+  document.getElementById('modalConductorTitulo').textContent = id ? 'Editar Conductor' : '+ Conductor';
+  document.getElementById('cNombre').value = document.getElementById('cDocumento').value = document.getElementById('cTelefono').value = '';
+  abrirModal('modalConductor');
+}
+async function guardarConductor() {
+  const id = document.getElementById('conductorEditId').value;
+  const body = { nombre: document.getElementById('cNombre').value, documento: document.getElementById('cDocumento').value, telefono: document.getElementById('cTelefono').value };
+  const r = id ? await PUT(`/api/transporte/conductores/${id}`, body) : await POST('/api/transporte/conductores', body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalConductor'); cargarCatalogos(); cargarCatalogosBase(); showAlert('Conductor guardado', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+// ══ VEHÍCULOS ══
+function abrirModalVehiculo() {
+  document.getElementById('vehiculoEditId').value = '';
+  document.getElementById('vPlaca').value = document.getElementById('vDescripcion').value = document.getElementById('vCapacidad').value = '';
+  abrirModal('modalVehiculo');
+}
+async function guardarVehiculo() {
+  const id = document.getElementById('vehiculoEditId').value;
+  const body = { placa: document.getElementById('vPlaca').value, descripcion: document.getElementById('vDescripcion').value, capacidad: document.getElementById('vCapacidad').value };
+  const r = id ? await PUT(`/api/transporte/vehiculos/${id}`, body) : await POST('/api/transporte/vehiculos', body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalVehiculo'); cargarCatalogos(); cargarCatalogosBase(); showAlert('Vehículo guardado', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+// ══ UBICACIONES ══
+function abrirModalUbicacion() {
+  document.getElementById('ubicacionEditId').value = '';
+  document.getElementById('uNombre').value = document.getElementById('uDescripcion').value = '';
+  abrirModal('modalUbicacion');
+}
+async function guardarUbicacion() {
+  const id = document.getElementById('ubicacionEditId').value;
+  const body = { nombre: document.getElementById('uNombre').value, descripcion: document.getElementById('uDescripcion').value };
+  const r = id ? await PUT(`/api/transporte/ubicaciones/${id}`, body) : await POST('/api/transporte/ubicaciones', body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalUbicacion'); cargarCatalogos(); cargarCatalogosBase(); showAlert('Ubicación guardada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+// ══ CONFIG TURNOS ══
+async function cargarConfigTurnos() {
+  const r = await API('/api/transporte/config-turnos');
+  const d = await r.json();
+  if (!d.success) return;
+  configTurnos = d.configs;
+  const tb = document.getElementById('tbConfigTurnos');
+  if (!configTurnos.length) {
+    tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#999">Sin configuración. Agrega los turnos de tu empresa.</td></tr>';
+    return;
+  }
+  tb.innerHTML = configTurnos.map(c => `<tr>
+    <td><code>${c.codigo}</code></td>
+    <td>${c.nombreTurno}</td>
+    <td>${c.horaInicio} - ${c.horaFin}</td>
+    <td>${c.horaExtensionInicio ? c.horaExtensionInicio + ' - ' + c.horaExtensionFin : '—'}</td>
+    <td style="text-align:center">${c.generaMerienda ? '✅' : '—'}</td>
+    <td style="text-align:center">${c.generaCena     ? '✅' : '—'}</td>
+    <td style="text-align:center">${c.requiereResponsable ? '✅' : '—'}</td>
+    <td><span class="badge badge-${c.activo ? 'aprobada' : 'anulada'}">${c.activo ? 'activo' : 'inactivo'}</span></td>
+    <td>
+      <button class="btn btn-sm btn-outline" onclick="editarConfigTurno('${c.id}')">✏️</button>
+      <button class="btn btn-sm btn-warning" onclick="toggleConfigTurno('${c.id}')">${c.activo ? 'Desact.' : 'Act.'}</button>
+    </td>
+  </tr>`).join('');
+}
+
+function abrirModalConfigTurno() {
+  document.getElementById('ctEditId').value = '';
+  ['ctCodigo','ctNombre','ctHoraIni','ctHoraFin','ctExtIni','ctExtFin'].forEach(id => document.getElementById(id).value = '');
+  ['ctMerienda','ctCena','ctResponsable','ctExtendido','ctNocturno'].forEach(id => document.getElementById(id).checked = false);
+  abrirModal('modalConfigTurno');
+}
+
+function editarConfigTurno(id) {
+  const c = configTurnos.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('ctEditId').value    = id;
+  document.getElementById('ctCodigo').value    = c.codigo;
+  document.getElementById('ctNombre').value    = c.nombreTurno;
+  document.getElementById('ctHoraIni').value   = c.horaInicio;
+  document.getElementById('ctHoraFin').value   = c.horaFin;
+  document.getElementById('ctExtIni').value    = c.horaExtensionInicio || '';
+  document.getElementById('ctExtFin').value    = c.horaExtensionFin   || '';
+  document.getElementById('ctMerienda').checked    = c.generaMerienda;
+  document.getElementById('ctCena').checked        = c.generaCena;
+  document.getElementById('ctResponsable').checked = c.requiereResponsable;
+  document.getElementById('ctExtendido').checked   = c.esExtendido;
+  document.getElementById('ctNocturno').checked    = c.esTurnoNocturno;
+  abrirModal('modalConfigTurno');
+}
+
+async function guardarConfigTurno() {
+  const id = document.getElementById('ctEditId').value;
+  const body = {
+    codigo:               document.getElementById('ctCodigo').value,
+    nombreTurno:          document.getElementById('ctNombre').value,
+    horaInicio:           document.getElementById('ctHoraIni').value,
+    horaFin:              document.getElementById('ctHoraFin').value,
+    horaExtensionInicio:  document.getElementById('ctExtIni').value || null,
+    horaExtensionFin:     document.getElementById('ctExtFin').value || null,
+    generaMerienda:       document.getElementById('ctMerienda').checked,
+    generaCena:           document.getElementById('ctCena').checked,
+    requiereResponsable:  document.getElementById('ctResponsable').checked,
+    esExtendido:          document.getElementById('ctExtendido').checked,
+    esTurnoNocturno:      document.getElementById('ctNocturno').checked
+  };
+  const r = id ? await PUT(`/api/transporte/config-turnos/${id}`, body) : await POST('/api/transporte/config-turnos', body);
+  const d = await r.json();
+  if (d.success) { cerrarModal('modalConfigTurno'); cargarConfigTurnos(); showAlert('Configuración guardada', 'success'); }
+  else showAlert(d.error, 'error');
+}
+
+async function toggleConfigTurno(id) {
+  const r = await PATCH(`/api/transporte/config-turnos/${id}/estado`, {});
+  const d = await r.json();
+  if (d.success) cargarConfigTurnos();
+}
+
+// ══ INIT ══
+init();
+</script>
+</body>
+</html>

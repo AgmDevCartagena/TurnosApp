@@ -6,6 +6,7 @@ function GestionEmpleados({ sesion }) {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
   const [uploadProgress, setUploadProgress] = useState(null)
+  const [uploadErrores, setUploadErrores] = useState([])
   const [vistaAgrupada, setVistaAgrupada] = useState(true)
   const [areasExpandidas, setAreasExpandidas] = useState({})
   const [empresas, setEmpresas] = useState([])
@@ -22,18 +23,18 @@ function GestionEmpleados({ sesion }) {
 
   const esSuperAdmin = sesion?.rol === 'super_admin'
 
-  const areas = [
-    'TAQUILLEROS',
-    'CONDUCTORES',
-    'MANTENIMIENTO',
-    'OPERACIONES',
-    'ADMINISTRACION',
-    'CENTRO DE CONTROL'
-  ]
+  const [areas, setAreas] = useState([])
 
   useEffect(() => {
     if (esSuperAdmin) cargarEmpresas()
   }, [esSuperAdmin])
+
+  useEffect(() => {
+    fetch('/api/turnos/areas')
+      .then(r => r.json())
+      .then(data => setAreas((data.areas || []).map(a => a.toUpperCase())))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (sesion !== null) cargarEmpleados()
@@ -148,6 +149,7 @@ function GestionEmpleados({ sesion }) {
 
     setError(null)
     setSuccess(null)
+    setUploadErrores([])
     setUploadProgress('Procesando archivo...')
 
     const formData = new FormData()
@@ -166,6 +168,7 @@ function GestionEmpleados({ sesion }) {
       }
 
       setSuccess(`✅ Carga exitosa: ${data.insertados} empleados agregados${data.errores > 0 ? `, ${data.errores} errores` : ''}`)
+      setUploadErrores(data.detalles?.errores || [])
       setUploadProgress(null)
       cargarEmpleados()
       e.target.value = ''
@@ -230,6 +233,36 @@ function GestionEmpleados({ sesion }) {
         {error && <div className="alert alert-error">❌ {error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
         {uploadProgress && <div className="alert alert-info">⏳ {uploadProgress}</div>}
+        {uploadErrores.length > 0 && (
+          <details open style={{ marginTop: 10, background: '#fff5f5', border: '1px solid #f5c2c7', borderRadius: 8, padding: 12 }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#842029' }}>
+              ⚠️ Ver detalle de errores ({uploadErrores.length})
+            </summary>
+            <div style={{ maxHeight: 280, overflowY: 'auto', marginTop: 10, fontSize: '0.85em' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f8d7da' }}>
+                    <th style={{ padding: 6, textAlign: 'left', width: 60 }}>Fila</th>
+                    <th style={{ padding: 6, textAlign: 'left' }}>Razón</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadErrores.slice(0, 100).map((e, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f5c2c7' }}>
+                      <td style={{ padding: 6, verticalAlign: 'top' }}>{e.fila ?? '—'}</td>
+                      <td style={{ padding: 6 }}>{e.razon}{e.linea ? <div style={{ color: '#666', fontSize: '0.9em', marginTop: 2 }}>↳ {e.linea}</div> : null}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {uploadErrores.length > 100 && (
+                <div style={{ padding: 8, color: '#666', fontStyle: 'italic' }}>
+                  ...y {uploadErrores.length - 100} errores más. Ver consola del servidor para el detalle completo.
+                </div>
+              )}
+            </div>
+          </details>
+        )}
 
         <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f8ff', borderRadius: '8px', border: '1px solid #4a90e2' }}>
           <h4 style={{ marginTop: 0, color: '#4a90e2' }}>📊 Importar desde Excel o CSV</h4>

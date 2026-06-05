@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -107,7 +107,7 @@
       outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.12);
     }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .checkbox-group { display: flex; gap: 16px; flex-wrap: wrap; }
+    .checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
     .checkbox-group label { display: flex; align-items: center; gap: 6px; font-size: 0.88em; font-weight: 400; cursor: pointer; }
     .checkbox-group input[type=checkbox] { width: auto; }
 
@@ -211,9 +211,12 @@
       </div>
       <div class="form-group">
         <label>Módulos habilitados *</label>
-        <div class="checkbox-group">
-          <label><input type="checkbox" id="mod-turnos" value="turnos"> 📅 Turnos</label>
-          <label><input type="checkbox" id="mod-nomina" value="nomina"> 💰 Nómina</label>
+        <div class="checkbox-group" id="modulos-checkbox-group">
+          <label><input type="checkbox" class="mod-checkbox" value="turnos"> 📅 Turnos</label>
+          <label><input type="checkbox" class="mod-checkbox" value="nomina"> 💰 Nómina</label>
+          <label><input type="checkbox" class="mod-checkbox" value="usuarios"> 👤 Usuarios</label>
+          <label><input type="checkbox" class="mod-checkbox" value="areas"> 🗂️ Áreas</label>
+          <label><input type="checkbox" class="mod-checkbox" value="transporte"> � Transporte</label>
         </div>
       </div>
       <div class="form-group" id="campo-estado-group" style="display:none;">
@@ -396,8 +399,9 @@
     document.getElementById('campo-razon').value = '';
     document.getElementById('campo-dominio').value = '';
     document.getElementById('campo-color').value = '#667eea';
-    document.getElementById('mod-turnos').checked = true;
-    document.getElementById('mod-nomina').checked = true;
+    document.querySelectorAll('.mod-checkbox').forEach(cb => {
+      cb.checked = cb.value === 'turnos' || cb.value === 'nomina';
+    });
     document.getElementById('campo-estado-group').style.display = 'none';
     document.getElementById('seccion-admin').style.display = 'block';
     document.getElementById('admin-nombre').value = '';
@@ -452,8 +456,10 @@
     document.getElementById('campo-razon').value = e.razonSocial || '';
     document.getElementById('campo-dominio').value = e.dominio || '';
     document.getElementById('campo-color').value = e.colorTema || '#667eea';
-    document.getElementById('mod-turnos').checked = (e.modulosHabilitados || []).includes('turnos');
-    document.getElementById('mod-nomina').checked = (e.modulosHabilitados || []).includes('nomina');
+    const modsHab = e.modulosHabilitados || [];
+    document.querySelectorAll('.mod-checkbox').forEach(cb => {
+      cb.checked = modsHab.includes(cb.value);
+    });
     document.getElementById('campo-estado').value = e.estado || 'activa';
     document.getElementById('campo-estado-group').style.display = 'block';
     document.getElementById('seccion-admin').style.display = 'none';
@@ -477,9 +483,7 @@
     const nombre = document.getElementById('campo-nombre').value.trim();
     if (!nombre) { mostrarModalAlerta('El nombre es obligatorio.'); return; }
 
-    const modulos = [];
-    if (document.getElementById('mod-turnos').checked) modulos.push('turnos');
-    if (document.getElementById('mod-nomina').checked) modulos.push('nomina');
+    const modulos = [...document.querySelectorAll('.mod-checkbox:checked')].map(cb => cb.value);
     if (!modulos.length) { mostrarModalAlerta('Selecciona al menos un módulo.'); return; }
 
     const payload = {

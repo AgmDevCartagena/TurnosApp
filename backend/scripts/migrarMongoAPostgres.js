@@ -44,6 +44,13 @@ async function migrarEmpresas() {
   let ok = 0;
 
   for (const e of empresas) {
+    // Check by nombre first to avoid duplicates when NITs differ between MongoDB and PG
+    const existePorNombre = await prisma.empresa.findFirst({ where: { nombre: e.nombre } });
+    if (existePorNombre) {
+      mapaEmpresas.set(e._id.toString(), existePorNombre.id);
+      ok++;
+      continue;
+    }
     const creada = await prisma.empresa.upsert({
       where: { nit: e.nit || `MIGRADO_${e._id}` },
       update: {},
@@ -53,7 +60,7 @@ async function migrarEmpresas() {
         razonSocial: e.razonSocial || null,
         dominio:     e.dominio || null,
         colorTema:   e.colorTema || '#667eea',
-        logo:        e.logo || null,
+        logoUrl:     e.logoUrl || null,
         estado:      e.estado === 'activa' ? 'activa' : 'inactiva',
         createdAt:   e.createdAt || new Date(),
         updatedAt:   e.updatedAt || new Date()

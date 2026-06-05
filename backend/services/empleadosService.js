@@ -368,6 +368,7 @@ async function buscarEmpleados(termino, pgEmpresaId = null) {
 function normalizar(emp) {
   return {
     ...emp,
+    _id:     emp.id,          // alias so frontend code using emp._id gets the PG UUID
     area:    emp.area?.nombre || '',
     salario: Number(emp.salario)
   };

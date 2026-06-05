@@ -216,6 +216,19 @@
                 </ul>
                 <button class="module-button">Acceder a Gestión de Usuarios</button>
             </a>
+            <a href="/transporte.html" class="module-card" id="modulo-transporte" style="display:none;">
+                <div class="module-icon"><svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><defs><linearGradient id="gTransp" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a5f"/><stop offset="100%" stop-color="#2e6da4"/></linearGradient></defs><circle cx="36" cy="36" r="34" fill="url(#gTransp)"/><rect x="10" y="30" width="42" height="20" rx="4" fill="none" stroke="white" stroke-width="2.5"/><rect x="10" y="30" width="42" height="8" rx="4" fill="rgba(255,255,255,0.25)"/><circle cx="22" cy="53" r="5" fill="white"/><circle cx="46" cy="53" r="5" fill="white"/><rect x="42" y="24" width="14" height="12" rx="3" fill="rgba(255,255,255,0.7)" stroke="white" stroke-width="1.5"/><line x1="18" y1="34" x2="18" y2="42" stroke="white" stroke-width="2"/><line x1="26" y1="34" x2="26" y2="42" stroke="white" stroke-width="2"/><line x1="34" y1="34" x2="34" y2="42" stroke="white" stroke-width="2"/></svg></div>
+                <h2 class="module-title">Transporte y Alimentación</h2>
+                <p class="module-description">Gestión operativa de programación de personal, rutas, meriendas, cenas y novedades.</p>
+                <ul class="module-features">
+                    <li>Importar listado desde WhatsApp</li>
+                    <li>Asignar conductor y placa</li>
+                    <li>Asignar destinos por persona</li>
+                    <li>Control de meriendas y cenas</li>
+                    <li>Generar formato de salida</li>
+                </ul>
+                <button class="module-button">Acceder a Transporte</button>
+            </a>
             <a href="/areas.html" class="module-card" id="modulo-areas" style="display:none;">
                 <div class="module-icon"><svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><defs><linearGradient id="gAreas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#4338ca"/></linearGradient></defs><circle cx="36" cy="36" r="34" fill="url(#gAreas)"/><rect x="17" y="17" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.9)"/><rect x="40" y="17" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.65)"/><rect x="17" y="40" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.65)"/><rect x="40" y="40" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.9)"/></svg></div>
                 <h2 class="module-title">Gestión de Áreas</h2>
@@ -302,11 +315,20 @@
                 document.getElementById('modulo-empresas').style.display = 'block';
             }
 
-            // Mostrar módulo de usuarios para admin y super_admin
+            // Mostrar módulo de usuarios y áreas según rol + módulos habilitados para la empresa
             const rolesAdmin = ['admin', 'super_admin'];
-            if (rolesAdmin.includes(usuarioSesion.rol)) {
+            if (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('usuarios')) {
                 document.getElementById('modulo-usuarios').style.display = 'block';
+            }
+            if (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('areas')) {
                 document.getElementById('modulo-areas').style.display = 'block';
+            }
+
+            // Mostrar módulo de transporte (super_admin, admin y usuarios con permiso transporte)
+            const modulosHabilitados = usuarioSesion.modulosPermitidos || [];
+            const tieneTransporte = usuarioSesion.rol === 'super_admin' || modulosHabilitados.includes('transporte');
+            if (tieneTransporte) {
+                document.getElementById('modulo-transporte').style.display = 'block';
             }
             
             // Mostrar solo áreas permitidas

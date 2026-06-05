@@ -535,9 +535,10 @@ exports.calcularNominaMasivaDesdeMongoTurnos = async (req, res) => {
 // Controlador: Calcular nómina por área específica
 // -------------------------------------------------------------
 exports.calcularNominaPorArea = async (req, res) => {
-    const { area, fechaInicio, fechaFin } = req.body;
+    const { areaId, fechaInicio, fechaFin } = req.body;
+    let area = req.body.area;
 
-    if (!area) {
+    if (!areaId && !area) {
         return res.status(400).json({
             error: 'Se requiere especificar el área.'
         });
@@ -550,6 +551,16 @@ exports.calcularNominaPorArea = async (req, res) => {
     }
 
     try {
+        // Si llega areaId (UUID de PostgreSQL), resolver el nombre del área
+        if (areaId && !area) {
+            const prisma = require('../lib/prisma');
+            const areaPg = await prisma.area.findUnique({ where: { id: areaId }, select: { nombre: true } });
+            if (!areaPg) {
+                return res.status(404).json({ error: 'Área no encontrada.' });
+            }
+            area = areaPg.nombre;
+        }
+
         const turnos = await buscarTurnosPorAreaYRango(area, fechaInicio, fechaFin, req.empresaId);
 
         if (turnos.length === 0) {
@@ -562,16 +573,27 @@ exports.calcularNominaPorArea = async (req, res) => {
         const errores = [];
         let totalDevengadoArea = 0;
 
+        const prisma = require('../lib/prisma');
+
         for (const turno of turnos) {
             try {
-                // Obtener salario del turno
-                const salarioFinal = turno.salario || turno.salarioBasico || turno.salarioMensual;
+                // Obtener salario: turno.salario puede ser 0 (falsy) pero válido
+                let salarioFinal = turno.salario ?? turno.salarioBasico ?? turno.salarioMensual;
 
-                if (!salarioFinal) {
+                // Si el turno no tiene salario, buscar en PostgreSQL por documento
+                if (salarioFinal == null || salarioFinal === 0) {
+                    const empPg = await prisma.empleado.findFirst({
+                        where: { documento: turno.documentoEmpleado },
+                        select: { salario: true }
+                    });
+                    if (empPg?.salario != null) salarioFinal = Number(empPg.salario);
+                }
+
+                if (salarioFinal == null) {
                     errores.push({
                         documento: turno.documentoEmpleado,
                         nombre: turno.nombreEmpleado,
-                        error: 'Salario no encontrado en MongoDB'
+                        error: 'Salario no encontrado. Configure el salario del empleado.'
                     });
                     continue;
                 }

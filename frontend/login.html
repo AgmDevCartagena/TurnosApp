@@ -571,16 +571,16 @@
     function redirigirSegunPermisos(usuario) {
         const modulos = usuario.modulosPermitidos || [];
 
+        /* Admin y super_admin → siempre dashboard (sin restricción de módulos) */
+        if (['super_admin', 'admin'].includes(usuario.rol)) {
+            window.location.href = '/dashboard.html';
+            return;
+        }
+
         /* Sin módulos → bloquear */
         if (modulos.length === 0) {
             showAlert(MENSAJES.sinModulos, 'error');
             setLoading(false);
-            return;
-        }
-
-        /* Admin y super_admin → siempre dashboard */
-        if (['super_admin', 'admin'].includes(usuario.rol)) {
-            window.location.href = '/dashboard.html';
             return;
         }
 

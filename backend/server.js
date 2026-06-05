@@ -15,6 +15,8 @@ const areasRoutes       = require('./routes/areas');
 const empleadosRoutes   = require('./routes/empleados');
 const nominaDinamicaRoutes = require('./routes/nominaDinamica');
 const meRoutes             = require('./routes/me');
+const rolesRoutes          = require('./routes/roles');
+const transporteRoutes     = require('./routes/transporte');
 const { requireAuth, requireModulo } = require('./middlewares/auth');
 const { requireTenant } = require('./middlewares/tenant');
 
@@ -80,6 +82,8 @@ mongoose.connect(MONGO_URI, {
 
 // API Routes - Sistema modular
 app.use('/api/auth',      authRoutes);
+app.use('/api/roles',     rolesRoutes);
+app.use('/api/transporte', transporteRoutes);
 app.use('/api/me',        meRoutes);
 app.use('/api/empresas',  empresasRoutes);
 app.use('/api/areas',     areasRoutes);
@@ -146,6 +150,12 @@ app.get('/empresas.html', (req, res) => {
     return res.status(403).send('Acceso denegado. Solo el super administrador puede gestionar empresas.');
   }
   res.sendFile(path.join(frontendPath, 'empresas.html'));
+});
+
+// Proteger acceso a transporte.html
+app.get('/transporte.html', (req, res) => {
+  if (!req.session || !req.session.autenticado) return res.redirect('/login.html');
+  res.sendFile(path.join(frontendPath, 'transporte.html'));
 });
 
 // Proteger acceso a dashboard.html

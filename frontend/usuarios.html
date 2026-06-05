@@ -119,6 +119,50 @@
         .modal-alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; display: none; font-size: 0.88em; background: #fce4ec; color: #c62828; border: 1px solid #f48fb1; }
 
         .empty-state { text-align: center; padding: 50px 20px; color: #aaa; }
+
+        /* ── Tabs ── */
+        .tab-bar { background: white; border-bottom: 2px solid #eee; padding: 0 32px; display: flex; gap: 4px; }
+        .tab-btn { padding: 14px 22px; border: none; background: none; cursor: pointer; font-size: 0.93em; font-weight: 600; color: #888; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all .18s; }
+        .tab-btn:hover { color: #667eea; }
+        .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
+
+        /* ── Roles: tarjetas ── */
+        .role-card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); padding: 18px 22px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+        .role-card:hover { box-shadow: 0 4px 18px rgba(102,126,234,0.13); }
+        .role-info { flex: 1; min-width: 0; }
+        .role-nombre { font-weight: 700; font-size: 1.02em; color: #2c2c54; display: flex; align-items: center; gap: 8px; }
+        .role-codigo { font-size: 0.72em; color: #888; font-weight: 500; background: #f0f2f5; padding: 2px 7px; border-radius: 6px; letter-spacing: .04em; }
+        .role-desc { font-size: 0.84em; color: #666; margin-top: 4px; }
+        .role-perms-label { font-size: 0.75em; color: #aaa; margin-top: 10px; margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+        .role-perms-chips { display: flex; flex-wrap: wrap; gap: 4px; max-height: 64px; overflow: hidden; position: relative; }
+        .role-perms-chips.expanded { max-height: none; }
+        .chip-perm { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.76em; font-weight: 600; background: #e8eaf6; color: #3949ab; white-space: nowrap; }
+        .chip-ver-mas { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 0.76em; font-weight: 600; background: #f0f0f0; color: #888; cursor: pointer; border: none; }
+        .chip-sin-perms { font-size: 0.82em; color: #bbb; font-style: italic; }
+        .role-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: flex-start; padding-top: 2px; }
+        .badge-activo-rol   { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 8px; font-size: 0.75em; font-weight: 700; }
+        .badge-inactivo-rol { background: #fce4ec; color: #c62828; padding: 2px 8px; border-radius: 8px; font-size: 0.75em; font-weight: 700; }
+
+        /* ── Modal roles ── */
+        .modal-roles { width: 720px; }
+        .perm-search-wrap { position: relative; margin-bottom: 10px; }
+        .perm-search-wrap input { width: 100%; padding: 9px 36px 9px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.88em; }
+        .perm-search-wrap input:focus { outline: none; border-color: #667eea; }
+        .perm-search-wrap .ico { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 1em; pointer-events: none; }
+        .perm-counter { font-size: 0.82em; font-weight: 600; color: #667eea; margin-bottom: 8px; }
+        .perm-list { max-height: 320px; overflow-y: auto; border: 1.5px solid #eee; border-radius: 8px; padding: 4px 0; }
+        .perm-module-header { padding: 8px 14px 4px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: #f8f9ff; z-index: 1; border-bottom: 1px solid #eef; }
+        .perm-module-title { font-size: 0.78em; font-weight: 700; color: #667eea; text-transform: uppercase; letter-spacing: .06em; }
+        .perm-module-select-all { font-size: 0.74em; cursor: pointer; color: #667eea; background: none; border: none; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+        .perm-module-select-all:hover { background: #e8eaf6; }
+        .perm-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 14px; cursor: pointer; transition: background .1s; }
+        .perm-item:hover { background: #f8f9ff; }
+        .perm-item.hidden { display: none; }
+        .perm-item input[type=checkbox] { margin-top: 2px; accent-color: #667eea; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+        .perm-item-text { flex: 1; }
+        .perm-item-nombre { font-weight: 600; font-size: 0.88em; color: #333; }
+        .perm-item-desc { font-size: 0.78em; color: #888; margin-top: 1px; }
+        .perm-no-results { text-align: center; padding: 24px; color: #bbb; font-size: 0.88em; display: none; }
     </style>
 </head>
 <body>
@@ -128,12 +172,19 @@
         <p id="info-usuario">Cargando...</p>
     </div>
     <div class="header-actions">
-        <button class="btn btn-primary" onclick="abrirModalCrear()">➕ Nuevo Usuario</button>
+        <button class="btn btn-primary" id="btn-accion-principal" onclick="abrirModalCrear()">➕ Nuevo Usuario</button>
         <button class="btn btn-back" onclick="window.location.href='/dashboard.html'">← Dashboard</button>
     </div>
 </div>
 
-<div class="content">
+<!-- ── Barra de tabs ── -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-btn-usuarios" onclick="switchTab('usuarios')">👥 Usuarios</button>
+  <button class="tab-btn" id="tab-btn-roles" onclick="switchTab('roles')">🔑 Roles y Permisos</button>
+</div>
+
+<!-- ── Tab: Usuarios ── -->
+<div id="tab-usuarios" class="content">
     <div id="msg" class="msg"></div>
     <div class="card">
         <div class="card-header">
@@ -142,6 +193,20 @@
         </div>
         <div id="tabla-container"><div class="empty-state">Cargando usuarios...</div></div>
     </div>
+</div>
+
+<!-- ── Tab: Roles y Permisos ── -->
+<div id="tab-roles" class="content" style="display:none">
+  <div id="msg-roles" class="msg"></div>
+  <div class="card">
+    <div class="card-header">
+      <h2>🔑 Roles del Sistema</h2>
+      <button class="btn btn-primary" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;" onclick="abrirModalRolCrear()">➕ Crear Rol</button>
+    </div>
+    <div style="padding:20px 24px;" id="roles-container">
+      <div class="empty-state">Cargando roles...</div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal crear / editar usuario (multiempresa) -->
@@ -214,6 +279,57 @@
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-save" id="btn-guardar" onclick="guardarUsuario()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal crear / editar Rol ── -->
+<div class="modal-overlay" id="modal-rol">
+  <div class="modal modal-roles">
+    <div class="modal-header">
+      <h3 id="rol-modal-titulo">Nuevo Rol</h3>
+      <button class="modal-close" onclick="cerrarModalRol()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-alert" id="rol-modal-alert"></div>
+      <input type="hidden" id="rol-campo-id">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nombre del Rol *</label>
+          <input id="rol-campo-nombre" type="text" placeholder="Ej: Gestor de Nómina">
+        </div>
+        <div class="form-group" id="rol-grupo-codigo">
+          <label>Código <small style="color:#aaa;font-weight:400">(se genera automáticamente)</small></label>
+          <input id="rol-campo-codigo" type="text" placeholder="GESTOR_NOMINA" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <input id="rol-campo-descripcion" type="text" placeholder="Descripción breve del rol y sus responsabilidades">
+      </div>
+
+      <!-- ── Selector de permisos ── -->
+      <div class="form-group" style="margin-bottom:4px;">
+        <label>Permisos asignados</label>
+        <div class="perm-counter" id="perm-counter">0 permisos seleccionados</div>
+        <div class="perm-search-wrap">
+          <input type="text" id="perm-buscador" placeholder="Buscar permiso por nombre, módulo o descripción..." oninput="filtrarPermisosModal()">
+          <span class="ico">🔍</span>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px;">
+          <button class="chip-ver-mas" onclick="seleccionarTodosPermisos(true)">✅ Todos</button>
+          <button class="chip-ver-mas" onclick="seleccionarTodosPermisos(false)">🔲 Limpiar</button>
+        </div>
+        <div class="perm-list" id="perm-list">
+          <div class="empty-state" style="padding:20px">Cargando permisos...</div>
+        </div>
+        <div class="perm-no-results" id="perm-no-results">No se encontraron permisos.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="cerrarModalRol()">Cancelar</button>
+      <button class="btn btn-save" id="btn-guardar-rol" onclick="guardarRol()">💾 Guardar Rol</button>
     </div>
   </div>
 </div>
@@ -787,6 +903,11 @@
     el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block';
     if (type === 'success') setTimeout(() => el.style.display = 'none', 4500);
   }
+  function showMsgRoles(text, type) {
+    const el = document.getElementById('msg-roles');
+    el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block';
+    if (type === 'success') setTimeout(() => el.style.display = 'none', 4500);
+  }
   function mostrarModalAlerta(msg) {
     const el = document.getElementById('modal-alert');
     el.textContent = msg; el.style.display = 'block';
@@ -796,6 +917,329 @@
 
   document.getElementById('modal-usuario').addEventListener('click',  e => { if (e.target === e.currentTarget) cerrarModal(); });
   document.getElementById('modal-password').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModalPass(); });
+  document.getElementById('modal-rol').addEventListener('click',      e => { if (e.target === e.currentTarget) cerrarModalRol(); });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TABS
+  // ══════════════════════════════════════════════════════════════════════════
+  let tabActual = 'usuarios';
+
+  function switchTab(tab) {
+    tabActual = tab;
+    document.getElementById('tab-usuarios').style.display = tab === 'usuarios' ? '' : 'none';
+    document.getElementById('tab-roles').style.display    = tab === 'roles'    ? '' : 'none';
+    document.getElementById('tab-btn-usuarios').classList.toggle('active', tab === 'usuarios');
+    document.getElementById('tab-btn-roles').classList.toggle('active',    tab === 'roles');
+    const btnAccion = document.getElementById('btn-accion-principal');
+    if (tab === 'roles') {
+      btnAccion.textContent = '➕ Crear Rol';
+      btnAccion.onclick = abrirModalRolCrear;
+      cargarRolesTab();
+    } else {
+      btnAccion.textContent = '➕ Nuevo Usuario';
+      btnAccion.onclick = abrirModalCrear;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ROLES — Catálogo y render
+  // ══════════════════════════════════════════════════════════════════════════
+  let rolesData       = [];          // cache de roles con permisos
+  let todosPermisosList = [];        // lista plana de permisos activos
+  let permisosAgrupados = {};        // { modulo: [permiso, ...] }
+  let rolesTabCargado = false;
+
+  const ICONOS_MOD_ROLES = { usuarios:'👥', empresas:'🏢', areas:'📍', turnos:'📅', nomina:'💰', parametros:'⚙️', reportes:'📊' };
+
+  async function cargarRolesTab() {
+    if (rolesTabCargado) return;
+    try {
+      const [resRoles, resPerms] = await Promise.all([
+        fetch('/api/roles'),
+        fetch('/api/auth/permisos')
+      ]);
+      if (resRoles.status === 401 || resRoles.status === 403) {
+        document.getElementById('roles-container').innerHTML =
+          '<div class="empty-state">No tienes permiso para ver roles.</div>';
+        return;
+      }
+      const dataRoles = await resRoles.json();
+      const dataPerms = await resPerms.json();
+      rolesData          = dataRoles.roles || [];
+      todosPermisosList  = dataPerms.permisos || [];
+      permisosAgrupados  = dataPerms.agrupados || {};
+      renderRoles();
+      rolesTabCargado = true;
+    } catch (err) {
+      document.getElementById('roles-container').innerHTML =
+        '<div class="empty-state">Error cargando roles.</div>';
+    }
+  }
+
+  function renderRoles() {
+    const c = document.getElementById('roles-container');
+    if (!rolesData.length) {
+      c.innerHTML = '<div class="empty-state">No hay roles registrados.</div>';
+      return;
+    }
+    c.innerHTML = rolesData.map(r => {
+      const estadoBadge = r.estado === 'activo'
+        ? `<span class="badge-activo-rol">Activo</span>`
+        : `<span class="badge-inactivo-rol">Inactivo</span>`;
+
+      let chipsHtml;
+      if (!r.permisos.length) {
+        chipsHtml = `<span class="chip-sin-perms">Sin permisos asignados.</span>`;
+      } else {
+        const visible = r.permisos.slice(0, 8);
+        const resto   = r.permisos.length - 8;
+        chipsHtml = visible.map(p => `<span class="chip-perm" title="${p.descripcion||p.codigo}">${p.nombre}</span>`).join('')
+          + (resto > 0 ? `<button class="chip-ver-mas" onclick="toggleChips(this,event)">+${resto} más</button>` : '');
+      }
+
+      const puedeEditar   = sesionActual?.rol === 'super_admin' || (sesionActual?.permisosEfectivos||[]).includes('roles.editar');
+      const puedeEliminar = sesionActual?.rol === 'super_admin' || (sesionActual?.permisosEfectivos||[]).includes('roles.eliminar');
+      const btnEdit  = puedeEditar   ? `<button class="btn-sm btn-edit" onclick="abrirModalRolEditar('${r.id}')">✏️ Editar</button>` : '';
+      const btnTog   = puedeEditar   ? `<button class="btn-sm" style="background:#fff3e0;color:#e65100;" onclick="toggleEstadoRol('${r.id}')">${r.estado==='activo'?'🔴 Desactivar':'🟢 Activar'}</button>` : '';
+      const btnDel   = puedeEliminar ? `<button class="btn-sm btn-del" onclick="eliminarRol('${r.id}')">🗑️</button>` : '';
+
+      return `<div class="role-card" id="rcard-${r.id}">
+        <div class="role-info">
+          <div class="role-nombre">
+            🔑 ${r.nombre}
+            <span class="role-codigo">${r.codigo}</span>
+            ${estadoBadge}
+          </div>
+          ${r.descripcion ? `<div class="role-desc">${r.descripcion}</div>` : ''}
+          <div class="role-perms-label">Permisos asignados (${r.permisos.length})</div>
+          <div class="role-perms-chips" id="chips-${r.id}">${chipsHtml}</div>
+        </div>
+        <div class="role-actions">${btnEdit}${btnTog}${btnDel}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleChips(btn, e) {
+    e.stopPropagation();
+    const chips = btn.closest('.role-perms-chips');
+    const isExp = chips.classList.toggle('expanded');
+    btn.textContent = isExp ? 'Ver menos' : btn.textContent;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ROLES — Modal crear / editar
+  // ══════════════════════════════════════════════════════════════════════════
+  let rolModoEdicion = false;
+
+  function _renderPermisosModal(seleccionados = []) {
+    const list  = document.getElementById('perm-list');
+    const mods  = Object.keys(permisosAgrupados).sort();
+    if (!mods.length) { list.innerHTML = '<div class="empty-state" style="padding:20px">No hay permisos disponibles.</div>'; return; }
+
+    list.innerHTML = mods.map(mod => {
+      const perms = permisosAgrupados[mod];
+      const items = perms.map(p => `
+        <div class="perm-item" data-codigo="${p.codigo}" data-nombre="${p.nombre.toLowerCase()}" data-desc="${(p.descripcion||'').toLowerCase()}" data-modulo="${mod.toLowerCase()}" onclick="togglePermItem(this)">
+          <input type="checkbox" value="${p.codigo}" ${seleccionados.includes(p.codigo) ? 'checked' : ''} onclick="event.stopPropagation();togglePermItem(this.closest('.perm-item'))">
+          <div class="perm-item-text">
+            <div class="perm-item-nombre">${p.nombre}</div>
+            ${p.descripcion ? `<div class="perm-item-desc">${p.descripcion}</div>` : ''}
+          </div>
+        </div>`).join('');
+      return `<div class="perm-module-group" data-mod="${mod}">
+        <div class="perm-module-header">
+          <span class="perm-module-title">${ICONOS_MOD_ROLES[mod]||''} ${mod}</span>
+          <button class="perm-module-select-all" onclick="seleccionarModulo('${mod}',event)">Seleccionar todos</button>
+        </div>
+        ${items}
+      </div>`;
+    }).join('');
+    _actualizarContador();
+  }
+
+  function togglePermItem(item) {
+    const cb = item.querySelector('input[type=checkbox]');
+    cb.checked = !cb.checked;
+    _actualizarContador();
+  }
+
+  function _actualizarContador() {
+    const n = document.querySelectorAll('#perm-list input[type=checkbox]:checked').length;
+    document.getElementById('perm-counter').textContent = `${n} permiso${n===1?'':'s'} seleccionado${n===1?'':'s'}`;
+  }
+
+  function filtrarPermisosModal() {
+    const q   = document.getElementById('perm-buscador').value.toLowerCase().trim();
+    const items = document.querySelectorAll('#perm-list .perm-item');
+    let hayResultados = false;
+
+    items.forEach(item => {
+      const coincide = !q
+        || item.dataset.nombre.includes(q)
+        || item.dataset.desc.includes(q)
+        || item.dataset.modulo.includes(q)
+        || item.dataset.codigo.includes(q);
+      item.classList.toggle('hidden', !coincide);
+      if (coincide) hayResultados = true;
+    });
+
+    // Ocultar cabeceras de módulos donde todos los items están ocultos
+    document.querySelectorAll('#perm-list .perm-module-group').forEach(group => {
+      const visibles = group.querySelectorAll('.perm-item:not(.hidden)').length;
+      group.style.display = visibles ? '' : 'none';
+    });
+
+    document.getElementById('perm-no-results').style.display = hayResultados ? 'none' : 'block';
+  }
+
+  function seleccionarModulo(mod, e) {
+    e.stopPropagation();
+    const group = document.querySelector(`#perm-list .perm-module-group[data-mod="${mod}"]`);
+    const cbs   = group.querySelectorAll('.perm-item:not(.hidden) input[type=checkbox]');
+    const todosChecked = [...cbs].every(cb => cb.checked);
+    cbs.forEach(cb => { cb.checked = !todosChecked; });
+    _actualizarContador();
+  }
+
+  function seleccionarTodosPermisos(valor) {
+    document.querySelectorAll('#perm-list .perm-item:not(.hidden) input[type=checkbox]')
+      .forEach(cb => { cb.checked = valor; });
+    _actualizarContador();
+  }
+
+  function _getPermisosSeleccionados() {
+    return [...document.querySelectorAll('#perm-list input[type=checkbox]:checked')].map(cb => cb.value);
+  }
+
+  function abrirModalRolCrear() {
+    rolModoEdicion = false;
+    document.getElementById('rol-modal-titulo').textContent = '➕ Nuevo Rol';
+    document.getElementById('rol-campo-id').value = '';
+    document.getElementById('rol-campo-nombre').value = '';
+    document.getElementById('rol-campo-codigo').value = '';
+    document.getElementById('rol-campo-descripcion').value = '';
+    document.getElementById('rol-grupo-codigo').style.display = '';
+    document.getElementById('rol-modal-alert').style.display = 'none';
+    document.getElementById('perm-buscador').value = '';
+    _renderPermisosModal([]);
+    filtrarPermisosModal();
+    document.getElementById('modal-rol').classList.add('open');
+  }
+
+  async function abrirModalRolEditar(id) {
+    rolModoEdicion = true;
+    // Asegurar que los permisos estén cargados
+    if (!todosPermisosList.length) await cargarRolesTab();
+
+    const rol = rolesData.find(r => r.id === id);
+    if (!rol) return;
+
+    document.getElementById('rol-modal-titulo').textContent = `✏️ Editar Rol: ${rol.nombre}`;
+    document.getElementById('rol-campo-id').value = id;
+    document.getElementById('rol-campo-nombre').value = rol.nombre;
+    document.getElementById('rol-campo-codigo').value = rol.codigo;
+    document.getElementById('rol-campo-descripcion').value = rol.descripcion || '';
+    document.getElementById('rol-grupo-codigo').style.display = 'none'; // no editar codigo
+    document.getElementById('rol-modal-alert').style.display = 'none';
+    document.getElementById('perm-buscador').value = '';
+
+    const permsCodigos = (rol.permisos || []).map(p => p.codigo);
+    _renderPermisosModal(permsCodigos);
+    filtrarPermisosModal();
+    document.getElementById('modal-rol').classList.add('open');
+  }
+
+  function cerrarModalRol() {
+    document.getElementById('modal-rol').classList.remove('open');
+    document.getElementById('perm-buscador').value = '';
+  }
+
+  async function guardarRol() {
+    const id          = document.getElementById('rol-campo-id').value;
+    const nombre      = document.getElementById('rol-campo-nombre').value.trim();
+    const codigo      = document.getElementById('rol-campo-codigo').value.trim().toUpperCase().replace(/\s+/g,'_');
+    const descripcion = document.getElementById('rol-campo-descripcion').value.trim();
+    const permisos    = _getPermisosSeleccionados();
+
+    const alertEl = document.getElementById('rol-modal-alert');
+    const showAlert = msg => { alertEl.textContent = msg; alertEl.style.display = 'block'; };
+
+    if (!nombre) { showAlert('El nombre del rol es obligatorio.'); return; }
+    if (!rolModoEdicion && !codigo) { showAlert('El código del rol es obligatorio.'); return; }
+
+    const btn = document.getElementById('btn-guardar-rol');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+
+    try {
+      // 1. Crear o editar el rol
+      let rolId = id;
+      if (!rolModoEdicion) {
+        const res  = await fetch('/api/roles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigo, nombre, descripcion, permisos })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+        rolId = data.rol.id;
+      } else {
+        // Editar datos básicos
+        const resEdit = await fetch(`/api/roles/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, descripcion })
+        });
+        const dataEdit = await resEdit.json();
+        if (!resEdit.ok || !dataEdit.success) throw new Error(dataEdit.error || `Error ${resEdit.status}`);
+
+        // Actualizar permisos (siempre, incluso si es array vacío)
+        const resPerm = await fetch(`/api/roles/${id}/permisos`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ permisos })
+        });
+        const dataPerm = await resPerm.json();
+        if (!resPerm.ok || !dataPerm.success) throw new Error(dataPerm.error || `Error ${resPerm.status}`);
+      }
+
+      cerrarModalRol();
+      showMsgRoles(rolModoEdicion ? '✅ Rol actualizado correctamente.' : '✅ Rol creado correctamente.', 'success');
+      rolesTabCargado = false;
+      await cargarRolesTab();
+    } catch (e) {
+      showAlert(e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Guardar Rol';
+    }
+  }
+
+  async function toggleEstadoRol(id) {
+    const rol = rolesData.find(r => r.id === id);
+    if (!rol) return;
+    const accion = rol.estado === 'activo' ? 'desactivar' : 'activar';
+    if (!confirm(`¿${accion.charAt(0).toUpperCase()+accion.slice(1)} el rol "${rol.nombre}"?`)) return;
+    try {
+      const res  = await fetch(`/api/roles/${id}/estado`, { method: 'PATCH' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+      showMsgRoles(`✅ Rol ${data.estado === 'activo' ? 'activado' : 'desactivado'}.`, 'success');
+      rolesTabCargado = false;
+      await cargarRolesTab();
+    } catch (e) { showMsgRoles('Error: ' + e.message, 'error'); }
+  }
+
+  async function eliminarRol(id) {
+    const rol = rolesData.find(r => r.id === id);
+    if (!confirm(`⚠️ ¿Eliminar el rol "${rol?.nombre}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res  = await fetch(`/api/roles/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || `Error ${res.status}`);
+      showMsgRoles('✅ Rol eliminado.', 'success');
+      rolesTabCargado = false;
+      await cargarRolesTab();
+    } catch (e) { showMsgRoles('Error: ' + e.message, 'error'); }
+  }
 
   // ── Init ───────────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {

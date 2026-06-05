@@ -56,7 +56,7 @@ services:
       - DATABASE_URL=postgresql://turnos_user:turnos_pass@postgres:5432/turnos_app_pg
       - SESSION_SECRET=sistema_gestion_secret_production_2025
       - ALLOWED_ORIGINS=http://localhost:3001,http://10.250.10.9:3001
-      - ADMIN_INIT_PASSWORD=Admin2025!
+      - ADMIN_INIT_PASSWORD=SuperAdmin2025!
     depends_on:
       mongodb:
         condition: service_healthy

@@ -13,6 +13,10 @@
     .header-title h1 { font-size: 1.5em; }
     .header-title p  { font-size: 0.88em; opacity: 0.85; margin-top: 2px; }
     .header-actions { display: flex; gap: 10px; align-items: center; }
+    .empresa-selector-wrap { display:none; align-items:center; gap:8px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.3); border-radius:10px; padding:6px 12px; margin-top:6px; }
+    .empresa-selector-wrap label { font-size:0.78em; opacity:0.85; white-space:nowrap; }
+    .empresa-selector-wrap select { background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.35); color:white; border-radius:6px; padding:4px 8px; font-size:0.85em; cursor:pointer; max-width:220px; }
+    .empresa-selector-wrap select option { color:#333; background:white; }
 
     /* ── Botones ── */
     .btn { padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all .2s; }
@@ -131,6 +135,10 @@
   <div class="header-title">
     <h1>💰 Módulo de Nómina</h1>
     <p id="headerEmpresa">Cargando...</p>
+    <div class="empresa-selector-wrap" id="empresa-selector-wrap">
+      <label>🏢 EMPRESA</label>
+      <select id="empresa-select" onchange="cambiarEmpresaNomina(this.value)"></select>
+    </div>
   </div>
   <div class="header-actions">
     <span id="headerUser" style="opacity:.85;font-size:.9em;"></span>
@@ -495,6 +503,8 @@ async function init() {
       if (el) el.value = id.includes('Ini') ? ini : finStr;
     });
 
+    if (sessionUser.rol === 'super_admin') await cargarSelectorEmpresasNomina();
+
     await Promise.all([
       cargarAreas(),
       cargarStats(),
@@ -572,11 +582,57 @@ async function cargarStats() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// SELECTOR DE EMPRESA (super_admin)
+// ══════════════════════════════════════════════════════════════════════════════
+async function cargarSelectorEmpresasNomina() {
+  try {
+    const res  = await fetch('/api/me/empresas', { credentials: 'include' });
+    const data = await res.json();
+    if (!data.success) return;
+
+    const sel = document.getElementById('empresa-select');
+    sel.innerHTML = '<option value="">— Seleccionar empresa —</option>';
+    data.empresas.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.nombre + (e.estado !== 'activa' ? ' (inactiva)' : '');
+      if (e.activa || e.id === sessionUser?.pgEmpresaId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    document.getElementById('empresa-selector-wrap').style.display = 'flex';
+  } catch (_) {}
+}
+
+async function cambiarEmpresaNomina(empresaId) {
+  if (!empresaId) return;
+  try {
+    const res  = await fetch('/api/me/empresa-activa', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body:    JSON.stringify({ empresaId })
+    });
+    const data = await res.json();
+    if (!data.success) return;
+
+    sessionUser.pgEmpresaId   = data.empresa.id;
+    sessionUser.nombreEmpresa = data.empresa.nombre;
+    document.getElementById('headerEmpresa').textContent = data.empresa.nombre;
+
+    await Promise.all([cargarAreas(), cargarStats(), cargarLiquidaciones()]);
+  } catch (err) {
+    console.error('Error al cambiar empresa:', err);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // ÁREAS
 // ══════════════════════════════════════════════════════════════════════════════
 async function cargarAreas() {
   try {
-    const d = await apiFetch('/api/areas');
+    const eid = sessionUser?.pgEmpresaId || sessionUser?.empresaId || null;
+    const qs  = eid ? `?empresaId=${eid}&estado=activo` : '?estado=activo';
+    const d   = await apiFetch('/api/areas' + qs);
     areas = (d.areas || []).filter(a => a.estado === 'activo');
     const sel = document.getElementById('calcAreaId');
     sel.innerHTML = '<option value="">– Seleccione un área –</option>';

@@ -12,7 +12,7 @@ COPY backend/package.json ./
 
 # Instalar dependencias de producción con npm
 # (npm ejecuta postinstall por defecto, necesario para que Prisma genere sus binarios)
-RUN npm install --production --no-package-lock
+RUN npm install --no-package-lock
 
 # Copiar el código del backend (incluye prisma/schema.prisma)
 COPY backend/ ./
@@ -40,6 +40,7 @@ COPY frontend/usuarios.html ./public/
 COPY frontend/empresas.html ./public/
 COPY frontend/areas.html ./public/
 COPY frontend/nomina.html ./public/
+COPY frontend/transporte.html ./public/
 COPY frontend/index.html ./public/
 
 # Exponer el puerto

@@ -22,7 +22,9 @@ function _buildSession(pgUser, empresaId, ctx) {
     logoUrl:           ctx?.empresa?.logoUrl  || null,
     colorTema:         ctx?.empresa?.colorTema || '#667eea',
     rolEmpresa:        ctx?.rol?.codigo        || null,
-    modulosPermitidos: ctx?.modulosActivos     || [],
+    modulosPermitidos: pgUser.rol === 'super_admin'
+      ? ['turnos', 'nomina', 'usuarios', 'parametros', 'reportes', 'empresas', 'areas']
+      : (ctx?.modulosActivos || []),
     areasPermitidas:   (ctx?.areasPermitidas   || []).map(a => a.nombre),
     areasPermitidasIds:(ctx?.areasPermitidas   || []).map(a => a.id),
     permisosEfectivos: ctx?.permisosEfectivos  || [],
@@ -72,8 +74,34 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Usuario sin empresas activas asignadas
+    // Usuario sin UsuarioEmpresa — intentar fallback con empresaId legacy en Usuario
     if (empresasAsignadas.length === 0) {
+      if (pgUser.empresaId) {
+        const empresa = await prisma.empresa.findUnique({ where: { id: pgUser.empresaId } });
+        if (empresa && empresa.estado === 'activa') {
+          const [userMods, userAreas] = await Promise.all([
+            prisma.usuarioModulo.findMany({ where: { usuarioId: pgUser.id } }),
+            prisma.usuarioArea.findMany({
+              where: { usuarioId: pgUser.id },
+              include: { area: { select: { id: true, nombre: true } } }
+            })
+          ]);
+          const ctxLegacy = {
+            empresa,
+            rol: null,
+            modulosActivos:   userMods.map(m => m.modulo),
+            areasPermitidas:  userAreas.map(ua => ({ id: ua.areaId, nombre: ua.area.nombre })),
+            permisosEfectivos: []
+          };
+          const sesionData = _buildSession(pgUser, pgUser.empresaId, ctxLegacy);
+          req.session.usuario     = sesionData;
+          req.session.autenticado = true;
+          return res.json({
+            success: true,
+            usuario: { ...sesionData, empresasAsignadas: [], requiereSeleccionEmpresa: false }
+          });
+        }
+      }
       return res.status(403).json({
         success: false,
         error: 'Su usuario no tiene empresas activas asignadas. Contacte al administrador.'
@@ -130,20 +158,50 @@ async function _loginMongoDB(req, res, username, password) {
     usuario.ultimoAcceso = new Date();
     await usuario.save();
 
+    // Try to enrich session with PostgreSQL empresa data (logoUrl + current modules)
+    let pgEmpresaId = null;
+    let logoUrl = null;
+    let modulosPermitidos = usuario.modulosPermitidos || [];
+    if (empresa) {
+      try {
+        const pgEmpresa = await prisma.empresa.findFirst({
+          where: { nombre: empresa.nombre },
+          select: { id: true, logoUrl: true }
+        });
+        if (pgEmpresa) {
+          pgEmpresaId = pgEmpresa.id;
+          logoUrl = pgEmpresa.logoUrl || null;
+          const empresaMods = await prisma.empresaModulo.findMany({
+            where:   { empresaId: pgEmpresa.id, habilitado: true },
+            include: { modulo: { select: { codigo: true } } }
+          });
+          if (empresaMods.length > 0) {
+            const pgMods = empresaMods.map(m => m.modulo.codigo);
+            // admin inherits all empresa modules; other roles keep the intersection
+            modulosPermitidos = usuario.rol === 'admin'
+              ? pgMods
+              : pgMods.filter(m => (usuario.modulosPermitidos || []).includes(m));
+          }
+        }
+      } catch (pgErr) {
+        console.error('[_loginMongoDB] Error enriching from PG:', pgErr.message);
+      }
+    }
+
     req.session.usuario = {
       id: usuario._id.toString(),
       pgId: null,
       username: usuario.username,
       nombre: usuario.nombre,
       rol: usuario.rol,
-      modulosPermitidos: usuario.modulosPermitidos || [],
+      modulosPermitidos,
       areasPermitidas: usuario.areasPermitidas || [],
       areasPermitidasIds: [],
       permisosEfectivos: [],
       empresaId: usuario.empresaId?.toString() || null,
-      pgEmpresaId: null,
+      pgEmpresaId,
       nombreEmpresa: empresa?.nombre || null,
-      logoUrl: null,
+      logoUrl,
       esSuperAdmin: usuario.rol === 'super_admin',
       _legacy: true
     };
@@ -173,9 +231,51 @@ exports.logout = (req, res) => {
 /**
  * GET /api/auth/verificar-sesion
  */
-exports.verificarSesion = (req, res) => {
+exports.verificarSesion = async (req, res) => {
   if (req.session && req.session.autenticado) {
-    res.json({ success: true, autenticado: true, usuario: req.session.usuario });
+    const usuario = req.session.usuario;
+    // For non-super_admin with a known empresa, refresh logo + modules from DB on every check
+    if (usuario.pgEmpresaId && usuario.rol !== 'super_admin') {
+      try {
+        const [empresa, empresaMods] = await Promise.all([
+          prisma.empresa.findUnique({
+            where:  { id: usuario.pgEmpresaId },
+            select: { logoUrl: true }
+          }),
+          prisma.empresaModulo.findMany({
+            where:   { empresaId: usuario.pgEmpresaId, habilitado: true },
+            include: { modulo: { select: { codigo: true } } }
+          })
+        ]);
+        console.log('[verificarSesion] usuario:', usuario.username, '| pgEmpresaId:', usuario.pgEmpresaId, '| rol:', usuario.rol);
+        console.log('[verificarSesion] logoUrl DB:', empresa?.logoUrl);
+        console.log('[verificarSesion] empresaMods habilitados:', empresaMods?.map(m => m.modulo.codigo));
+        if (empresa) {
+          usuario.logoUrl = empresa.logoUrl || null;
+          req.session.usuario.logoUrl = empresa.logoUrl || null;
+        }
+        if (empresaMods && empresaMods.length > 0) {
+          const modCodes = empresaMods.map(m => m.modulo.codigo);
+          if (usuario.rol === 'admin') {
+            // Admin always inherits all empresa-level modules
+            usuario.modulosPermitidos = modCodes;
+            req.session.usuario.modulosPermitidos = modCodes;
+          } else {
+            // Other roles: keep only the intersection with empresa modules
+            const modSet = new Set(modCodes);
+            const filtrados = (usuario.modulosPermitidos || []).filter(m => modSet.has(m));
+            usuario.modulosPermitidos = filtrados;
+            req.session.usuario.modulosPermitidos = filtrados;
+          }
+        }
+        console.log('[verificarSesion] modulosPermitidos final:', usuario.modulosPermitidos);
+      } catch (err) {
+        console.error('[verificarSesion] ERROR al refrescar datos de empresa:', err.message);
+      }
+    } else {
+      console.log('[verificarSesion] SIN refresh — pgEmpresaId:', usuario.pgEmpresaId, '| rol:', usuario.rol);
+    }
+    res.json({ success: true, autenticado: true, usuario });
   } else {
     res.json({ success: true, autenticado: false });
   }

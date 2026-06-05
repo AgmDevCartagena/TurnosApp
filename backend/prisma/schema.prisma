@@ -36,6 +36,59 @@ enum TipoModulo {
   reportes
   empresas
   areas
+  transporte
+  programacion_operativa
+}
+
+enum EstadoProgramacionOp {
+  borrador
+  validada
+  aprobada
+  enviada
+  cerrada
+  anulada
+}
+
+enum TipoMovimientoTransporte {
+  recogida
+  salida
+  retorno
+}
+
+enum TipoServicioAlimentacion {
+  merienda
+  cena
+  merienda_nocturna
+  otro
+}
+
+enum EstadoServicioAlimentacion {
+  pendiente
+  asignado
+  recibido
+  entregado
+  con_novedad
+  cancelado
+}
+
+enum TipoProgramacionPersona {
+  normal
+  extendido
+  turno_b
+  otro
+}
+
+enum TipoNovedadOperativa {
+  persona_no_asistio
+  cambio_responsable
+  merienda_no_recibida
+  cena_incompleta
+  cambio_turno
+  persona_adicional
+  error_listado
+  cambio_ruta
+  cambio_conductor
+  otra
 }
 
 enum TipoContrato {
@@ -123,6 +176,11 @@ model Empresa {
   novedades        NovedadNomina[]
   turnos           Turno[]
   festivos         Festivo[]
+  configTurnosOp        ConfiguracionTurnoOp[]
+  conductores           ConductorTransporte[]
+  vehiculos             VehiculoTransporte[]
+  ubicaciones           UbicacionRuta[]
+  programacionesTransporte ProgramacionTransporte[]
 
   @@index([estado])
   @@map("empresas")
@@ -257,17 +315,18 @@ model Permiso {
   id          String        @id @default(uuid())
   codigo      String        @unique @db.VarChar(100)
   nombre      String        @db.VarChar(150)
-  descripcion String?
+  descripcion String?       @db.VarChar(500)
   modulo      String        @db.VarChar(60)
   recurso     String        @db.VarChar(60)
   accion      String        @db.VarChar(30)
+  orden       Int           @default(0)
   estado      EstadoGeneral @default(activo)
   createdAt   DateTime      @default(now())
 
   roles    RolPermiso[]
   usuarios UsuarioEmpresaPermiso[]
 
-  @@index([modulo, accion])
+  @@index([modulo, orden])
   @@index([estado])
   @@map("permisos")
 }
@@ -373,6 +432,7 @@ model Empleado {
   turnos        Turno[]
   liquidaciones LiquidacionNomina[]
   novedades     NovedadNomina[]
+  detallesTransporte DetalleProgramTransporte[]
 
   @@unique([documento, empresaId])
   @@index([empresaId, estado])
@@ -559,4 +619,193 @@ model Festivo {
   @@unique([empresaId, fecha])
   @@index([fecha])
   @@map("festivos")
+}
+
+// ─── MÓDULO TRANSPORTE Y PROGRAMACIÓN OPERATIVA ────────────────────────────
+
+model ConfiguracionTurnoOp {
+  id                   String        @id @default(uuid())
+  empresaId            String
+  codigo               String        @db.VarChar(40)
+  nombreTurno          String        @db.VarChar(80)
+  horaInicio           String        @db.VarChar(5)
+  horaFin              String        @db.VarChar(5)
+  horaExtensionInicio  String?       @db.VarChar(5)
+  horaExtensionFin     String?       @db.VarChar(5)
+  generaMerienda       Boolean       @default(false)
+  generaCena           Boolean       @default(false)
+  requiereResponsable  Boolean       @default(false)
+  esExtendido          Boolean       @default(false)
+  esTurnoNocturno      Boolean       @default(false)
+  activo               Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId, activo])
+  @@map("config_turnos_op")
+}
+
+model ConductorTransporte {
+  id        String        @id @default(uuid())
+  empresaId String
+  nombre    String        @db.VarChar(150)
+  documento String?       @db.VarChar(20)
+  telefono  String?       @db.VarChar(20)
+  estado    EstadoGeneral @default(activo)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  empresa       Empresa                     @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  programaciones ProgramacionTransporte[]
+
+  @@index([empresaId, estado])
+  @@map("conductores_transporte")
+}
+
+model VehiculoTransporte {
+  id          String        @id @default(uuid())
+  empresaId   String
+  placa       String        @db.VarChar(10)
+  descripcion String?       @db.VarChar(100)
+  capacidad   Int?
+  estado      EstadoGeneral @default(activo)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  empresa        Empresa                   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  programaciones ProgramacionTransporte[]
+
+  @@unique([empresaId, placa])
+  @@index([empresaId, estado])
+  @@map("vehiculos_transporte")
+}
+
+model UbicacionRuta {
+  id          String        @id @default(uuid())
+  empresaId   String
+  nombre      String        @db.VarChar(100)
+  descripcion String?
+  estado      EstadoGeneral @default(activo)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  empresa  Empresa                       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  detalles DetalleProgramTransporte[]
+
+  @@unique([empresaId, nombre])
+  @@index([empresaId, estado])
+  @@map("ubicaciones_ruta")
+}
+
+model ProgramacionTransporte {
+  id               String                   @id @default(uuid())
+  empresaId        String
+  fecha            DateTime                 @db.Date
+  horaSalida       String                   @db.VarChar(5)
+  tipoMovimiento   TipoMovimientoTransporte @default(salida)
+  titulo           String?                  @db.VarChar(200)
+  conductorId      String?
+  vehiculoId       String?
+  placaManual      String?                  @db.VarChar(10)
+  conductorManual  String?                  @db.VarChar(100)
+  estado           EstadoProgramacionOp     @default(borrador)
+  observaciones    String?
+  creadoPorId      String?
+  revisadoPorId    String?
+  aprobadoPorId    String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  empresa    Empresa              @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  conductor  ConductorTransporte? @relation(fields: [conductorId], references: [id], onDelete: SetNull)
+  vehiculo   VehiculoTransporte?  @relation(fields: [vehiculoId], references: [id], onDelete: SetNull)
+
+  detalles             DetalleProgramTransporte[]
+  serviciosAlimentacion ServicioAlimentacion[]
+  novedades            NovedadOperativa[]
+
+  @@index([empresaId, fecha])
+  @@index([empresaId, estado])
+  @@map("programaciones_transporte")
+}
+
+model DetalleProgramTransporte {
+  id                     String                   @id @default(uuid())
+  programacionId         String
+  empresaId              String
+  empleadoId             String?
+  nombreEmpleado         String                   @db.VarChar(150)
+  documentoEmpleado      String?                  @db.VarChar(20)
+  areaNombre             String?                  @db.VarChar(100)
+  coordinadorNombre      String?                  @db.VarChar(150)
+  cargo                  String?                  @db.VarChar(80)
+  fecha                  DateTime                 @db.Date
+  horaInicio             String                   @db.VarChar(5)
+  horaFin                String                   @db.VarChar(5)
+  tipoProgramacion       TipoProgramacionPersona  @default(normal)
+  requiereMerienda       Boolean                  @default(false)
+  requiereCena           Boolean                  @default(false)
+  requiereRuta           Boolean                  @default(true)
+  ubicacionId            String?
+  ubicacionTexto         String?                  @db.VarChar(150)
+  esResponsableAlimentacion Boolean               @default(false)
+  tipoResponsabilidad    String?                  @db.VarChar(30)
+  orden                  Int                      @default(0)
+  observacion            String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  programacion ProgramacionTransporte @relation(fields: [programacionId], references: [id], onDelete: Cascade)
+  empleado     Empleado?              @relation(fields: [empleadoId], references: [id], onDelete: SetNull)
+  ubicacion    UbicacionRuta?         @relation(fields: [ubicacionId], references: [id], onDelete: SetNull)
+
+  @@unique([programacionId, nombreEmpleado, fecha, horaInicio])
+  @@index([programacionId])
+  @@index([empleadoId])
+  @@map("detalles_program_transporte")
+}
+
+model ServicioAlimentacion {
+  id               String                     @id @default(uuid())
+  programacionId   String
+  empresaId        String
+  fecha            DateTime                   @db.Date
+  tipoServicio     TipoServicioAlimentacion
+  areaNombre       String?                    @db.VarChar(100)
+  responsableNombre String?                   @db.VarChar(150)
+  responsableDoc   String?                    @db.VarChar(20)
+  cantidadPersonas Int                        @default(0)
+  estado           EstadoServicioAlimentacion @default(pendiente)
+  observacion      String?
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  programacion ProgramacionTransporte @relation(fields: [programacionId], references: [id], onDelete: Cascade)
+
+  @@index([programacionId])
+  @@index([empresaId, fecha])
+  @@map("servicios_alimentacion")
+}
+
+model NovedadOperativa {
+  id             String               @id @default(uuid())
+  programacionId String
+  empresaId      String
+  fecha          DateTime             @db.Date
+  tipoNovedad    TipoNovedadOperativa
+  descripcion    String
+  empleadoNombre String?              @db.VarChar(150)
+  areaNombre     String?              @db.VarChar(100)
+  registradoPorId String?
+  estado         EstadoGeneral        @default(activo)
+  createdAt      DateTime             @default(now())
+
+  programacion ProgramacionTransporte @relation(fields: [programacionId], references: [id], onDelete: Cascade)
+
+  @@index([programacionId])
+  @@index([empresaId, fecha])
+  @@map("novedades_operativas")
 }

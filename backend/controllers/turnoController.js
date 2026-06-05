@@ -257,25 +257,59 @@ exports.completarDatosTaquillero = async (req, res) => {
 
 exports.obtenerTurnosSemana = async (req, res) => {
   try {
-    const { inicioSemana, finSemana, busqueda } = req.query;
+    const { inicio, fin } = req.query;
 
-    let filtro = {
-      fecha: {
-        $gte: new Date(inicioSemana),
-        $lte: new Date(finSemana)
-      }
-    };
-
-    if (busqueda) {
-      filtro.$or = [
-        { 'empleadoId.nombre': { $regex: busqueda, $options: 'i' } },
-        { 'empleadoId.documento': { $regex: busqueda, $options: 'i' } }
-      ];
+    if (!inicio || !fin) {
+      return res.status(400).json({ error: 'Se requieren los parámetros inicio y fin' });
     }
 
-    const turnos = await turnosService.obtenerTurnosConEmpleados(filtro, req.empresaId);
-    res.json(turnos);
+    const fechaInicio = new Date(inicio + 'T00:00:00');
+    const fechaFin    = new Date(fin   + 'T23:59:59');
+
+    // Buscar documentos Turno cuyo historial solape con la semana
+    const documentos = await Turno.find({
+      'historialTurnos': {
+        $elemMatch: {
+          fechaInicio: { $lte: fechaFin },
+          fechaFin:    { $gte: fechaInicio }
+        }
+      }
+    });
+
+    // Expandir cronogramaDetallado en entradas por día para el calendario
+    const turnosDia = [];
+    documentos.forEach(doc => {
+      doc.historialTurnos.forEach(ht => {
+        const htInicio = new Date(ht.fechaInicio);
+        const htFin    = new Date(ht.fechaFin);
+        if (htInicio > fechaFin || htFin < fechaInicio) return; // no solapa
+
+        (ht.cronogramaDetallado || []).forEach(dia => {
+          if (!dia.fecha) return;
+          if (dia.fecha < inicio || dia.fecha > fin) return;
+          if (dia.tipoDay === 'DESCANSO') return; // no mostrar días de descanso
+
+          turnosDia.push({
+            fecha:    dia.fecha,
+            diaSemana: dia.diaSemana,
+            horaInicio: dia.horaInicio || ht.horaInicio,
+            horaFin:    dia.horaFin    || ht.horaFin,
+            horaAlmuerzoInicio: dia.horaAlmuerzoInicio || null,
+            horaAlmuerzoFin:    dia.horaAlmuerzoFin    || null,
+            area:     ht.area || doc.cargo,
+            empleado: {
+              _id:      doc.empleadoId,
+              nombre:   doc.nombreEmpleado,
+              documento: doc.documentoEmpleado
+            }
+          });
+        });
+      });
+    });
+
+    res.json(turnosDia);
   } catch (error) {
+    console.error('Error en obtenerTurnosSemana:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -2733,24 +2767,27 @@ function generarCronogramaMantenimientoAuto(fechaInicio, fechaFin, festivos, tur
 exports.obtenerAreas = async (req, res) => {
   try {
     const prisma = require('../lib/prisma');
+    const sesion = req.session?.usuario;
+    const empresaId = req.pgEmpresaId || sesion?.pgEmpresaId || null;
+
     const where = { estado: 'activo' };
-    if (req.pgEmpresaId) where.empresaId = req.pgEmpresaId;
+    if (empresaId) where.empresaId = empresaId;
 
     const areasPg = await prisma.area.findMany({
       where,
-      select: { nombre: true },
+      select: { id: true, nombre: true },
       orderBy: { nombre: 'asc' }
     });
-    let areas = [...new Set(areasPg.map(a => a.nombre))];
+
+    let areas = areasPg;
 
     // Filtrar áreas si el usuario no es admin/super_admin
-    const sesion = req.session.usuario;
     if (sesion && !['admin', 'super_admin'].includes(sesion.rol)) {
       const areasPermitidas = sesion.areasPermitidas || [];
-      areas = areas.filter(a => areasPermitidas.includes(a));
+      areas = areas.filter(a => areasPermitidas.includes(a.nombre));
     }
 
-    res.json({ areas });
+    res.json({ areas: areas.map(a => a.nombre) });
   } catch (error) {
     console.error('❌ Error en obtenerAreas:', error);
     res.status(500).json({ error: error.message });
@@ -3530,6 +3567,8 @@ exports.cargaMasivaEmpleados = async (req, res) => {
     let empleados = [];
     let errores = 0;
     let insertados = 0;
+    const erroresDetalle = [];
+    console.log('[carga-masiva] Iniciando archivo:', req.file?.originalname, '| empresaId:', req.empresaId || req.session?.usuario?.pgEmpresaId);
 
     // Procesar CSV
     if (filename.endsWith('.csv')) {
@@ -3580,9 +3619,14 @@ exports.cargaMasivaEmpleados = async (req, res) => {
         }
 
         if (nombre && documento && area) {
-          empleados.push({ nombre, documento, cargo, area, salario, fechaIngreso, fechaCumpleanos });
+          empleados.push({ fila: i + 1, nombre, documento, cargo, area, salario, fechaIngreso, fechaCumpleanos });
         } else {
           errores++;
+          const faltantes = [];
+          if (!nombre) faltantes.push('nombre');
+          if (!documento) faltantes.push('documento');
+          if (!area) faltantes.push('area');
+          erroresDetalle.push({ fila: i + 1, razon: `Faltan campos requeridos: ${faltantes.join(', ')}`, linea: line });
         }
       }
     }
@@ -3597,14 +3641,16 @@ exports.cargaMasivaEmpleados = async (req, res) => {
     }
 
     // Validar Ã¡reas permitidas
-    const areasValidas = [
-      'TAQUILLEROS',
-      'CONDUCTORES',
-      'MANTENIMIENTO',
-      'OPERACIONES',
-      'ADMINISTRACION',
-      'CENTRO DE CONTROL'
-    ];
+    // Areas validas dinamicas: se cargan desde la BD para la empresa del usuario
+    const prismaCM = require('../lib/prisma');
+    const empleadosService = require('../services/empleadosService');
+    const pgEmpresaIdCM = req.pgEmpresaId || req.session?.usuario?.pgEmpresaId || null;  // UUID para Prisma
+    const mongoEmpresaIdCM = req.session?.usuario?.empresaId || null;                    // ObjectId para Mongo
+    const areasDB = pgEmpresaIdCM
+      ? await prismaCM.area.findMany({ where: { empresaId: pgEmpresaIdCM, estado: 'activo' }, select: { nombre: true } })
+      : [];
+    const areasValidas = areasDB.map(a => a.nombre.toUpperCase());
+    console.log(`[carga-masiva] pgEmpresaId=${pgEmpresaIdCM} | filas parseadas=${empleados.length} | areas validas (${areasValidas.length}):`, areasValidas);
 
     // Insertar empleados
     for (const emp of empleados) {
@@ -3612,45 +3658,50 @@ exports.cargaMasivaEmpleados = async (req, res) => {
         // Validar Ã¡rea
         const areaUpper = emp.area.toUpperCase();
         if (!areasValidas.includes(areaUpper)) {
-          console.log(`Ã\u0081rea invÃ¡lida para ${emp.nombre}: `);
+          console.log(`[carga-masiva] Area invalida para "${emp.nombre}": "${emp.area}". Validas: ${areasValidas.join(', ')}`);
           errores++;
+          erroresDetalle.push({ fila: emp.fila, razon: `Area "${emp.area}" no existe en la empresa. Validas: [${areasValidas.join(', ')}]` });
           continue;
         }
 
-        // Verificar si ya existe por documento en la misma empresa
-        const filtroDup = { documento: emp.documento };
-        if (req.empresaId) filtroDup.empresaId = req.empresaId;
-        const existe = await Empleado.findOne(filtroDup);
-        if (existe) {
-          console.log(`Empleado ya existe: ${emp.documento}`);
-          errores++;
-          continue;
+        // Verificar duplicado en PostgreSQL (fuente de verdad)
+        if (pgEmpresaIdCM) {
+          const dup = await prismaCM.empleado.findFirst({
+            where: { documento: emp.documento, empresaId: pgEmpresaIdCM }
+          });
+          if (dup) {
+            console.log(`[carga-masiva] Empleado ya existe: documento=${emp.documento}, nombre=${emp.nombre}`);
+            errores++;
+            erroresDetalle.push({ fila: emp.fila, razon: `Empleado con documento ${emp.documento} ya existe en la empresa` });
+            continue;
+          }
         }
 
-        const nuevoEmpleado = new Empleado({
-          nombre: emp.nombre,
-          documento: emp.documento,
-          cargo: emp.cargo,
-          area: areaUpper,
-          salario: emp.salario || 0,
-          fechaIngreso: emp.fechaIngreso,
-          fechaCumpleanos: emp.fechaCumpleanos,
-          empresaId: req.empresaId || null
-        });
-
-        await nuevoEmpleado.save();
+        // Guardar en PostgreSQL + MongoDB via servicio (mantiene ambas DBs sincronizadas)
+        await empleadosService.crearEmpleado(
+          { nombre: emp.nombre, documento: emp.documento, cargo: emp.cargo || '',
+            area: areaUpper, salario: emp.salario || 0,
+            fechaIngreso: emp.fechaIngreso, fechaCumpleanos: emp.fechaCumpleanos },
+          mongoEmpresaIdCM,
+          pgEmpresaIdCM
+        );
         insertados++;
       } catch (error) {
-        console.error(`Error al insertar empleado ${emp.nombre}:`, error.message);
+        console.error(`[carga-masiva] Error al insertar empleado "${emp.nombre}": ${error.message}`);
         errores++;
+        erroresDetalle.push({ fila: emp.fila, razon: `Error al guardar: ${error.message}` });
       }
     }
+
+    console.log(`[carga-masiva] RESULTADO: insertados=${insertados}, errores=${errores}, total=${empleados.length}`);
+    if (erroresDetalle.length > 0) console.log('[carga-masiva] Detalle errores:', JSON.stringify(erroresDetalle.slice(0, 20), null, 2));
 
     res.json({
       message: 'Carga masiva completada',
       insertados,
       errores,
-      total: empleados.length
+      total: empleados.length,
+      detalles: { errores: erroresDetalle.slice(0, 200) }
     });
 
   } catch (error) {
