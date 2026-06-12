@@ -257,9 +257,20 @@ exports.verificarSesion = async (req, res) => {
         if (empresaMods && empresaMods.length > 0) {
           const modCodes = empresaMods.map(m => m.modulo.codigo);
           if (usuario.rol === 'admin') {
-            // Admin always inherits all empresa-level modules
-            usuario.modulosPermitidos = modCodes;
-            req.session.usuario.modulosPermitidos = modCodes;
+            // Admin: use user-specific modules (EmpresaUsuarioModulo) as source of truth;
+            // fall back to company-level only when none are configured at user level.
+            let adminMods = modCodes;
+            if (usuario.pgId) {
+              const ue = await prisma.usuarioEmpresa.findUnique({
+                where: { usuarioId_empresaId: { usuarioId: usuario.pgId, empresaId: usuario.pgEmpresaId } },
+                include: { modulos: { where: { activo: true }, include: { modulo: { select: { codigo: true } } } } }
+              });
+              if (ue?.modulos?.length > 0) {
+                adminMods = ue.modulos.map(m => m.modulo.codigo);
+              }
+            }
+            usuario.modulosPermitidos = adminMods;
+            req.session.usuario.modulosPermitidos = adminMods;
           } else {
             // Other roles: keep only the intersection with empresa modules
             const modSet = new Set(modCodes);

@@ -310,13 +310,14 @@
                 moduloNomina.querySelector('.module-button').style.background = '#ccc';
             }
             
-            // Mostrar módulo de empresas solo para super_admin
-            if (usuarioSesion.rol === 'super_admin') {
+            // Mostrar módulo de empresas para super_admin o admin con módulo empresas
+            const rolesAdmin = ['admin', 'super_admin'];
+            if (usuarioSesion.rol === 'super_admin' ||
+                (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('empresas'))) {
                 document.getElementById('modulo-empresas').style.display = 'block';
             }
 
             // Mostrar módulo de usuarios y áreas según rol + módulos habilitados para la empresa
-            const rolesAdmin = ['admin', 'super_admin'];
             if (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('usuarios')) {
                 document.getElementById('modulo-usuarios').style.display = 'block';
             }
