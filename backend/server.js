@@ -43,6 +43,28 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ── Cabeceras de seguridad ────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com",
+      "style-src  'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com",
+      "font-src   'self' fonts.gstatic.com cdnjs.cloudflare.com",
+      "img-src    'self' data: blob:",
+      "connect-src 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'"
+    ].join('; ')
+  );
+  next();
+});
+
 // Configuración de sesiones
 app.use(session({
   secret: process.env.SESSION_SECRET || 'sistema_gestion_secret',

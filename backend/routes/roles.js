@@ -4,6 +4,7 @@ const express    = require('express');
 const router     = express.Router();
 const ctrl       = require('../controllers/rolesController');
 const { requireAuth, requirePermiso, requirePermisoStrict } = require('../middlewares/auth');
+const { validarRolCrear, validarRolEditar } = require('../middlewares/inputValidator');
 
 // Todos los endpoints requieren sesión activa
 router.use(requireAuth);
@@ -14,8 +15,8 @@ router.get('/permisos', requirePermiso('roles.ver'), ctrl.listarPermisos);
 // ── CRUD Roles ────────────────────────────────────────────────────────────────
 router.get('/',    requirePermiso('roles.ver'),    ctrl.listarRoles);
 router.get('/:id', requirePermiso('roles.ver'),    ctrl.obtenerRol);
-router.post('/',   requirePermiso('roles.crear'),  ctrl.crearRol);
-router.put('/:id', requirePermiso('roles.editar'), ctrl.editarRol);
+router.post('/',   requirePermiso('roles.crear'),  validarRolCrear, ctrl.crearRol);
+router.put('/:id', requirePermiso('roles.editar'), validarRolEditar, ctrl.editarRol);
 router.patch('/:id/estado', requirePermiso('roles.editar'),   ctrl.toggleEstadoRol);
 router.delete('/:id',       requirePermiso('roles.eliminar'), ctrl.eliminarRol);
 

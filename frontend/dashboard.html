@@ -276,6 +276,20 @@
     </div>
 
     <script>
+        /**
+         * esc(s) — escapa caracteres HTML para uso seguro en innerHTML.
+         * Previene XSS al inyectar datos del servidor en plantillas HTML.
+         */
+        function esc(s) {
+            if (s == null) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;');
+        }
+
         let usuarioSesion = null;
         async function verificarAutenticacion() {
             try {
@@ -377,8 +391,8 @@
             const rolLabel = usuarioSesion.rol === 'super_admin' ? 'Super Admin' : usuarioSesion.rol;
             const userInfo = document.getElementById('header-user-right');
             userInfo.innerHTML = `
-                <div style="font-size: 1em; font-weight: bold; white-space: nowrap;">${usuarioSesion.nombre}</div>
-                <div style="font-size: 0.85em; opacity: 0.8; text-transform: capitalize; margin-bottom: 8px;">${rolLabel}</div>
+                <div style="font-size: 1em; font-weight: bold; white-space: nowrap;">${esc(usuarioSesion.nombre)}</div>
+                <div style="font-size: 0.85em; opacity: 0.8; text-transform: capitalize; margin-bottom: 8px;">${esc(rolLabel)}</div>
                 <div class="user-actions">
                     <button class="btn-password" onclick="abrirModalPassword()">🔐 Cambiar Contraseña</button>
                     <button class="btn-logout" onclick="cerrarSesion()">🚪 Cerrar Sesión</button>

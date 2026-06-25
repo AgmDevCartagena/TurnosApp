@@ -274,6 +274,20 @@
 </div>
 
 <script>
+  /**
+   * esc(s) — escapa caracteres HTML especiales para uso seguro en innerHTML.
+   * Previene XSS cuando se construyen plantillas de HTML con datos del servidor.
+   */
+  function esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
+
   let empresas = [];
   let modoEdicion = false;
 
@@ -345,32 +359,36 @@
     }
 
     const filas = lista.map(e => {
-      const modulos = (e.modulosHabilitados || []).map(m =>
-        `<span class="tag">${m === 'turnos' ? '📅' : '💰'} ${m}</span>`
-      ).join('');
-      const color = e.colorTema || '#667eea';
-      const estadoClass = `badge-${e.estado || 'activa'}`;
+      const MODULOS_VALIDOS = ['turnos','nomina','usuarios','parametros','reportes','empresas','areas','transporte','programacion_operativa'];
+      const modulos = (e.modulosHabilitados || [])
+        .filter(m => MODULOS_VALIDOS.includes(m))
+        .map(m => `<span class="tag">${m === 'turnos' ? '📅' : '💰'} ${esc(m)}</span>`)
+        .join('');
+      const colorRaw = e.colorTema || '#667eea';
+      const color = /^#[0-9a-fA-F]{3,8}$/.test(colorRaw) ? colorRaw : '#667eea';
+      const estadoSafe = ['activa','inactiva','suspendida'].includes(e.estado) ? e.estado : 'activa';
+      const estadoClass = `badge-${estadoSafe}`;
       const esActiva = e.estado === 'activa';
 
-      const logoHtml = e.logoUrl
-        ? `<img class="logo-table-img" src="${e.logoUrl}" alt="Logo" title="${e.nombre}">`
-        : `<span style="font-size:1.4em;opacity:.35">🏢</span>`;
       const eId = e.id || e._id;
+      const logoHtml = e.logoUrl
+        ? `<img class="logo-table-img" src="${esc(e.logoUrl)}" alt="Logo" title="${esc(e.nombre)}">`
+        : `<span style="font-size:1.4em;opacity:.35">🏢</span>`;
       return `<tr>
         <td>
           ${logoHtml}
           <span class="color-dot" style="background:${color}"></span>
-          <strong>${e.nombre}</strong>
-          ${e.dominio ? `<br><small style="color:#999">${e.dominio}</small>` : ''}
+          <strong>${esc(e.nombre)}</strong>
+          ${e.dominio ? `<br><small style="color:#999">${esc(e.dominio)}</small>` : ''}
         </td>
-        <td>${e.nit || '—'}</td>
-        <td>${e.razonSocial || '—'}</td>
+        <td>${esc(e.nit || '—')}</td>
+        <td>${esc(e.razonSocial || '—')}</td>
         <td>${modulos || '<span style="color:#ccc">ninguno</span>'}</td>
-        <td><span class="badge ${estadoClass}">${e.estado || 'activa'}</span></td>
+        <td><span class="badge ${estadoClass}">${esc(estadoSafe)}</span></td>
         <td>
-          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${eId}')">✏️ Editar</button>
+          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${esc(eId)}')">✏️ Editar</button>
           <button class="btn-sm btn-toggle ${esActiva ? 'desactivar' : ''}"
-            onclick="toggleEstado('${eId}', '${esActiva ? 'inactiva' : 'activa'}')">
+            onclick="toggleEstado('${esc(eId)}', '${esActiva ? 'inactiva' : 'activa'}')">
             ${esActiva ? '⏸ Desactivar' : '▶ Activar'}
           </button>
         </td>

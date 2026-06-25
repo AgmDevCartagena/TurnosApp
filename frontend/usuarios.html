@@ -361,6 +361,20 @@
 </div>
 
 <script>
+  /**
+   * esc(s) — escapa caracteres HTML especiales para uso seguro en innerHTML.
+   * Previene XSS almacenado al renderizar datos del servidor en plantillas HTML.
+   */
+  function esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
+
   // ── Estado global ──────────────────────────────────────────────────────────
   let usuarios         = [];
   let modoEdicion      = false;
@@ -420,22 +434,23 @@
     const esSA = sesionActual?.rol === 'super_admin';
     const filas = lista.map(u => {
       const empresasBadges = (u.empresasAsignadas || []).length > 0
-        ? u.empresasAsignadas.map(e => `<span class="badge-empresa">${e.empresaNombre}</span>`).join('')
-        : (u.nombreEmpresa ? `<span class="badge-empresa">${u.nombreEmpresa}</span>` : '<span style="color:#ccc">—</span>');
+        ? u.empresasAsignadas.map(e => `<span class="badge-empresa">${esc(e.empresaNombre)}</span>`).join('')
+        : (u.nombreEmpresa ? `<span class="badge-empresa">${esc(u.nombreEmpresa)}</span>` : '<span style="color:#ccc">—</span>');
       const estadoBadge = u.activo
         ? `<span class="badge-activo" style="padding:2px 10px;border-radius:10px;font-size:0.8em;font-weight:600;">Activo</span>`
         : `<span class="badge-inactivo" style="padding:2px 10px;border-radius:10px;font-size:0.8em;font-weight:600;">Inactivo</span>`;
+      const rolSafe = ['admin','usuario','super_admin'].includes(u.rol) ? u.rol : 'usuario';
       return `<tr style="${!u.activo ? 'opacity:.55' : ''}">
-        <td><strong>${u.nombre}</strong>${u.correo ? `<br><small style="color:#888">${u.correo}</small>` : ''}</td>
-        <td><code>${u.username}</code></td>
-        <td><span class="badge badge-${u.rol}">${u.rol}</span></td>
+        <td><strong>${esc(u.nombre)}</strong>${u.correo ? `<br><small style="color:#888">${esc(u.correo)}</small>` : ''}</td>
+        <td><code>${esc(u.username)}</code></td>
+        <td><span class="badge badge-${rolSafe}">${esc(u.rol)}</span></td>
         <td style="max-width:200px">${empresasBadges}</td>
         <td>${estadoBadge}</td>
         <td style="white-space:nowrap">
-          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${u.id}')">✏️ Editar</button>
-          <button class="btn-sm btn-pass" onclick="abrirModalPass('${u.id}')">🔑</button>
-          <button class="btn-sm" style="background:${u.activo ? '#fff3e0' : '#e8f5e9'};color:${u.activo ? '#e65100' : '#2e7d32'}" onclick="toggleEstado('${u.id}')">${u.activo ? '🔴' : '🟢'}</button>
-          <button class="btn-sm btn-del" onclick="eliminarUsuario('${u.id}')">🗑️</button>
+          <button class="btn-sm btn-edit" onclick="abrirModalEditar('${esc(u.id)}')">✏️ Editar</button>
+          <button class="btn-sm btn-pass" onclick="abrirModalPass('${esc(u.id)}')">🔑</button>
+          <button class="btn-sm" style="background:${u.activo ? '#fff3e0' : '#e8f5e9'};color:${u.activo ? '#e65100' : '#2e7d32'}" onclick="toggleEstado('${esc(u.id)}')">${u.activo ? '🔴' : '🟢'}</button>
+          <button class="btn-sm btn-del" onclick="eliminarUsuario('${esc(u.id)}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -484,9 +499,9 @@
       const cfg    = configPorEmpresa[e.id];
       const selec  = empresasSeleccionadas.includes(e.id);
       const rolLbl = cfg ? (todosLosRoles.find(r => r.id === cfg.rolId)?.nombre || '') : '';
-      return `<label class="empresa-card${selec ? ' selected' : ''}" data-id="${e.id}">
-        <input type="checkbox" value="${e.id}" ${selec ? 'checked' : ''} onchange="onToggleEmpresa('${e.id}', this.checked)">
-        <div><div class="emp-nombre">🏢 ${e.nombre}</div>${rolLbl ? `<div class="emp-rol">Rol: ${rolLbl}</div>` : ''}</div>
+      return `<label class="empresa-card${selec ? ' selected' : ''}" data-id="${esc(e.id)}">
+        <input type="checkbox" value="${esc(e.id)}" ${selec ? 'checked' : ''} onchange="onToggleEmpresa('${esc(e.id)}', this.checked)">
+        <div><div class="emp-nombre">🏢 ${esc(e.nombre)}</div>${rolLbl ? `<div class="emp-rol">Rol: ${esc(rolLbl)}</div>` : ''}</div>
       </label>`;
     }).join('');
 
@@ -539,7 +554,7 @@
 
     // Opciones de rol
     const optsRol = todosLosRoles.map(r =>
-      `<option value="${r.id}" ${cfg.rolId === r.id ? 'selected' : ''}>${r.nombre}</option>`
+      `<option value="${esc(r.id)}" ${cfg.rolId === r.id ? 'selected' : ''}>${esc(r.nombre)}</option>`
     ).join('');
 
     // Opciones de módulos
@@ -559,12 +574,12 @@
     for (const [mod, perms] of Object.entries(todosLosPermisos)) {
       const pillsPerm = perms.map(p => {
         const activo = cfg.permisos.includes(p.codigo);
-        return `<label class="pill-sm${activo ? ' active' : ''}" data-val="${p.codigo}" data-emp="${empresaId}" data-tipo="permiso">
-          <input type="checkbox" value="${p.codigo}" ${activo ? 'checked' : ''}>${p.nombre}
+        return `<label class="pill-sm${activo ? ' active' : ''}" data-val="${esc(p.codigo)}" data-emp="${esc(empresaId)}" data-tipo="permiso">
+          <input type="checkbox" value="${esc(p.codigo)}" ${activo ? 'checked' : ''}>${esc(p.nombre)}
         </label>`;
       }).join('');
       htmlPermisos += `<div class="permisos-grupo">
-        <div class="permisos-grupo-titulo">${ICONOS_MOD[mod]||''} ${mod}</div>
+        <div class="permisos-grupo-titulo">${ICONOS_MOD[mod]||''} ${esc(mod)}</div>
         <div>${pillsPerm}</div>
       </div>`;
     }
@@ -574,7 +589,7 @@
     acordeon.id = `acord-${empresaId}`;
     acordeon.innerHTML = `
       <div class="acordeon-header open" onclick="toggleAcordeon('${empresaId}')">
-        <span class="emp-tag">🏢 ${emp.nombre}</span>
+        <span class="emp-tag">🏢 ${esc(emp.nombre)}</span>
         <span class="chevron">▼</span>
       </div>
       <div class="acordeon-body open" id="body-${empresaId}">
@@ -993,26 +1008,26 @@
       } else {
         const visible = r.permisos.slice(0, 8);
         const resto   = r.permisos.length - 8;
-        chipsHtml = visible.map(p => `<span class="chip-perm" title="${p.descripcion||p.codigo}">${p.nombre}</span>`).join('')
+        chipsHtml = visible.map(p => `<span class="chip-perm" title="${esc(p.descripcion||p.codigo)}">${esc(p.nombre)}</span>`).join('')
           + (resto > 0 ? `<button class="chip-ver-mas" onclick="toggleChips(this,event)">+${resto} más</button>` : '');
       }
 
       const puedeEditar   = sesionActual?.rol === 'super_admin' || (sesionActual?.permisosEfectivos||[]).includes('roles.editar');
       const puedeEliminar = sesionActual?.rol === 'super_admin' || (sesionActual?.permisosEfectivos||[]).includes('roles.eliminar');
-      const btnEdit  = puedeEditar   ? `<button class="btn-sm btn-edit" onclick="abrirModalRolEditar('${r.id}')">✏️ Editar</button>` : '';
-      const btnTog   = puedeEditar   ? `<button class="btn-sm" style="background:#fff3e0;color:#e65100;" onclick="toggleEstadoRol('${r.id}')">${r.estado==='activo'?'🔴 Desactivar':'🟢 Activar'}</button>` : '';
-      const btnDel   = puedeEliminar ? `<button class="btn-sm btn-del" onclick="eliminarRol('${r.id}')">🗑️</button>` : '';
+      const btnEdit  = puedeEditar   ? `<button class="btn-sm btn-edit" onclick="abrirModalRolEditar('${esc(r.id)}')">✏️ Editar</button>` : '';
+      const btnTog   = puedeEditar   ? `<button class="btn-sm" style="background:#fff3e0;color:#e65100;" onclick="toggleEstadoRol('${esc(r.id)}')">${r.estado==='activo'?'🔴 Desactivar':'🟢 Activar'}</button>` : '';
+      const btnDel   = puedeEliminar ? `<button class="btn-sm btn-del" onclick="eliminarRol('${esc(r.id)}')">🗑️</button>` : '';
 
-      return `<div class="role-card" id="rcard-${r.id}">
+      return `<div class="role-card" id="rcard-${esc(r.id)}">
         <div class="role-info">
           <div class="role-nombre">
-            🔑 ${r.nombre}
-            <span class="role-codigo">${r.codigo}</span>
+            🔑 ${esc(r.nombre)}
+            <span class="role-codigo">${esc(r.codigo)}</span>
             ${estadoBadge}
           </div>
-          ${r.descripcion ? `<div class="role-desc">${r.descripcion}</div>` : ''}
+          ${r.descripcion ? `<div class="role-desc">${esc(r.descripcion)}</div>` : ''}
           <div class="role-perms-label">Permisos asignados (${r.permisos.length})</div>
-          <div class="role-perms-chips" id="chips-${r.id}">${chipsHtml}</div>
+          <div class="role-perms-chips" id="chips-${esc(r.id)}">${chipsHtml}</div>
         </div>
         <div class="role-actions">${btnEdit}${btnTog}${btnDel}</div>
       </div>`;
@@ -1039,17 +1054,17 @@
     list.innerHTML = mods.map(mod => {
       const perms = permisosAgrupados[mod];
       const items = perms.map(p => `
-        <div class="perm-item" data-codigo="${p.codigo}" data-nombre="${p.nombre.toLowerCase()}" data-desc="${(p.descripcion||'').toLowerCase()}" data-modulo="${mod.toLowerCase()}" onclick="togglePermItem(this)">
-          <input type="checkbox" value="${p.codigo}" ${seleccionados.includes(p.codigo) ? 'checked' : ''} onclick="event.stopPropagation();togglePermItem(this.closest('.perm-item'))">
+        <div class="perm-item" data-codigo="${esc(p.codigo)}" data-nombre="${esc(p.nombre.toLowerCase())}" data-desc="${esc((p.descripcion||'').toLowerCase())}" data-modulo="${esc(mod.toLowerCase())}" onclick="togglePermItem(this)">
+          <input type="checkbox" value="${esc(p.codigo)}" ${seleccionados.includes(p.codigo) ? 'checked' : ''} onclick="event.stopPropagation();togglePermItem(this.closest('.perm-item'))">
           <div class="perm-item-text">
-            <div class="perm-item-nombre">${p.nombre}</div>
-            ${p.descripcion ? `<div class="perm-item-desc">${p.descripcion}</div>` : ''}
+            <div class="perm-item-nombre">${esc(p.nombre)}</div>
+            ${p.descripcion ? `<div class="perm-item-desc">${esc(p.descripcion)}</div>` : ''}
           </div>
         </div>`).join('');
-      return `<div class="perm-module-group" data-mod="${mod}">
+      return `<div class="perm-module-group" data-mod="${esc(mod)}">
         <div class="perm-module-header">
-          <span class="perm-module-title">${ICONOS_MOD_ROLES[mod]||''} ${mod}</span>
-          <button class="perm-module-select-all" onclick="seleccionarModulo('${mod}',event)">Seleccionar todos</button>
+          <span class="perm-module-title">${ICONOS_MOD_ROLES[mod]||''} ${esc(mod)}</span>
+          <button class="perm-module-select-all" onclick="seleccionarModulo('${esc(mod)}',event)">Seleccionar todos</button>
         </div>
         ${items}
       </div>`;

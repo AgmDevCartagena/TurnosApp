@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const { requireAuth, requireAdmin, requireSuperAdmin } = require('../middlewares/auth');
+const { validarEmpresaCrear, validarEmpresaActualizar } = require('../middlewares/inputValidator');
 const { upload } = require('../middlewares/logoUpload');
 const empresaController = require('../controllers/empresaController');
 
@@ -11,8 +12,8 @@ router.get('/:id', empresaController.obtenerEmpresa);
 router.get('/:id/usuarios', empresaController.listarUsuariosEmpresa);
 router.get('/:id/estadisticas', requireSuperAdmin, empresaController.estadisticasEmpresa);
 
-router.post('/', requireSuperAdmin, empresaController.crearEmpresa);
-router.put('/:id', requireAdmin, empresaController.actualizarEmpresa);
+router.post('/', requireSuperAdmin, validarEmpresaCrear, empresaController.crearEmpresa);
+router.put('/:id', requireAdmin, validarEmpresaActualizar, empresaController.actualizarEmpresa);
 router.patch('/:id/estado', requireSuperAdmin, empresaController.cambiarEstadoEmpresa);
 
 // ── Logo ──────────────────────────────────────────────────────────────────────
