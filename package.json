@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Aplicación completa de gestión de turnos - Frontend y Backend",
   "scripts": {
-    "install:backend": "cd backend && npm install",
+    "install:backend": "cd backend && pnpm install",
     "start:backend": "cd backend && npm start",
     "dev:backend": "cd backend && npm run dev",
     "install:all": "npm run install:backend",

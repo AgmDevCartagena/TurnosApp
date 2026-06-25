@@ -522,8 +522,12 @@ exports.listarUsuarios = async (req, res) => {
       return res.status(403).json({ success: false, error: 'No tienes permisos para ver usuarios' });
     }
 
+    if (sesion.rol !== 'super_admin' && !sesion.pgEmpresaId) {
+      return res.status(403).json({ success: false, error: 'Sin empresa asignada' });
+    }
+
     const where = {};
-    if (sesion.rol !== 'super_admin' && sesion.pgEmpresaId) {
+    if (sesion.rol !== 'super_admin') {
       where.empresaId = sesion.pgEmpresaId;
     }
 

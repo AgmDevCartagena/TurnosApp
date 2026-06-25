@@ -168,6 +168,31 @@ exports.crearEmpresa = async (req, res) => {
           }
         }
       });
+
+      // Crear vínculo UsuarioEmpresa para que el login resuelva pgEmpresaId correctamente
+      try {
+        const rolAdmin = await prisma.rol.findFirst({ where: { codigo: 'ADMIN_EMPRESA' } });
+        if (rolAdmin) {
+          const ue = await prisma.usuarioEmpresa.create({
+            data: {
+              usuarioId: usuarioAdmin.id,
+              empresaId: empresa.id,
+              rolId:     rolAdmin.id,
+              estado:    'activo',
+              empresaActivaDefault: true
+            }
+          });
+          if (modulosPermitiodos.length > 0) {
+            await prisma.usuarioEmpresaModulo.createMany({
+              data: modulosPermitiodos.map(m => ({ usuarioEmpresaId: ue.id, moduloId: m.id })),
+              skipDuplicates: true
+            });
+          }
+        }
+      } catch (ueErr) {
+        console.warn('⚠️ No se pudo crear UsuarioEmpresa para admin de nueva empresa:', ueErr.message);
+      }
+
       await registrarAuditoria(req, 'CREAR_USUARIO', 'Usuario', usuarioAdmin.id, {
         username: usuarioAdmin.username, empresaId: empresa.id
       });

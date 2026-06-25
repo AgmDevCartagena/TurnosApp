@@ -40,6 +40,10 @@ exports.listarEmpleados = async (req, res) => {
       ? (req.query.empresaId || null)
       : req.pgEmpresaId;
 
+    if (!isSuperAdmin(req) && !pgEmpresaId) {
+      return res.status(403).json({ success: false, error: 'Sin empresa asignada' });
+    }
+
     const where = {};
     if (pgEmpresaId)       where.empresaId = pgEmpresaId;
     if (req.query.estado)  where.estado    = req.query.estado;
