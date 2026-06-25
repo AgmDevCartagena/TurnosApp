@@ -3,9 +3,10 @@ const router         = express.Router();
 const authController = require('../controllers/authController');
 const { requireAuth } = require('../middlewares/auth');
 const { validarUsuarioCrear, validarUsuarioEditar } = require('../middlewares/inputValidator');
+const loginRateLimit = require('../middlewares/loginRateLimit');
 
 // ── Rutas públicas ──────────────────────────────────────────────────────────
-router.post('/login',            authController.login);
+router.post('/login', loginRateLimit, authController.login);
 router.post('/logout',           authController.logout);
 router.get('/verificar-sesion',  authController.verificarSesion);
 
