@@ -407,24 +407,39 @@
     } catch { window.location.href = '/login.html'; return null; }
   }
 
+  // ── Ordenamiento alfabético (fix #32) ────────────────────────────────────
+  function _sortByNombre(lista) {
+    return [...lista].sort((a, b) => {
+      const na = (a.nombre || '').trim();
+      const nb = (b.nombre || '').trim();
+      if (!na && !nb) return 0;
+      if (!na) return 1;
+      if (!nb) return -1;
+      const cmp = na.localeCompare(nb, 'es', { sensitivity: 'base' });
+      if (cmp !== 0) return cmp;
+      return (a.username || '').localeCompare(b.username || '', 'es', { sensitivity: 'base' });
+    });
+  }
+
   // ── Cargar usuarios ────────────────────────────────────────────────────────
   async function cargarUsuarios() {
     try {
       const res = await fetch('/api/auth/usuarios');
       if (!res.ok) { if (res.status === 401) window.location.href = '/login.html'; throw new Error(`Error ${res.status}`); }
       const data = await res.json();
-      if (data.success) { usuarios = data.usuarios; renderTabla(usuarios); }
+      if (data.success) { usuarios = _sortByNombre(data.usuarios); renderTabla(usuarios); }
       else showMsg(data.error || 'Error al cargar usuarios.', 'error');
     } catch (err) { showMsg('Error de red: ' + err.message, 'error'); }
   }
 
   function filtrarTabla() {
     const q = document.getElementById('buscador').value.toLowerCase();
-    renderTabla(usuarios.filter(u =>
+    const filtrados = usuarios.filter(u =>
       u.nombre?.toLowerCase().includes(q) ||
       u.username?.toLowerCase().includes(q) ||
       (u.correo || '').toLowerCase().includes(q)
-    ));
+    );
+    renderTabla(_sortByNombre(filtrados));
   }
 
   // ── Render tabla ───────────────────────────────────────────────────────────

@@ -7,6 +7,14 @@ const permisosService = require('../services/permisosService');
 const Usuario = require('../models/Usuario');
 const Empresa = require('../models/Empresa');
 
+// ─── Helper: ordenamiento de usuarios (fix #32) ────────────────────────────────
+const _SORT_WHITELIST = new Set(['nombre', 'username', 'correo', 'rol', 'activo', 'createdAt']);
+
+function _validarSortBy(campo) {
+  return _SORT_WHITELIST.has(campo) ? campo : 'nombre';
+}
+exports._validarSortBy = _validarSortBy;
+
 // ─── Helper: construir sesión base ────────────────────────────────────────────
 function _buildSession(pgUser, empresaId, ctx) {
   return {
@@ -531,6 +539,9 @@ exports.listarUsuarios = async (req, res) => {
       where.empresaId = sesion.pgEmpresaId;
     }
 
+    const sortField = _validarSortBy(req.query.sortBy || 'nombre');
+    const sortOrder = req.query.order === 'desc' ? 'desc' : 'asc';
+
     const usuarios = await prisma.usuario.findMany({
       where,
       select: {
@@ -550,7 +561,7 @@ exports.listarUsuarios = async (req, res) => {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: [{ [sortField]: sortOrder }, { username: 'asc' }]
     });
 
     const resultado = usuarios.map(u => ({
