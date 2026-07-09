@@ -64,6 +64,32 @@ function clasificarTurno(horaInicio, horaFin, configs = []) {
   return { tipo: 'otro', merienda: false, cena: false, requiereResponsable: false };
 }
 
+/**
+ * Formatea una fecha YYYY-MM-DD como texto con día de semana en español.
+ * Usa new Date(y, m-1, d) para evitar desfase UTC.
+ * Exportada como _formatFechaConDia para tests unitarios.
+ */
+function formatFechaConDia(dateStr) {
+  if (!dateStr) return '';
+  const parts = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!parts) return '';
+  const [, y, mo, d] = parts.map(Number);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return 'Fecha no válida';
+  const fecha = new Date(y, mo - 1, d);
+  if (isNaN(fecha.getTime())) return 'Fecha no válida';
+  try {
+    const s = new Intl.DateTimeFormat('es-CO', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    }).format(fecha);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  } catch (_) {
+    const dias  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return `${dias[fecha.getDay()]}, ${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
+  }
+}
+exports._formatFechaConDia = formatFechaConDia;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CATÁLOGOS: Conductores
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,7 +345,11 @@ exports.listarProgramaciones = async (req, res) => {
       },
       orderBy: [{ fecha: 'desc' }, { horaSalida: 'asc' }]
     });
-    res.json({ success: true, programaciones: rows });
+    const programaciones = rows.map(p => ({
+      ...p,
+      fechaStr: p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null
+    }));
+    res.json({ success: true, programaciones });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
 };
 
@@ -337,7 +367,8 @@ exports.obtenerProgramacion = async (req, res) => {
       }
     });
     if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
-    res.json({ success: true, programacion: p });
+    const fechaStr = p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null;
+    res.json({ success: true, programacion: { ...p, fechaStr } });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
 };
 
@@ -912,10 +943,8 @@ exports.formatoWhatsApp = async (req, res) => {
     });
     if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
 
-    const fecha  = new Date(p.fecha);
-    const meses  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    const dias   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-    const fechaStr = `${dias[fecha.getDay()].toUpperCase()} ${fecha.getDate()} DE ${meses[fecha.getMonth()].toUpperCase()} DE ${fecha.getFullYear()}`;
+    const pFechaStr = p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null;
+    const fechaStr = pFechaStr ? formatFechaConDia(pFechaStr).toUpperCase() : 'FECHA NO DISPONIBLE';
     const conductor = p.conductor ? `${p.conductor.nombre}` : (p.conductorManual || 'SIN ASIGNAR');
     const placa     = p.vehiculo  ? p.vehiculo.placa : (p.placaManual || 'SIN ASIGNAR');
 

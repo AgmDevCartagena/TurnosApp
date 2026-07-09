@@ -337,9 +337,10 @@ describe('Generación de formato WhatsApp', () => {
     // Simulamos el texto que generaría formatoWhatsApp
     const conductor = p.conductor ? p.conductor.nombre : p.conductorManual;
     const placa     = p.vehiculo  ? p.vehiculo.placa   : p.placaManual;
-    const fecha     = new Date(p.fecha);
+    const pFechaIso = p.fecha instanceof Date ? p.fecha.toISOString() : String(p.fecha);
+    const pMatch    = pFechaIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
     const meses     = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    const fechaStr  = `${fecha.getDate()} DE ${meses[fecha.getMonth()].toUpperCase()}`;
+    const fechaStr  = pMatch ? `${Number(pMatch[3])} DE ${meses[Number(pMatch[2]) - 1].toUpperCase()}` : '';
 
     expect(conductor).toBe('166 Nicolás');
     expect(placa).toBe('TVD049');

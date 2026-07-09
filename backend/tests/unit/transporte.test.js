@@ -5,7 +5,7 @@
  * Cubre: clasificarTurno, parsearTextoWhatsApp
  */
 
-const { _clasificarTurno, _parsearTextoWhatsApp } = require('../../controllers/transporteController');
+const { _clasificarTurno, _parsearTextoWhatsApp, _formatFechaConDia } = require('../../controllers/transporteController');
 
 describe('clasificarTurno — reglas de negocio SPM', () => {
 
@@ -178,6 +178,51 @@ Tania Perez 07:00 a 16:00`;
     // El parser no filtra duplicados (eso se hace al confirmar), solo detecta
     expect(r.totalPersonas).toBe(2);
   });
+});
+
+describe('_formatFechaConDia — utilidad centralizada de fechas (TDD)', () => {
+
+  test('fecha válida retorna cadena no vacía', () => {
+    expect(_formatFechaConDia('2026-05-30')).toBeTruthy();
+  });
+
+  test('2026-05-30 contiene el día 30 (sin desfase UTC)', () => {
+    expect(_formatFechaConDia('2026-05-30')).toMatch(/30/);
+  });
+
+  test('2026-05-31 contiene el día 31 (sin desfase UTC)', () => {
+    expect(_formatFechaConDia('2026-05-31')).toMatch(/31/);
+  });
+
+  test('2026-06-01 contiene el día 1 (sin desfase UTC)', () => {
+    expect(_formatFechaConDia('2026-06-01')).toMatch(/1/);
+  });
+
+  test('contiene el año correcto', () => {
+    expect(_formatFechaConDia('2026-05-30')).toContain('2026');
+  });
+
+  test('null retorna cadena vacía', () => {
+    expect(_formatFechaConDia(null)).toBe('');
+  });
+
+  test('undefined retorna cadena vacía', () => {
+    expect(_formatFechaConDia(undefined)).toBe('');
+  });
+
+  test('cadena vacía retorna cadena vacía', () => {
+    expect(_formatFechaConDia('')).toBe('');
+  });
+
+  test('fecha con mes inválido retorna "Fecha no válida"', () => {
+    expect(_formatFechaConDia('2026-13-01')).toBe('Fecha no válida');
+  });
+
+  test('primera letra capitalizada', () => {
+    const r = _formatFechaConDia('2026-05-30');
+    expect(r.charAt(0)).toBe(r.charAt(0).toUpperCase());
+  });
+
 });
 
 describe('Validaciones de negocio — reglas básicas', () => {
