@@ -366,26 +366,49 @@
 <div id="modalPersona" class="modal-overlay">
   <div class="modal-box">
     <h2>👤 Agregar Persona a Programación</h2>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Nombre *</label>
-        <input type="text" id="pNombre" placeholder="Ej: Diana Ledesma">
+
+    <!-- Búsqueda por documento -->
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:4px">
+      <div class="form-group" style="flex:1;margin-bottom:0">
+        <label>Documento *</label>
+        <input type="text" id="pDocumento" placeholder="CC / NIT" oninput="debounceBuscarEmpleado()">
       </div>
-      <div class="form-group">
-        <label>Documento</label>
-        <input type="text" id="pDocumento" placeholder="CC">
+      <button class="btn btn-outline" type="button" onclick="buscarEmpleadoDoc()" style="height:38px;white-space:nowrap">🔍 Buscar</button>
+    </div>
+    <div id="pEstadoBusqueda" style="min-height:20px;font-size:.84em;margin-bottom:10px"></div>
+
+    <div class="form-row">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Nombre *</label>
+        <input type="text" id="pNombre" placeholder="Nombre completo">
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label>Área</label>
-        <input type="text" id="pArea" placeholder="Ej: CCTV">
+        <select id="pAreaId">
+          <option value="">— Sin área —</option>
+        </select>
       </div>
       <div class="form-group">
         <label>Cargo</label>
         <input type="text" id="pCargo">
       </div>
     </div>
+
+    <!-- Tipo persona (solo cuando no existe como empleado) -->
+    <div id="pTipoPersonaWrap" style="display:none;margin-bottom:12px;padding:10px 14px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;font-size:.87em">
+      <strong style="display:block;margin-bottom:6px;color:#5d4037">¿Cómo registrar esta persona?</strong>
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:4px;cursor:pointer">
+        <input type="radio" name="pTipoPersona" value="tercero" id="pTipoTercero" checked>
+        Agregar como <strong>tercero</strong> (solo para esta programación, no queda como empleado)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="radio" name="pTipoPersona" value="empleado_nuevo" id="pTipoEmpleadoNuevo">
+        <strong>Crear como empleado</strong> de la empresa activa
+      </label>
+    </div>
+
     <div class="form-row">
       <div class="form-group">
         <label>Hora Inicio *</label>
@@ -598,6 +621,8 @@ let vehiculos      = [];
 let ubicaciones    = [];
 let configTurnos   = [];
 let personasParseadas = [];
+let _empleadoEncontrado = null;
+let _debounceDocTimer   = null;
 
 const API = (p) => fetch(p, { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
 const POST = (p, b) => fetch(p, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
@@ -949,38 +974,140 @@ async function confirmarImportacion() {
 }
 
 // ══ AGREGAR PERSONA ══
-function abrirModalAgregarPersona() {
+
+function _resetBusquedaEmpleado() {
+  _empleadoEncontrado = null;
+  const ind = document.getElementById('pEstadoBusqueda');
+  if (ind) ind.textContent = '';
+  const nom = document.getElementById('pNombre');
+  if (nom) { nom.value = ''; nom.readOnly = false; nom.style.background = ''; }
+  const sel = document.getElementById('pAreaId');
+  if (sel) { sel.value = ''; sel.disabled = false; }
+  const car = document.getElementById('pCargo');
+  if (car) { car.value = ''; car.readOnly = false; car.style.background = ''; }
+  const wrap = document.getElementById('pTipoPersonaWrap');
+  if (wrap) wrap.style.display = 'none';
+  const trc = document.getElementById('pTipoTercero');
+  if (trc) trc.checked = true;
+}
+
+function debounceBuscarEmpleado() {
+  clearTimeout(_debounceDocTimer);
+  const doc = document.getElementById('pDocumento')?.value.trim();
+  if (!doc) { _resetBusquedaEmpleado(); return; }
+  _debounceDocTimer = setTimeout(buscarEmpleadoDoc, 600);
+}
+
+async function buscarEmpleadoDoc() {
+  const doc = document.getElementById('pDocumento')?.value.trim();
+  const ind = document.getElementById('pEstadoBusqueda');
+  if (!doc) { _resetBusquedaEmpleado(); return; }
+  ind.innerHTML = '<span style="color:#888">🔍 Buscando…</span>';
+  _empleadoEncontrado = null;
+  try {
+    const r = await API(`/api/empleados/buscar?documento=${encodeURIComponent(doc)}`);
+    const d = await r.json();
+    if (!d.success) { ind.innerHTML = '<span style="color:#c62828">⚠️ Error al buscar empleado</span>'; return; }
+    const nom = document.getElementById('pNombre');
+    const selA = document.getElementById('pAreaId');
+    const car  = document.getElementById('pCargo');
+    const wrap = document.getElementById('pTipoPersonaWrap');
+    if (d.existe) {
+      _empleadoEncontrado = d.empleado;
+      ind.innerHTML = `<span style="color:#2e7d32;font-weight:600">✅ Empleado encontrado: ${d.empleado.nombre}</span>`;
+      nom.value = d.empleado.nombre; nom.readOnly = true; nom.style.background = '#f1f8e9';
+      if (d.empleado.areaId) {
+        selA.value = d.empleado.areaId;
+        if (!selA.value) {
+          const opt = new Option(d.empleado.areaNombre || d.empleado.areaId, d.empleado.areaId, true, true);
+          selA.add(opt);
+        }
+        selA.disabled = true;
+      }
+      car.value = d.empleado.cargo || ''; car.readOnly = true; car.style.background = '#f1f8e9';
+      wrap.style.display = 'none';
+    } else {
+      ind.innerHTML = '<span style="color:#e65100">ℹ️ No existe empleado con este documento en la empresa activa.</span>';
+      nom.readOnly = false; nom.style.background = '';
+      selA.disabled = false;
+      car.readOnly = false; car.style.background = '';
+      wrap.style.display = 'block';
+      document.getElementById('pTipoTercero').checked = true;
+    }
+  } catch (_) {
+    document.getElementById('pEstadoBusqueda').innerHTML = '<span style="color:#c62828">⚠️ Error de red al buscar</span>';
+  }
+}
+
+async function abrirModalAgregarPersona() {
+  // Cargar áreas reales de la empresa activa
+  const selA = document.getElementById('pAreaId');
+  selA.innerHTML = '<option value="">— Cargando… —</option>';
+  try {
+    const ra = await API('/api/areas?estado=activo');
+    const da = await ra.json();
+    selA.innerHTML = '<option value="">— Sin área —</option>';
+    if (da.success && da.areas?.length) {
+      da.areas.forEach(a => { const o = new Option(a.nombre, a.id); selA.add(o); });
+    } else {
+      selA.innerHTML = '<option value="">⚠️ No hay áreas creadas para esta empresa</option>';
+    }
+  } catch (_) {
+    selA.innerHTML = '<option value="">⚠️ Error al cargar áreas</option>';
+  }
   // Poblar ubicaciones
-  const sel = document.getElementById('pUbicacionId');
-  sel.innerHTML = '<option value="">— Sin asignar —</option>';
-  ubicaciones.forEach(u => { const o = document.createElement('option'); o.value = u.id; o.textContent = u.nombre; sel.appendChild(o); });
-  // Checkboxes responsable
+  const selU = document.getElementById('pUbicacionId');
+  selU.innerHTML = '<option value="">— Sin asignar —</option>';
+  ubicaciones.forEach(u => { selU.add(new Option(u.nombre, u.id)); });
+  // Checkbox responsable
   document.getElementById('pEsResponsable').onchange = function() {
     document.getElementById('pTipoResponsabilidad').style.display = this.checked ? 'block' : 'none';
   };
+  // Limpiar formulario
+  _resetBusquedaEmpleado();
+  document.getElementById('pDocumento').value    = '';
+  document.getElementById('pHoraIni').value      = '19:00';
+  document.getElementById('pHoraFin').value      = '07:00';
+  document.getElementById('pFecha').value        = '';
+  document.getElementById('pUbicacionTexto').value = '';
+  document.getElementById('pObservacion').value  = '';
+  document.getElementById('pEsResponsable').checked = false;
+  document.getElementById('pTipoResponsabilidad').style.display = 'none';
   abrirModal('modalPersona');
 }
 
 async function guardarPersona() {
+  const nombre = document.getElementById('pNombre').value.trim();
+  const horaIni = document.getElementById('pHoraIni').value;
+  const horaFin = document.getElementById('pHoraFin').value;
+  if (!nombre)           { showAlert('Nombre es requerido', 'error'); return; }
+  if (!horaIni || !horaFin) { showAlert('Hora inicio y hora fin son requeridas', 'error'); return; }
+
+  const tipoPersona = _empleadoEncontrado
+    ? 'empleado'
+    : (document.getElementById('pTipoEmpleadoNuevo')?.checked ? 'empleado_nuevo' : 'tercero');
+
   const body = {
-    nombreEmpleado:   document.getElementById('pNombre').value,
-    documentoEmpleado: document.getElementById('pDocumento').value,
-    areaNombre:       document.getElementById('pArea').value,
-    cargo:            document.getElementById('pCargo').value,
-    horaInicio:       document.getElementById('pHoraIni').value,
-    horaFin:          document.getElementById('pHoraFin').value,
-    fecha:            document.getElementById('pFecha').value || null,
-    ubicacionId:      document.getElementById('pUbicacionId').value || null,
-    ubicacionTexto:   document.getElementById('pUbicacionTexto').value,
+    nombreEmpleado:            nombre,
+    documentoEmpleado:         document.getElementById('pDocumento').value.trim() || null,
+    areaId:                    document.getElementById('pAreaId').value || null,
+    cargo:                     document.getElementById('pCargo').value.trim() || null,
+    horaInicio:                horaIni,
+    horaFin:                   horaFin,
+    fecha:                     document.getElementById('pFecha').value || null,
+    ubicacionId:               document.getElementById('pUbicacionId').value || null,
+    ubicacionTexto:            document.getElementById('pUbicacionTexto').value.trim() || null,
     esResponsableAlimentacion: document.getElementById('pEsResponsable').checked,
-    tipoResponsabilidad: document.getElementById('pTipoResponsabilidad').value,
-    observacion:      document.getElementById('pObservacion').value
+    tipoResponsabilidad:       document.getElementById('pTipoResponsabilidad').value || null,
+    observacion:               document.getElementById('pObservacion').value.trim() || null,
+    empleadoId:                _empleadoEncontrado?.id || null,
+    tipoPersona,
+    crearComoEmpleado:         tipoPersona === 'empleado_nuevo'
   };
-  if (!body.nombreEmpleado?.trim() || !body.horaInicio || !body.horaFin) { showAlert('Nombre y horario son requeridos', 'error'); return; }
   const r = await POST(`/api/transporte/programaciones/${programacionActualId}/detalles`, body);
   const d = await r.json();
-  if (d.success) { cerrarModal('modalPersona'); abrirDetalle(programacionActualId); showAlert('Persona agregada', 'success'); }
-  else showAlert(d.error, 'error');
+  if (d.success) { cerrarModal('modalPersona'); abrirDetalle(programacionActualId); showAlert('Persona agregada correctamente', 'success'); }
+  else showAlert(d.error || 'Error al agregar persona', 'error');
 }
 
 // ══ NOVEDADES ══

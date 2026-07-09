@@ -483,9 +483,11 @@ exports.agregarDetalle = async (req, res) => {
     const p = await prisma.programacionTransporte.findUnique({ where: { id: req.params.id } });
     if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
 
-    const { nombreEmpleado, documentoEmpleado, areaNombre, coordinadorNombre, cargo, fecha,
+    const { nombreEmpleado, documentoEmpleado, areaNombre: areaNombreRaw, coordinadorNombre, cargo, fecha,
             horaInicio, horaFin, ubicacionId, ubicacionTexto, requiereRuta, observacion, orden,
-            esResponsableAlimentacion, tipoResponsabilidad, empleadoId } = req.body;
+            esResponsableAlimentacion, tipoResponsabilidad, areaId, tipoPersona, crearComoEmpleado } = req.body;
+    let empleadoId        = req.body.empleadoId || null;
+    let areaNombreResuelto = areaNombreRaw?.trim() || null;
 
     if (!nombreEmpleado?.trim()) return res.status(400).json({ success: false, error: 'nombreEmpleado requerido' });
     if (!horaInicio || !horaFin) return res.status(400).json({ success: false, error: 'horaInicio y horaFin son requeridos' });
@@ -496,12 +498,49 @@ exports.agregarDetalle = async (req, res) => {
     const existe = await prisma.detalleProgramTransporte.findFirst({
       where: { programacionId: p.id, nombreEmpleado: nombreEmpleado.trim(), fecha: fechaDetalle, horaInicio }
     });
-    if (existe) return res.status(400).json({ success: false, error: 'El empleado ya está incluido en esta programación con el mismo horario' });
+    if (existe) return res.status(400).json({ success: false, error: 'La persona ya está incluida en esta programación con el mismo horario' });
 
     // Validar empleado de otra empresa
     if (empleadoId) {
       const emp = await prisma.empleado.findUnique({ where: { id: empleadoId } });
       if (!emp || emp.empresaId !== eid) return res.status(400).json({ success: false, error: 'No puede incluir empleados de otra empresa' });
+    }
+
+    // Validar área y resolver nombre canónico
+    if (areaId) {
+      const area = await prisma.area.findUnique({ where: { id: areaId } });
+      if (!area || area.empresaId !== eid) {
+        return res.status(400).json({ success: false, error: 'El área seleccionada no pertenece a esta empresa' });
+      }
+      if (area.estado !== 'activo') {
+        return res.status(400).json({ success: false, error: 'El área seleccionada está inactiva' });
+      }
+      areaNombreResuelto = area.nombre;
+    }
+
+    // Crear empleado si se solicita y no existe ya
+    if (crearComoEmpleado && tipoPersona === 'empleado_nuevo' && !empleadoId) {
+      if (!documentoEmpleado?.trim()) {
+        return res.status(400).json({ success: false, error: 'Documento es requerido para crear empleado' });
+      }
+      try {
+        const nuevoEmp = await prisma.empleado.create({
+          data: {
+            empresaId: eid,
+            areaId:    areaId || null,
+            documento: documentoEmpleado.trim(),
+            nombre:    nombreEmpleado.trim(),
+            cargo:     cargo?.trim() || null,
+            estado:    'activo'
+          }
+        });
+        empleadoId = nuevoEmp.id;
+      } catch (err) {
+        if (err.code === 'P2002') {
+          return res.status(400).json({ success: false, error: 'Ya existe un empleado con ese documento en esta empresa' });
+        }
+        throw err;
+      }
     }
 
     // Cargar configs de turno de la empresa
@@ -517,7 +556,7 @@ exports.agregarDetalle = async (req, res) => {
         empleadoId:        empleadoId     || null,
         nombreEmpleado:    nombreEmpleado.trim(),
         documentoEmpleado: documentoEmpleado?.trim() || null,
-        areaNombre:        areaNombre?.trim()         || null,
+        areaNombre:        areaNombreResuelto,
         coordinadorNombre: coordinadorNombre?.trim()  || null,
         cargo:             cargo?.trim()              || null,
         fecha:             fechaDetalle,

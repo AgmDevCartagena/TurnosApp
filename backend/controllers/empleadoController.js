@@ -14,6 +14,36 @@ const { determinarAreaPorCargo, validarDatosEmpleado } = require('../services/em
 
 const isSuperAdmin = (req) => req.esSuperAdmin === true;
 
+/**
+ * Sanitiza texto libre (nombre, cargo, obs): trim, strip HTML, maxLen.
+ * Exportada para tests unitarios.
+ */
+function _sanitizarTextoPersona(texto, maxLen = 150) {
+  if (texto === null || texto === undefined) return null;
+  const s = String(texto).replace(/<[^>]*>/g, '').trim();
+  if (!s) return null;
+  return s.slice(0, maxLen);
+}
+exports._sanitizarTextoPersona = _sanitizarTextoPersona;
+
+/**
+ * Formatea un Prisma Empleado en la shape segura de respuesta para búsqueda.
+ * Solo expone campos necesarios, sin salario ni datos sensibles.
+ * Exportada para tests unitarios.
+ */
+function _formatearRespuestaEmpleado(emp) {
+  if (!emp) return null;
+  return {
+    id:         emp.id,
+    documento:  emp.documento,
+    nombre:     emp.nombre,
+    areaId:     emp.areaId    || null,
+    areaNombre: emp.area?.nombre || null,
+    cargo:      emp.cargo?.trim() || null
+  };
+}
+exports._formatearRespuestaEmpleado = _formatearRespuestaEmpleado;
+
 /** Normaliza Prisma → shape consistente para el frontend */
 function fmt(emp) {
   return {
@@ -328,6 +358,34 @@ exports.obtenerTurnosEmpleado = async (req, res) => {
   } catch (err) {
     console.error('Error obtenerTurnosEmpleado:', err);
     res.status(500).json({ success: false, error: 'Error al obtener turnos del empleado' });
+  }
+};
+
+// ─── GET /api/empleados/buscar?documento=XXXX ────────────────────────────────
+
+/**
+ * Busca un empleado activo por documento dentro de la empresa activa.
+ * No retorna datos de otra empresa (aislamiento multiempresa).
+ */
+exports.buscarPorDocumento = async (req, res) => {
+  try {
+    const { documento, empresaId: empresaIdQuery } = req.query;
+    if (!documento?.trim()) {
+      return res.status(400).json({ success: false, error: 'El parámetro documento es requerido' });
+    }
+    const empresaTarget = req.esSuperAdmin ? (empresaIdQuery || null) : req.pgEmpresaId;
+    if (!empresaTarget) {
+      return res.status(403).json({ success: false, error: 'Sin empresa activa asignada' });
+    }
+    const emp = await prisma.empleado.findFirst({
+      where: { documento: documento.trim(), empresaId: empresaTarget, estado: 'activo' },
+      include: { area: { select: { id: true, nombre: true } } }
+    });
+    if (!emp) return res.json({ success: true, existe: false });
+    return res.json({ success: true, existe: true, empleado: _formatearRespuestaEmpleado(emp) });
+  } catch (err) {
+    console.error('Error buscarPorDocumento:', err);
+    res.status(500).json({ success: false, error: 'Error al buscar empleado' });
   }
 };
 

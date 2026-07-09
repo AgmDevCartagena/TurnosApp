@@ -6,6 +6,8 @@ const ctrl    = require('../controllers/empleadoController');
 
 // GET    /api/empleados
 router.get('/',          ctrl.listarEmpleados);
+// GET    /api/empleados/buscar?documento=XXXX
+router.get('/buscar',    ctrl.buscarPorDocumento);
 // GET    /api/empleados/:id
 router.get('/:id',       ctrl.obtenerEmpleado);
 // POST   /api/empleados
