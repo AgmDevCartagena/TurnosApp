@@ -31,7 +31,7 @@ jest.mock('mongoose', () => ({
   Types: { ObjectId: { isValid: () => true } },
 }));
 
-const { _clasificarTurno, _parsearTextoWhatsApp, _validarCamposProgramacion } = require('../../controllers/transporteController');
+const { _clasificarTurno, _parsearTextoWhatsApp, _validarCamposProgramacion, _parseFechaStr, _formatFechaConDia, _formatFechaWhatsApp } = require('../../controllers/transporteController');
 const prisma = require('../../lib/prisma');
 
 // ── Constantes de fixture ──────────────────────────────────────────────────
@@ -520,5 +520,85 @@ describe('issue #23 — validación de capacidad de datos en campos', () => {
     const eidUsado = sesionEmpresaId; // siempre de la sesión
     expect(eidUsado).toBe(EID_A);
     expect(eidUsado).not.toBe(bodyEmpresaId);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEST SUITE 9: CONSISTENCIA FECHAS WHATSAPP — issue #27
+// Verifica que la fecha del encabezado y la del mensaje WhatsApp coincidan,
+// sin desfases de zona horaria (UTC).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('issue #27 — fechas de salida en mensaje WhatsApp', () => {
+
+  // ── _parseFechaStr: extracción UTC-segura ─────────────────────────────────
+
+  test('_parseFechaStr extrae "2026-05-31" de Date UTC midnight', () => {
+    expect(_parseFechaStr(new Date('2026-05-31T00:00:00.000Z'))).toBe('2026-05-31');
+  });
+
+  test('_parseFechaStr no adelanta a "2026-06-01" desde Date de mayo', () => {
+    const result = _parseFechaStr(new Date('2026-05-31T00:00:00.000Z'));
+    expect(result).not.toBe('2026-06-01');
+  });
+
+  // ── _formatFechaWhatsApp: formato correcto ────────────────────────────────
+
+  test('31 mayo → DOMINGO en WhatsApp', () => {
+    const r = _formatFechaWhatsApp('2026-05-31');
+    expect(r).toContain('DOMINGO');
+    expect(r).toContain('MAYO');
+  });
+
+  test('30 mayo → SÁBADO en WhatsApp', () => {
+    const r = _formatFechaWhatsApp('2026-05-30');
+    expect(r.includes('SÁBADO') || r.includes('SABADO')).toBe(true);
+    expect(r).toContain('MAYO');
+  });
+
+  test('1 junio → LUNES en WhatsApp', () => {
+    const r = _formatFechaWhatsApp('2026-06-01');
+    expect(r).toContain('LUNES');
+    expect(r).toContain('JUNIO');
+  });
+
+  // ── Consistencia encabezado vs WhatsApp ──────────────────────────────────
+
+  test('encabezado y WhatsApp producen la misma fecha', () => {
+    const fechaStr = '2026-05-31';
+    const encabezado = _formatFechaConDia(fechaStr);
+    const whatsapp   = _formatFechaWhatsApp(fechaStr);
+    expect(encabezado.toUpperCase().replace(/,/g, '').replace(/\s+/g, ' ').trim())
+      .toBe(whatsapp);
+  });
+
+  test('tras cambiar la fecha de programación, WhatsApp usa la nueva fecha', () => {
+    const fechaAntigua = '2026-05-31';
+    const fechaNueva  = '2026-06-07';
+    const waAntiguo = _formatFechaWhatsApp(fechaAntigua);
+    const waNuevo   = _formatFechaWhatsApp(fechaNueva);
+    expect(waAntiguo).not.toBe(waNuevo);
+    expect(waNuevo).toContain('JUNIO');
+  });
+
+  // ── Caso Date de Prisma (UTC midnight) → formato correcto ────────────────
+
+  test('pipeline completo: Date Prisma → fechaStr → WhatsApp', () => {
+    const prismDate = new Date('2026-05-31T00:00:00.000Z');
+    const fechaStr  = _parseFechaStr(prismDate);
+    const waText    = _formatFechaWhatsApp(fechaStr);
+    expect(fechaStr).toBe('2026-05-31');
+    expect(waText).toContain('DOMINGO');
+    expect(waText).toContain('MAYO');
+    expect(waText).not.toContain('LUNES');
+    expect(waText).not.toContain('JUNIO');
+  });
+
+  test('[REGRESIÓN #27] programación 31 mayo NO produce "LUNES 1 DE JUNIO"', () => {
+    const prismDate = new Date('2026-05-31T00:00:00.000Z');
+    const fechaStr  = _parseFechaStr(prismDate);
+    const waText    = _formatFechaWhatsApp(fechaStr);
+    expect(waText).not.toMatch(/LUNES/);
+    expect(waText).not.toMatch(/1\s*DE\s*JUNIO/);
+    expect(waText).not.toMatch(/JUNIO/);
   });
 });

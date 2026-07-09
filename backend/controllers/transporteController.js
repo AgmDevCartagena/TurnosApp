@@ -65,9 +65,28 @@ function clasificarTurno(horaInicio, horaFin, configs = []) {
 }
 
 /**
- * Formatea una fecha YYYY-MM-DD como texto con día de semana en español.
- * Usa new Date(y, m-1, d) para evitar desfase UTC.
- * Exportada como _formatFechaConDia para tests unitarios.
+ * Extrae 'YYYY-MM-DD' de un Date o string de forma UTC-segura.
+ * Usa getUTC* para evitar desfase de zona horaria en cualquier entorno.
+ */
+function _parseFechaStr(fecha) {
+  if (!fecha) return null;
+  if (fecha instanceof Date) {
+    const y = fecha.getUTCFullYear();
+    const m = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(fecha.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof fecha === 'string') return fecha.slice(0, 10);
+  return null;
+}
+exports._parseFechaStr = _parseFechaStr;
+
+/**
+ * Formatea una fecha YYYY-MM-DD como texto largo con día de semana (es-CO).
+ * USA Date.UTC + timeZone:'UTC' para ser completamente independiente
+ * del timezone del proceso Node.js / Docker / Windows / Alpine.
+ * Sin esta corrección, new Date(y,m-1,d) con Intl sin TZ explícita puede
+ * producir desfases de ±1 día según el entorno (issue #27).
  */
 function formatFechaConDia(dateStr) {
   if (!dateStr) return '';
@@ -75,20 +94,33 @@ function formatFechaConDia(dateStr) {
   if (!parts) return '';
   const [, y, mo, d] = parts.map(Number);
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return 'Fecha no válida';
-  const fecha = new Date(y, mo - 1, d);
+  const fecha = new Date(Date.UTC(y, mo - 1, d));
   if (isNaN(fecha.getTime())) return 'Fecha no válida';
   try {
     const s = new Intl.DateTimeFormat('es-CO', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      timeZone: 'UTC'
     }).format(fecha);
     return s.charAt(0).toUpperCase() + s.slice(1);
   } catch (_) {
     const dias  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
     const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    return `${dias[fecha.getDay()]}, ${fecha.getDate()} de ${meses[fecha.getMonth()]} de ${fecha.getFullYear()}`;
+    return `${dias[fecha.getUTCDay()]}, ${fecha.getUTCDate()} de ${meses[fecha.getUTCMonth()]} de ${fecha.getUTCFullYear()}`;
   }
 }
 exports._formatFechaConDia = formatFechaConDia;
+
+/**
+ * Formatea una fecha YYYY-MM-DD en MAYÚSCULAS sin coma para mensajes WhatsApp.
+ * Ej: '2026-05-31' → 'DOMINGO 31 DE MAYO DE 2026'
+ */
+function _formatFechaWhatsApp(dateStr) {
+  const f = formatFechaConDia(dateStr);
+  if (!f) return '';
+  if (f === 'Fecha no válida') return 'FECHA NO VÁLIDA';
+  return f.toUpperCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+}
+exports._formatFechaWhatsApp = _formatFechaWhatsApp;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // APROBACIÓN POR PERSONA — funciones puras exportadas para tests
@@ -539,7 +571,7 @@ exports.listarProgramaciones = async (req, res) => {
     });
     const programaciones = rows.map(p => ({
       ...p,
-      fechaStr: p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null
+      fechaStr: _parseFechaStr(p.fecha)
     }));
     res.json({ success: true, programaciones });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
@@ -581,7 +613,7 @@ exports.obtenerProgramacion = async (req, res) => {
       puedeRechazar: canRechazar && (req.esSuperAdmin || !d.areaId || userAreaIds.includes(d.areaId))
     }));
 
-    const fechaStr = p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null;
+    const fechaStr = _parseFechaStr(p.fecha);
     res.json({ success: true, programacion: { ...p, detalles: detallesConFlags, fechaStr } });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
 };
@@ -1205,8 +1237,8 @@ exports.formatoWhatsApp = async (req, res) => {
     });
     if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
 
-    const pFechaStr = p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null;
-    const fechaStr = pFechaStr ? formatFechaConDia(pFechaStr).toUpperCase() : 'FECHA NO DISPONIBLE';
+    const pFechaStr = _parseFechaStr(p.fecha);
+    const fechaStr = pFechaStr ? _formatFechaWhatsApp(pFechaStr) : 'FECHA NO DISPONIBLE';
     const conductor = p.conductor ? `${p.conductor.nombre}` : (p.conductorManual || 'SIN ASIGNAR');
     const placa     = p.vehiculo  ? p.vehiculo.placa : (p.placaManual || 'SIN ASIGNAR');
 
