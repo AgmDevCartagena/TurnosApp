@@ -22,32 +22,42 @@ function timeToMinutes(t) {
 
 /**
  * Clasifica el tipo de turno basado en hora inicio/fin y configuraciones de la empresa.
- * Si no hay configs cargadas, usa reglas por defecto (SPM defaults).
+ *
+ * Reglas de aislamiento multiempresa:
+ * - Si la empresa tiene configs (configs.length > 0), se usan SOLO esas.
+ *   Horas que no coincidan con ninguna config → tipo 'otro'.
+ * - Si NO hay configs (empresa sin parametrizar), se aplican reglas por defecto SPM.
+ *
+ * Esto garantiza que empresa A con TURNO_B=14:46-22:48 no use la regla SPM
+ * de que "horaInicio >= 19 → turno_b" si 19:00-07:00 no está en su config.
  */
 function clasificarTurno(horaInicio, horaFin, configs = []) {
   const hiMin = timeToMinutes(horaInicio);
   const hfMin = timeToMinutes(horaFin);
 
-  // Buscar en configuraciones de empresa
-  for (const c of configs) {
-    const cIni = timeToMinutes(c.horaInicio);
-    const cFin = timeToMinutes(c.horaFin);
-    const eIni = c.horaExtensionInicio ? timeToMinutes(c.horaExtensionInicio) : null;
-    const eFin = c.horaExtensionFin   ? timeToMinutes(c.horaExtensionFin)   : null;
+  if (configs.length > 0) {
+    // Empresa tiene configuración propia: usar SOLO sus configs
+    for (const c of configs) {
+      const cIni = timeToMinutes(c.horaInicio);
+      const cFin = timeToMinutes(c.horaFin);
+      const eIni = c.horaExtensionInicio ? timeToMinutes(c.horaExtensionInicio) : null;
+      const eFin = c.horaExtensionFin   ? timeToMinutes(c.horaExtensionFin)   : null;
 
-    const matchBase     = hiMin === cIni && hfMin === cFin;
-    const matchExtended = eIni !== null && eFin !== null && hiMin === cIni && hfMin === eFin;
+      const matchBase     = hiMin === cIni && hfMin === cFin;
+      const matchExtended = eIni !== null && eFin !== null && hiMin === cIni && hfMin === eFin;
 
-    if (matchExtended && c.esExtendido) {
-      return { tipo: 'extendido', merienda: c.generaMerienda, cena: c.generaCena, requiereResponsable: c.requiereResponsable };
+      if (matchExtended && c.esExtendido) {
+        return { tipo: 'extendido', merienda: c.generaMerienda, cena: c.generaCena, requiereResponsable: c.requiereResponsable };
+      }
+      if (matchBase) {
+        return { tipo: c.esTurnoNocturno ? 'turno_b' : 'normal', merienda: c.generaMerienda, cena: c.generaCena, requiereResponsable: c.requiereResponsable };
+      }
     }
-    if (matchBase) {
-      return { tipo: c.esTurnoNocturno ? 'turno_b' : 'normal', merienda: c.generaMerienda, cena: c.generaCena, requiereResponsable: c.requiereResponsable };
-    }
+    // Ninguna config coincide: horario manual/desconocido
+    return { tipo: 'otro', merienda: false, cena: false, requiereResponsable: false };
   }
 
-  // Reglas por defecto SPM
-  const esNocturno  = hiMin >= 19 * 60 || (hiMin >= 23 * 60); // 19:00+ inicio
+  // Sin configs de empresa: reglas por defecto SPM
   const esExtendido = hiMin <= 8 * 60 && hfMin === 19 * 60;   // 07:00-19:00
   const hiHour      = Math.floor(hiMin / 60);
   const hfHour      = Math.floor(hfMin / 60);

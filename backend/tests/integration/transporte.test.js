@@ -602,3 +602,75 @@ describe('issue #27 — fechas de salida en mensaje WhatsApp', () => {
     expect(waText).not.toMatch(/JUNIO/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEST SUITE 10: CLASIFICACIÓN DE TURNO CON CONFIG DE EMPRESA — issue #30
+// Verifica que el pipeline completo (frontend envía horas → backend classifica)
+// produce el tipo correcto cuando la empresa tiene config no estándar.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('issue #30 — clasificación de turno según config de empresa', () => {
+
+  const CONFIG_TURNO_B_14 = {
+    id: 'cfg-b', codigo: 'TURNO_B', horaInicio: '14:46', horaFin: '22:48',
+    generaMerienda: false, generaCena: false, requiereResponsable: false,
+    esExtendido: false, esTurnoNocturno: true, activo: true
+  };
+  const CONFIG_TURNO_A_13 = {
+    id: 'cfg-a', codigo: 'TURNO_A', horaInicio: '13:39', horaFin: '17:42',
+    generaMerienda: false, generaCena: false, requiereResponsable: false,
+    esExtendido: false, esTurnoNocturno: false, activo: true
+  };
+
+  // ── Con configs empresa no estándar ──────────────────────────────────────
+
+  test('TURNO_B 14:46-22:48 con config → turno_b', () => {
+    const r = _clasificarTurno('14:46', '22:48', [CONFIG_TURNO_B_14]);
+    expect(r.tipo).toBe('turno_b');
+  });
+
+  test('TURNO_A 13:39-17:42 con config → normal', () => {
+    const r = _clasificarTurno('13:39', '17:42', [CONFIG_TURNO_A_13]);
+    expect(r.tipo).toBe('normal');
+  });
+
+  test('[REGRESIÓN #30] horas 19:00-07:00 con empresa que tiene TURNO_B=14:46 → tipo otro (no turno_b)', () => {
+    const r = _clasificarTurno('19:00', '07:00', [CONFIG_TURNO_B_14]);
+    expect(r.tipo).toBe('otro');
+    expect(r.tipo).not.toBe('turno_b');
+  });
+
+  // ── Sin config: fallback SPM ──────────────────────────────────────────────
+
+  test('sin config, 19:00-07:00 → turno_b (fallback SPM)', () => {
+    expect(_clasificarTurno('19:00', '07:00', []).tipo).toBe('turno_b');
+  });
+
+  test('sin config, 14:46-22:48 → otro (no encaja fallback SPM)', () => {
+    expect(_clasificarTurno('14:46', '22:48', []).tipo).toBe('otro');
+  });
+
+  // ── Multiempresa: empresa A y B no comparten clasificaciones ─────────────
+
+  test('empresa A (14:46-22:48 = turno_b) y empresa B (19:00-07:00 = turno_b) son independientes', () => {
+    const configA = [CONFIG_TURNO_B_14];
+    const configB = [{ ...CONFIG_TURNO_B_14, horaInicio: '19:00', horaFin: '07:00' }];
+    expect(_clasificarTurno('14:46', '22:48', configA).tipo).toBe('turno_b');
+    expect(_clasificarTurno('19:00', '07:00', configB).tipo).toBe('turno_b');
+    expect(_clasificarTurno('19:00', '07:00', configA).tipo).toBe('otro');
+    expect(_clasificarTurno('14:46', '22:48', configB).tipo).toBe('otro');
+  });
+
+  // ── Merienda/cena vienen de config, no de regla hardcodeada ─────────────
+
+  test('TURNO_B 14:46-22:48 con generaCena=true en config → cena:true', () => {
+    const cfg = [{ ...CONFIG_TURNO_B_14, generaCena: true, requiereResponsable: true }];
+    const r = _clasificarTurno('14:46', '22:48', cfg);
+    expect(r.cena).toBe(true);
+    expect(r.requiereResponsable).toBe(true);
+  });
+
+  test('TURNO_B 14:46-22:48 con generaCena=false → cena:false (no hardcodeado)', () => {
+    const r = _clasificarTurno('14:46', '22:48', [CONFIG_TURNO_B_14]);
+    expect(r.cena).toBe(false);
+  });
+});

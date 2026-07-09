@@ -466,13 +466,22 @@
     </div>
 
     <div class="form-row">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Turno</label>
+        <select id="pTurnoConfig" onchange="autocompletarHorarioTurno()">
+          <option value="">— Sin turno / ingresar horario manual —</option>
+        </select>
+        <small style="color:#888;font-size:.78em">Al seleccionar un turno se completa automáticamente el horario configurado para esta empresa.</small>
+      </div>
+    </div>
+    <div class="form-row">
       <div class="form-group">
         <label>Hora Inicio *</label>
-        <input type="time" id="pHoraIni" value="19:00">
+        <input type="time" id="pHoraIni">
       </div>
       <div class="form-group">
         <label>Hora Fin *</label>
-        <input type="time" id="pHoraFin" value="07:00">
+        <input type="time" id="pHoraFin">
       </div>
       <div class="form-group">
         <label>Fecha (si diferente a programación)</label>
@@ -1375,11 +1384,23 @@ async function abrirModalAgregarPersona() {
   document.getElementById('pEsResponsable').onchange = function() {
     document.getElementById('pTipoResponsabilidad').style.display = this.checked ? 'block' : 'none';
   };
+  // Poblar selector de turno desde configuración de empresa activa
+  const selT = document.getElementById('pTurnoConfig');
+  selT.innerHTML = '<option value="">— Sin turno / ingresar horario manual —</option>';
+  const turnosActivos = configTurnos.filter(c => c.activo !== false);
+  if (turnosActivos.length) {
+    turnosActivos.forEach(c => {
+      selT.add(new Option(`${c.codigo} — ${c.horaInicio} a ${c.horaFin}`, c.id));
+    });
+  } else {
+    selT.innerHTML = '<option value="">— Sin turnos configurados para esta empresa —</option>';
+  }
   // Limpiar formulario
   _resetBusquedaEmpleado();
   document.getElementById('pDocumento').value    = '';
-  document.getElementById('pHoraIni').value      = '19:00';
-  document.getElementById('pHoraFin').value      = '07:00';
+  document.getElementById('pTurnoConfig').value  = '';
+  document.getElementById('pHoraIni').value      = '';
+  document.getElementById('pHoraFin').value      = '';
   document.getElementById('pFecha').value        = '';
   document.getElementById('pUbicacionTexto').value = '';
   document.getElementById('pObservacion').value  = '';
@@ -1388,12 +1409,21 @@ async function abrirModalAgregarPersona() {
   abrirModal('modalPersona');
 }
 
+function autocompletarHorarioTurno() {
+  const id = document.getElementById('pTurnoConfig').value;
+  if (!id) return;
+  const turno = configTurnos.find(c => c.id === id);
+  if (!turno) return;
+  document.getElementById('pHoraIni').value = turno.horaInicio;
+  document.getElementById('pHoraFin').value = turno.horaFin;
+}
+
 async function guardarPersona() {
   const nombre = document.getElementById('pNombre').value.trim();
   const horaIni = document.getElementById('pHoraIni').value;
   const horaFin = document.getElementById('pHoraFin').value;
   if (!nombre)           { showAlert('Nombre es requerido', 'error'); return; }
-  if (!horaIni || !horaFin) { showAlert('Hora inicio y hora fin son requeridas', 'error'); return; }
+  if (!horaIni || !horaFin) { showAlert('El horario es requerido. Seleccione un turno o ingrese hora inicio y hora fin.', 'error'); return; }
 
   const tipoPersona = _empleadoEncontrado
     ? 'empleado'
@@ -1413,6 +1443,7 @@ async function guardarPersona() {
     tipoResponsabilidad:       document.getElementById('pTipoResponsabilidad').value || null,
     observacion:               document.getElementById('pObservacion').value.trim() || null,
     empleadoId:                _empleadoEncontrado?.id || null,
+    turnoConfigId:             document.getElementById('pTurnoConfig').value || null,
     tipoPersona,
     crearComoEmpleado:         tipoPersona === 'empleado_nuevo'
   };
@@ -1444,15 +1475,17 @@ async function guardarNovedad() {
 
 // ══ CATÁLOGOS BASE (para modales) ══
 async function cargarCatalogosBase() {
-  const [rc, rv, ru] = await Promise.all([
+  const [rc, rv, ru, rct] = await Promise.all([
     API('/api/transporte/conductores?estado=activo'),
     API('/api/transporte/vehiculos?estado=activo'),
-    API('/api/transporte/ubicaciones?estado=activo')
+    API('/api/transporte/ubicaciones?estado=activo'),
+    API('/api/transporte/config-turnos')
   ]);
-  const [dc, dv, du] = await Promise.all([rc.json(), rv.json(), ru.json()]);
+  const [dc, dv, du, dct] = await Promise.all([rc.json(), rv.json(), ru.json(), rct.json()]);
   conductores = dc.conductores || [];
   vehiculos   = dv.vehiculos   || [];
   ubicaciones = du.ubicaciones || [];
+  if (dct.success) configTurnos = dct.configs;
   // Poblar selects en modal crear
   const nCond = document.getElementById('nConductorId');
   nCond.innerHTML = '<option value="">— Sin asignar aún —</option>';
