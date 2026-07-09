@@ -91,6 +91,96 @@ function formatFechaConDia(dateStr) {
 exports._formatFechaConDia = formatFechaConDia;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// APROBACIÓN POR PERSONA — funciones puras exportadas para tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Valida y sanitiza el motivo de rechazo.
+ * @returns {{ valido:true, sanitized:string } | { valido:false, error:string }}
+ */
+function _validarMotivoRechazo(motivo) {
+  if (!motivo || !String(motivo).trim()) {
+    return { valido: false, error: 'Debe ingresar el motivo del rechazo' };
+  }
+  const raw = String(motivo);
+  if (/<[^>]+>/.test(raw)) {
+    return { valido: false, error: 'El motivo contiene caracteres no permitidos' };
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length < 5)   return { valido: false, error: 'El motivo debe tener al menos 5 caracteres' };
+  if (trimmed.length > 500) return { valido: false, error: 'El motivo no puede superar 500 caracteres' };
+  return { valido: true, sanitized: trimmed };
+}
+exports._validarMotivoRechazo = _validarMotivoRechazo;
+
+/**
+ * Pura: calcula el nuevo estado de la programación basándose en los estados
+ * individuales de los detalles. Retorna null cuando no debe haber cambio
+ * (hay pendientes, o el estado actual protege la programación).
+ * @param {string[]} estadosDetalles  — valores 'pendiente'|'aprobado'|'rechazado'
+ * @param {string}   estadoActualProg — estado actual de ProgramacionTransporte
+ */
+function _recalcularEstadoLogic(estadosDetalles, estadoActualProg) {
+  if (!estadosDetalles || estadosDetalles.length === 0) return null;
+  if (['enviada', 'cerrada', 'anulada'].includes(estadoActualProg)) return null;
+  const pendientes = estadosDetalles.filter(e => e === 'pendiente').length;
+  if (pendientes > 0) return null;
+  const rechazados = estadosDetalles.filter(e => e === 'rechazado').length;
+  if (rechazados > 0) return 'aprobada_con_rechazos';
+  return 'aprobada';
+}
+exports._recalcularEstadoLogic = _recalcularEstadoLogic;
+
+// ─── helpers privados (permiso + área + recálculo) ────────────────────────────
+
+async function tienePermiso(req, eid, codigoPermiso) {
+  if (req.esSuperAdmin) return true;
+  const pgId = req.pgId || req.session?.usuario?.pgId;
+  if (!pgId || !eid) return false;
+  const ue = await prisma.usuarioEmpresa.findUnique({
+    where: { usuarioId_empresaId: { usuarioId: pgId, empresaId: eid } }
+  });
+  if (!ue || ue.estado !== 'activo') return false;
+  const rolPerm = await prisma.rolPermiso.findFirst({
+    where: { rolId: ue.rolId, permiso: { codigo: codigoPermiso, estado: 'activo' } }
+  });
+  if (rolPerm) return true;
+  const userPerm = await prisma.usuarioEmpresaPermiso.findFirst({
+    where: { usuarioEmpresaId: ue.id, permiso: { codigo: codigoPermiso, estado: 'activo' }, permitido: true }
+  });
+  return Boolean(userPerm);
+}
+
+async function tieneAreaAsignada(req, areaId, eid) {
+  if (req.esSuperAdmin) return true;
+  if (!areaId) return true;
+  const pgId = req.pgId || req.session?.usuario?.pgId;
+  if (!pgId) return false;
+  const ue = await prisma.usuarioEmpresa.findUnique({
+    where: { usuarioId_empresaId: { usuarioId: pgId, empresaId: eid } }
+  });
+  if (!ue) return false;
+  const ua = await prisma.usuarioEmpresaArea.findUnique({
+    where: { usuarioEmpresaId_areaId: { usuarioEmpresaId: ue.id, areaId } }
+  });
+  return Boolean(ua);
+}
+
+async function recalcularEstadoProgramacion(programacionId) {
+  const prog = await prisma.programacionTransporte.findUnique({
+    where: { id: programacionId },
+    include: { detalles: { select: { estadoAprobacion: true } } }
+  });
+  if (!prog) return null;
+  const estados = prog.detalles.map(d => d.estadoAprobacion);
+  const nuevo   = _recalcularEstadoLogic(estados, prog.estado);
+  if (nuevo && nuevo !== prog.estado) {
+    await prisma.programacionTransporte.update({ where: { id: programacionId }, data: { estado: nuevo } });
+  }
+  return nuevo || prog.estado;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CATÁLOGOS: Conductores
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -361,14 +451,36 @@ exports.obtenerProgramacion = async (req, res) => {
       include: {
         conductor: true,
         vehiculo:  true,
-        detalles: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
+        detalles: { include: { ubicacion: true, area: true }, orderBy: { orden: 'asc' } },
         serviciosAlimentacion: true,
         novedades: true
       }
     });
     if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
+
+    // Calcular flags de permiso una sola vez
+    const canAprobar  = await tienePermiso(req, eid, 'transporte.programacion.aprobar_area');
+    const canRechazar = await tienePermiso(req, eid, 'transporte.programacion.rechazar_area');
+    let userAreaIds = [];
+    if ((canAprobar || canRechazar) && !req.esSuperAdmin) {
+      const pgId = req.pgId || req.session?.usuario?.pgId;
+      if (pgId) {
+        const ue = await prisma.usuarioEmpresa.findUnique({
+          where: { usuarioId_empresaId: { usuarioId: pgId, empresaId: eid } },
+          include: { areas: { select: { areaId: true } } }
+        });
+        userAreaIds = ue?.areas.map(a => a.areaId) || [];
+      }
+    }
+
+    const detallesConFlags = p.detalles.map(d => ({
+      ...d,
+      puedeAprobar:  canAprobar  && (req.esSuperAdmin || !d.areaId || userAreaIds.includes(d.areaId)),
+      puedeRechazar: canRechazar && (req.esSuperAdmin || !d.areaId || userAreaIds.includes(d.areaId))
+    }));
+
     const fechaStr = p.fecha instanceof Date ? p.fecha.toISOString().split('T')[0] : null;
-    res.json({ success: true, programacion: { ...p, fechaStr } });
+    res.json({ success: true, programacion: { ...p, detalles: detallesConFlags, fechaStr } });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
 };
 
@@ -553,9 +665,10 @@ exports.agregarDetalle = async (req, res) => {
       data: {
         programacionId:    p.id,
         empresaId:         eid,
-        empleadoId:        empleadoId     || null,
+        empleadoId:        empleadoId        || null,
         nombreEmpleado:    nombreEmpleado.trim(),
         documentoEmpleado: documentoEmpleado?.trim() || null,
+        areaId:            areaId            || null,
         areaNombre:        areaNombreResuelto,
         coordinadorNombre: coordinadorNombre?.trim()  || null,
         cargo:             cargo?.trim()              || null,
@@ -1083,6 +1196,91 @@ exports.generarDesdeTurnos = async (req, res) => {
 
     res.json({ success: true, personas, totalTurnos: turnos.length, totalRelevantes: personas.length });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APROBACIÓN / RECHAZO INDIVIDUAL POR PERSONA
+// ─────────────────────────────────────────────────────────────────────────────
+
+exports.aprobarDetalle = async (req, res) => {
+  try {
+    const eid = empresaFilter(req);
+    const { id: programacionId, detalleId } = req.params;
+
+    const p = await prisma.programacionTransporte.findUnique({ where: { id: programacionId } });
+    if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
+
+    const det = await prisma.detalleProgramTransporte.findUnique({ where: { id: detalleId } });
+    if (!det || det.programacionId !== programacionId || det.empresaId !== eid)
+      return res.status(404).json({ success: false, error: 'Persona no encontrada en esta programación' });
+
+    const puedeAprobar = await tienePermiso(req, eid, 'transporte.programacion.aprobar_area');
+    if (!puedeAprobar) return res.status(403).json({ success: false, error: 'No tiene permiso para aprobar personas en programaciones' });
+
+    const puedeArea = await tieneAreaAsignada(req, det.areaId, eid);
+    if (!puedeArea) return res.status(403).json({ success: false, error: 'No está asignado al área de esta persona' });
+
+    const pgId = req.pgId || req.session?.usuario?.pgId || null;
+    const updated = await prisma.detalleProgramTransporte.update({
+      where: { id: detalleId },
+      data: {
+        estadoAprobacion: 'aprobado',
+        motivoRechazo:    null,
+        aprobadoPorId:    pgId,
+        aprobadoEn:       new Date(),
+        rechazadoPorId:   null,
+        rechazadoEn:      null
+      }
+    });
+
+    const estadoProgramacion = await recalcularEstadoProgramacion(programacionId);
+    res.json({ success: true, detalle: updated, estadoProgramacion });
+  } catch (e) {
+    console.error('Error aprobarDetalle:', e);
+    res.status(e.status || 500).json({ success: false, error: e.message });
+  }
+};
+
+exports.rechazarDetalle = async (req, res) => {
+  try {
+    const eid = empresaFilter(req);
+    const { id: programacionId, detalleId } = req.params;
+
+    const validacion = _validarMotivoRechazo(req.body?.motivoRechazo);
+    if (!validacion.valido) return res.status(400).json({ success: false, error: validacion.error });
+
+    const p = await prisma.programacionTransporte.findUnique({ where: { id: programacionId } });
+    if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
+
+    const det = await prisma.detalleProgramTransporte.findUnique({ where: { id: detalleId } });
+    if (!det || det.programacionId !== programacionId || det.empresaId !== eid)
+      return res.status(404).json({ success: false, error: 'Persona no encontrada en esta programación' });
+
+    const puedeRechazar = await tienePermiso(req, eid, 'transporte.programacion.rechazar_area');
+    if (!puedeRechazar) return res.status(403).json({ success: false, error: 'No tiene permiso para rechazar personas en programaciones' });
+
+    const puedeArea = await tieneAreaAsignada(req, det.areaId, eid);
+    if (!puedeArea) return res.status(403).json({ success: false, error: 'No está asignado al área de esta persona' });
+
+    const pgId = req.pgId || req.session?.usuario?.pgId || null;
+    const updated = await prisma.detalleProgramTransporte.update({
+      where: { id: detalleId },
+      data: {
+        estadoAprobacion: 'rechazado',
+        motivoRechazo:    validacion.sanitized,
+        rechazadoPorId:   pgId,
+        rechazadoEn:      new Date(),
+        aprobadoPorId:    null,
+        aprobadoEn:       null
+      }
+    });
+
+    const estadoProgramacion = await recalcularEstadoProgramacion(programacionId);
+    res.json({ success: true, detalle: updated, estadoProgramacion });
+  } catch (e) {
+    console.error('Error rechazarDetalle:', e);
+    res.status(e.status || 500).json({ success: false, error: e.message });
+  }
 };
 
 // Export parser for testing

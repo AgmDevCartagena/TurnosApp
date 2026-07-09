@@ -39,9 +39,13 @@ router.patch ('/programaciones/:id/estado',                      ctrl.cambiarEst
 router.delete('/programaciones/:id',                             ctrl.eliminarProgramacion);
 
 // ── Detalles de programación ──────────────────────────────────────────────────
-router.post  ('/programaciones/:id/detalles',                    ctrl.agregarDetalle);
-router.put   ('/programaciones/:id/detalles/:detalleId',         ctrl.actualizarDetalle);
-router.delete('/programaciones/:id/detalles/:detalleId',         ctrl.eliminarDetalle);
+router.post  ('/programaciones/:id/detalles',                                ctrl.agregarDetalle);
+router.put   ('/programaciones/:id/detalles/:detalleId',                     ctrl.actualizarDetalle);
+router.delete('/programaciones/:id/detalles/:detalleId',                     ctrl.eliminarDetalle);
+
+// ── Aprobación individual por persona (Coordinador de Área) ──────────────────
+router.patch ('/programaciones/:id/personas/:detalleId/aprobar',             ctrl.aprobarDetalle);
+router.patch ('/programaciones/:id/personas/:detalleId/rechazar',            ctrl.rechazarDetalle);
 
 // ── Importar desde texto WhatsApp ─────────────────────────────────────────────
 router.post  ('/importar-texto',                                 ctrl.importarTexto);

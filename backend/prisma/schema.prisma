@@ -44,9 +44,16 @@ enum EstadoProgramacionOp {
   borrador
   validada
   aprobada
+  aprobada_con_rechazos
   enviada
   cerrada
   anulada
+}
+
+enum EstadoAprobacionPersona {
+  pendiente
+  aprobado
+  rechazado
 }
 
 enum TipoMovimientoTransporte {
@@ -269,10 +276,11 @@ model Area {
   updatedAt   DateTime      @updatedAt
 
   empresa          Empresa              @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  usuarios         UsuarioArea[]
-  usuariosEmpresas UsuarioEmpresaArea[]
-  empleados        Empleado[]
-  turnos           Turno[]
+  usuarios           UsuarioArea[]
+  usuariosEmpresas   UsuarioEmpresaArea[]
+  empleados          Empleado[]
+  turnos             Turno[]
+  detallesTransporte DetalleProgramTransporte[]
 
   @@unique([empresaId, nombre])
   @@index([empresaId, estado])
@@ -740,6 +748,7 @@ model DetalleProgramTransporte {
   nombreEmpleado         String                   @db.VarChar(150)
   documentoEmpleado      String?                  @db.VarChar(20)
   areaNombre             String?                  @db.VarChar(100)
+  areaId                 String?
   coordinadorNombre      String?                  @db.VarChar(150)
   cargo                  String?                  @db.VarChar(80)
   fecha                  DateTime                 @db.Date
@@ -755,16 +764,24 @@ model DetalleProgramTransporte {
   tipoResponsabilidad    String?                  @db.VarChar(30)
   orden                  Int                      @default(0)
   observacion            String?
+  estadoAprobacion       EstadoAprobacionPersona  @default(pendiente)
+  motivoRechazo          String?                  @db.VarChar(500)
+  aprobadoPorId          String?
+  aprobadoEn             DateTime?
+  rechazadoPorId         String?
+  rechazadoEn            DateTime?
   createdAt              DateTime                 @default(now())
   updatedAt              DateTime                 @updatedAt
 
   programacion ProgramacionTransporte @relation(fields: [programacionId], references: [id], onDelete: Cascade)
   empleado     Empleado?              @relation(fields: [empleadoId], references: [id], onDelete: SetNull)
   ubicacion    UbicacionRuta?         @relation(fields: [ubicacionId], references: [id], onDelete: SetNull)
+  area         Area?                  @relation(fields: [areaId], references: [id], onDelete: SetNull)
 
   @@unique([programacionId, nombreEmpleado, fecha, horaInicio])
   @@index([programacionId])
   @@index([empleadoId])
+  @@index([estadoAprobacion])
   @@map("detalles_program_transporte")
 }
 

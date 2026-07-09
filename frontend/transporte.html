@@ -57,7 +57,11 @@
     .badge-aprobada {background:#e8f5e9;color:#2e7d32}
     .badge-enviada  {background:#f3e5f5;color:#6a1b9a}
     .badge-cerrada  {background:#e0e0e0;color:#424242}
-    .badge-anulada  {background:#fce4ec;color:#c62828}
+    .badge-anulada             {background:#fce4ec;color:#c62828}
+    .badge-aprobada_con_rechazos{background:#fff3e0;color:#e65100}
+    .badge-pendiente           {background:#fff9c4;color:#795548}
+    .badge-aprobado            {background:#e8f5e9;color:#2e7d32}
+    .badge-rechazado           {background:#fce4ec;color:#c62828}
     .badge-normal   {background:#e8f5e9;color:#2e7d32}
     .badge-extendido{background:#fff9c4;color:#e65100}
     .badge-turno_b  {background:#e3f2fd;color:#1565c0}
@@ -230,8 +234,8 @@
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>#</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo</th><th>Recogida/Destino</th><th>Merienda</th><th>Cena</th><th>Responsable</th><th>Acciones</th></tr></thead>
-          <tbody id="tbDetalles"><tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Sin personas</td></tr></tbody>
+          <thead><tr><th>#</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo</th><th>Recogida/Destino</th><th>Merienda</th><th>Cena</th><th>Responsable</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody id="tbDetalles"><tr><td colspan="11" style="text-align:center;padding:20px;color:#999">Sin personas</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -358,6 +362,29 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="cerrarModal('modalImportar')">Cancelar</button>
       <button class="btn btn-success" id="btnConfirmarImport" style="display:none" onclick="confirmarImportacion()">✅ Confirmar importación</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: RECHAZAR PERSONA ══ -->
+<div id="modalRechazo" class="modal-overlay">
+  <div class="modal-box" style="max-width:480px">
+    <h2>✗ Rechazar persona de la programación</h2>
+    <p style="font-size:.85em;color:#555;margin-bottom:14px">El motivo es obligatorio y quedará registrado para auditoría.</p>
+    <div class="form-group" style="margin-bottom:6px">
+      <label>Motivo de rechazo <span style="color:#c62828">*</span></label>
+      <textarea id="motivoRechazoInput" rows="4" maxlength="500"
+        style="width:100%;padding:9px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em;resize:vertical"
+        placeholder="Mínimo 5 caracteres, máximo 500. No se permiten etiquetas HTML."
+        oninput="document.getElementById('motivoRechazoContador').textContent=this.value.length+'/500';document.getElementById('motivoRechazoError').textContent=''"></textarea>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <small id="motivoRechazoError" style="color:#c62828;min-height:16px"></small>
+      <small id="motivoRechazoContador" style="color:#999">0/500</small>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modalRechazo')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarRechazo()">Confirmar rechazo</button>
     </div>
   </div>
 </div>
@@ -621,8 +648,9 @@ let vehiculos      = [];
 let ubicaciones    = [];
 let configTurnos   = [];
 let personasParseadas = [];
-let _empleadoEncontrado = null;
-let _debounceDocTimer   = null;
+let _empleadoEncontrado   = null;
+let _debounceDocTimer     = null;
+let _detalleRechazandoId  = null;
 
 const API = (p) => fetch(p, { credentials: 'include', headers: { 'Content-Type': 'application/json' } });
 const POST = (p, b) => fetch(p, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
@@ -755,28 +783,45 @@ async function abrirDetalle(id) {
   document.querySelectorAll('#dTab-personal,#dTab-alimentacion,#dTab-novedades,#dTab-whatsapp').forEach((p,i) => p.classList.toggle('active', i===0));
 }
 
+function _escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function renderDetalles(detalles) {
   const tb = document.getElementById('tbDetalles');
-  if (!detalles.length) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:#999">Sin personas programadas</td></tr>'; return; }
-  tb.innerHTML = detalles.map((d, i) => `
+  if (!detalles.length) { tb.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:#999">Sin personas programadas</td></tr>'; return; }
+  tb.innerHTML = detalles.map((d, i) => {
+    const ea = d.estadoAprobacion || 'pendiente';
+    const estadoBadge = `<span class="badge badge-${_escHtml(ea)}">${_escHtml(ea)}</span>`;
+    const motivoHtml  = d.motivoRechazo
+      ? `<br><small style="color:#c62828;font-size:.75em" title="${_escHtml(d.motivoRechazo)}">⚠ ${_escHtml(d.motivoRechazo.slice(0,45))}${d.motivoRechazo.length > 45 ? '…' : ''}</small>`
+      : '';
+    const btnAprobar  = d.puedeAprobar  && ea !== 'aprobado'
+      ? `<button class="btn btn-sm btn-success" title="Aprobar" onclick="aprobarPersona('${d.id}')">✓</button>`
+      : '';
+    const btnRechazar = d.puedeRechazar && ea !== 'rechazado'
+      ? `<button class="btn btn-sm btn-warning" title="Rechazar" onclick="abrirModalRechazo('${d.id}')">✗</button>`
+      : '';
+    return `
     <tr>
       <td>${i+1}</td>
-      <td><strong>${d.nombreEmpleado}</strong></td>
-      <td>${d.areaNombre || '—'}</td>
-      <td>${d.horaInicio} - ${d.horaFin}</td>
+      <td><strong>${_escHtml(d.nombreEmpleado)}</strong></td>
+      <td>${_escHtml(d.areaNombre) || '—'}</td>
+      <td>${_escHtml(d.horaInicio)} - ${_escHtml(d.horaFin)}</td>
       <td><span class="badge badge-${d.tipoProgramacion}">${d.tipoProgramacion}</span></td>
       <td>
-        <input type="text" value="${d.ubicacionTexto || d.ubicacion?.nombre || ''}" placeholder="Destino..." 
+        <input type="text" value="${_escHtml(d.ubicacionTexto || d.ubicacion?.nombre || '')}" placeholder="Destino..."
           style="width:140px;padding:4px 6px;border:1px solid #ccc;border-radius:5px;font-size:.78em;text-transform:uppercase"
           onblur="actualizarUbicacion('${d.id}', this.value)">
       </td>
       <td style="text-align:center">${d.requiereMerienda ? '✅' : '—'}</td>
       <td style="text-align:center">${d.requiereCena    ? '✅' : '—'}</td>
       <td style="text-align:center">${d.esResponsableAlimentacion ? '⭐' : '—'}</td>
-      <td>
-        <button class="btn btn-sm btn-danger" onclick="eliminarDetalle('${d.id}')">✕</button>
-      </td>
-    </tr>`).join('');
+      <td>${estadoBadge}${motivoHtml}</td>
+      <td style="white-space:nowrap">${btnAprobar}${btnRechazar}<button class="btn btn-sm btn-danger" title="Eliminar" onclick="eliminarDetalle('${d.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
 }
 
 async function actualizarUbicacion(detalleId, ubicacionTexto) {
@@ -789,6 +834,44 @@ async function eliminarDetalle(detalleId) {
   const d = await r.json();
   if (d.success) { abrirDetalle(programacionActualId); showAlert('Persona eliminada', 'success'); }
   else showAlert(d.error, 'error');
+}
+
+// ══ APROBACIÓN / RECHAZO POR PERSONA ══
+
+async function aprobarPersona(detalleId) {
+  if (!confirm('¿Desea aprobar esta persona programada?')) return;
+  const r = await PATCH(`/api/transporte/programaciones/${programacionActualId}/personas/${detalleId}/aprobar`, {});
+  const d = await r.json();
+  if (d.success) {
+    abrirDetalle(programacionActualId);
+    cargarProgramaciones();
+    showAlert('Persona aprobada correctamente', 'success');
+  } else showAlert(d.error || 'Error al aprobar', 'error');
+}
+
+function abrirModalRechazo(detalleId) {
+  _detalleRechazandoId = detalleId;
+  document.getElementById('motivoRechazoInput').value   = '';
+  document.getElementById('motivoRechazoError').textContent = '';
+  document.getElementById('motivoRechazoContador').textContent = '0/500';
+  abrirModal('modalRechazo');
+}
+
+async function confirmarRechazo() {
+  const motivo = document.getElementById('motivoRechazoInput').value;
+  const errEl  = document.getElementById('motivoRechazoError');
+  const trimmed = motivo.trim();
+  if (!trimmed)          { errEl.textContent = 'Debe ingresar el motivo del rechazo'; return; }
+  if (trimmed.length < 5){ errEl.textContent = 'El motivo debe tener al menos 5 caracteres'; return; }
+  if (/<[^>]+>/.test(motivo)){ errEl.textContent = 'El motivo contiene caracteres no permitidos'; return; }
+  const r = await PATCH(`/api/transporte/programaciones/${programacionActualId}/personas/${_detalleRechazandoId}/rechazar`, { motivoRechazo: trimmed });
+  const d = await r.json();
+  if (d.success) {
+    cerrarModal('modalRechazo');
+    abrirDetalle(programacionActualId);
+    cargarProgramaciones();
+    showAlert('Persona rechazada correctamente', 'success');
+  } else showAlert(d.error || 'Error al rechazar', 'error');
 }
 
 async function calcularServicios() {
