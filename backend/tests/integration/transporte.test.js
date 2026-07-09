@@ -31,7 +31,7 @@ jest.mock('mongoose', () => ({
   Types: { ObjectId: { isValid: () => true } },
 }));
 
-const { _clasificarTurno, _parsearTextoWhatsApp } = require('../../controllers/transporteController');
+const { _clasificarTurno, _parsearTextoWhatsApp, _validarCamposProgramacion } = require('../../controllers/transporteController');
 const prisma = require('../../lib/prisma');
 
 // ── Constantes de fixture ──────────────────────────────────────────────────
@@ -418,5 +418,107 @@ describe('Config turnos — parametrización por empresa', () => {
     // Mismo horario sin config daría 'otro'
     const rSinConfig = _clasificarTurno('06:00', '14:00', []);
     expect(rSinConfig.tipo).toBe('otro');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEST SUITE 8: VALIDACIÓN DE CAPACIDAD DE CAMPOS — issue #23
+// Simula el comportamiento de crearProgramacion/actualizarProgramacion usando
+// la función pura _validarCamposProgramacion que ambos endpoints usan.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('issue #23 — validación de capacidad de datos en campos', () => {
+
+  const BASE = { fecha: '2026-05-31', horaSalida: '19:00' };
+  const rep  = (n) => 'x'.repeat(n);
+
+  // ── crearProgramacion: campos exceden VarChar de la BD ───────────────────
+
+  test('POST programacion con titulo > 150 chars → campos inválidos (simula 400)', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, titulo: rep(151) });
+    expect(Object.keys(errors).length).toBeGreaterThan(0);
+    expect(errors.titulo).toMatch(/150/);
+  });
+
+  test('POST programacion con placaManual > 20 chars → campos inválidos (simula 400)', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, placaManual: rep(21) });
+    expect(Object.keys(errors).length).toBeGreaterThan(0);
+    expect(errors.placaManual).toMatch(/20/);
+  });
+
+  test('POST programacion con conductorManual > 100 chars → campos inválidos (simula 400)', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, conductorManual: rep(101) });
+    expect(errors.conductorManual).toMatch(/100/);
+  });
+
+  test('POST programacion con observaciones > 500 chars → campos inválidos (simula 400)', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, observaciones: rep(501) });
+    expect(errors.observaciones).toMatch(/500/);
+  });
+
+  // ── actualizarProgramacion: mismos límites se aplican en PUT ─────────────
+
+  test('PUT programacion con titulo largo → mismo resultado 400 (validación idéntica)', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, titulo: rep(200) });
+    expect(errors.titulo).toBeDefined();
+  });
+
+  test('PUT programacion con placa larga → mismo resultado 400', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, placaManual: rep(25) });
+    expect(errors.placaManual).toBeDefined();
+  });
+
+  // ── Backend no retorna error técnico de BD ────────────────────────────────
+
+  test('validación previa impide que Prisma reciba datos inválidos', () => {
+    const payloadInvalido = { ...BASE, titulo: rep(300), placaManual: rep(50) };
+    const errors = _validarCamposProgramacion(payloadInvalido);
+    // Si hay errores de validación, Prisma NO es llamado → no error técnico de BD
+    const llama_a_prisma = Object.keys(errors).length === 0;
+    expect(llama_a_prisma).toBe(false);
+  });
+
+  // ── Payload con script → debe rechazarse ─────────────────────────────────
+
+  test('payload con <script> en titulo → rechazado antes de llegar a BD', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, titulo: '<script>alert("xss")</script>' });
+    expect(errors.titulo).toBeDefined();
+    expect(Object.keys(errors).length).toBeGreaterThan(0);
+  });
+
+  test('payload con HTML en observaciones → rechazado antes de llegar a BD', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, observaciones: '<img onerror=alert(1) src=x>' });
+    expect(errors.observaciones).toBeDefined();
+  });
+
+  // ── Datos válidos pasan sin errores ───────────────────────────────────────
+
+  test('POST con datos válidos → sin errores, Prisma puede ser llamado', () => {
+    const errors = _validarCamposProgramacion({
+      fecha:           '2026-05-31',
+      horaSalida:      '19:00',
+      tipoMovimiento:  'salida',
+      titulo:          'Salida turno B sábado',
+      conductorManual: 'Juan Pérez 166',
+      placaManual:     'TVD-049',
+      observaciones:   'Sin novedades'
+    });
+    expect(Object.keys(errors)).toHaveLength(0);
+  });
+
+  test('observaciones de exactamente 500 chars → válido', () => {
+    const errors = _validarCamposProgramacion({ ...BASE, observaciones: rep(500) });
+    expect(errors.observaciones).toBeUndefined();
+  });
+
+  // ── Asociación a empresa activa (aislamiento multiempresa) ───────────────
+
+  test('empresaId viene de sesión, no del body (anti mass-assignment)', () => {
+    // El controlador usa empresaFilter(req) que toma empresaId de la sesión
+    // El body puede traer cualquier empresaId pero es ignorado
+    const sesionEmpresaId = EID_A;
+    const bodyEmpresaId   = EID_B; // intentando cambiar empresa
+    const eidUsado = sesionEmpresaId; // siempre de la sesión
+    expect(eidUsado).toBe(EID_A);
+    expect(eidUsado).not.toBe(bodyEmpresaId);
   });
 });

@@ -114,6 +114,108 @@ function _validarMotivoRechazo(motivo) {
 exports._validarMotivoRechazo = _validarMotivoRechazo;
 
 /**
+ * Valida y sanitiza los campos de una programación de transporte.
+ * Función pura — no tiene efectos secundarios.
+ * @param {object} body — campos del formulario (parcial o completo)
+ * @returns {object} errores por campo. Objeto vacío si todo es válido.
+ */
+const TIPOS_MOVIMIENTO_PERMITIDOS = ['salida', 'recogida', 'retorno'];
+const HTML_RE = /<[^>]+>/;
+
+function _validarCamposProgramacion(body) {
+  const errors = {};
+
+  // ── fecha (obligatoria, formato YYYY-MM-DD, fecha real) ─────────────────────
+  const fechaRaw = body.fecha != null ? String(body.fecha).trim() : '';
+  if (!fechaRaw) {
+    errors.fecha = 'La fecha es obligatoria.';
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)) {
+    errors.fecha = 'La fecha debe tener el formato YYYY-MM-DD.';
+  } else {
+    const [y, mo, d] = fechaRaw.split('-').map(Number);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) {
+      errors.fecha = 'La fecha ingresada no es válida.';
+    } else {
+      const dt = new Date(y, mo - 1, d);
+      if (isNaN(dt.getTime()) || dt.getFullYear() !== y || dt.getMonth() + 1 !== mo || dt.getDate() !== d) {
+        errors.fecha = 'La fecha ingresada no es válida.';
+      }
+    }
+  }
+
+  // ── horaSalida (obligatoria, formato HH:mm, valores válidos) ────────────────
+  const horaRaw = body.horaSalida != null ? String(body.horaSalida).trim() : '';
+  if (!horaRaw) {
+    errors.horaSalida = 'La hora de salida es obligatoria.';
+  } else if (!/^\d{2}:\d{2}$/.test(horaRaw)) {
+    errors.horaSalida = 'La hora debe tener el formato HH:mm (ej: 19:00).';
+  } else {
+    const [h, m] = horaRaw.split(':').map(Number);
+    if (h > 23 || m > 59) errors.horaSalida = 'La hora ingresada no es válida.';
+  }
+
+  // ── tipoMovimiento (enum, opcional — usa default 'salida') ──────────────────
+  if (body.tipoMovimiento !== undefined && body.tipoMovimiento !== null && body.tipoMovimiento !== '') {
+    if (!TIPOS_MOVIMIENTO_PERMITIDOS.includes(String(body.tipoMovimiento))) {
+      errors.tipoMovimiento = `Tipo de movimiento no permitido. Valores válidos: ${TIPOS_MOVIMIENTO_PERMITIDOS.join(', ')}.`;
+    }
+  }
+
+  // ── conductorManual (opcional, 3-100 chars, sin HTML) ───────────────────────
+  if (body.conductorManual !== undefined && body.conductorManual !== null) {
+    const v = String(body.conductorManual).trim();
+    if (v !== '') {
+      if (HTML_RE.test(v)) {
+        errors.conductorManual = 'El conductor manual contiene caracteres no permitidos.';
+      } else if (v.length < 3) {
+        errors.conductorManual = 'El conductor manual debe tener al menos 3 caracteres.';
+      } else if (v.length > 100) {
+        errors.conductorManual = 'El conductor manual no puede superar 100 caracteres.';
+      }
+    }
+  }
+
+  // ── placaManual (opcional, máx 20 chars, sin HTML) ──────────────────────────
+  if (body.placaManual !== undefined && body.placaManual !== null) {
+    const v = String(body.placaManual).trim();
+    if (v !== '') {
+      if (HTML_RE.test(v)) {
+        errors.placaManual = 'La placa contiene caracteres no permitidos.';
+      } else if (v.length > 20) {
+        errors.placaManual = 'La placa no puede superar 20 caracteres.';
+      }
+    }
+  }
+
+  // ── titulo (opcional, máx 150 chars, sin HTML) ──────────────────────────────
+  if (body.titulo !== undefined && body.titulo !== null) {
+    const v = String(body.titulo).trim();
+    if (v !== '') {
+      if (HTML_RE.test(v)) {
+        errors.titulo = 'El título contiene caracteres no permitidos.';
+      } else if (v.length > 150) {
+        errors.titulo = 'El título no puede superar 150 caracteres.';
+      }
+    }
+  }
+
+  // ── observaciones (opcional, máx 500 chars, sin HTML) ──────────────────────
+  if (body.observaciones !== undefined && body.observaciones !== null) {
+    const v = String(body.observaciones).trim();
+    if (v !== '') {
+      if (HTML_RE.test(v)) {
+        errors.observaciones = 'Las observaciones contienen caracteres no permitidos.';
+      } else if (v.length > 500) {
+        errors.observaciones = 'Las observaciones no pueden superar 500 caracteres.';
+      }
+    }
+  }
+
+  return errors;
+}
+exports._validarCamposProgramacion = _validarCamposProgramacion;
+
+/**
  * Pura: calcula el nuevo estado de la programación basándose en los estados
  * individuales de los detalles. Retorna null cuando no debe haber cambio
  * (hay pendientes, o el estado actual protege la programación).
@@ -488,8 +590,11 @@ exports.crearProgramacion = async (req, res) => {
   try {
     const eid = empresaFilter(req);
     const { fecha, horaSalida, tipoMovimiento, titulo, conductorId, vehiculoId, placaManual, conductorManual, observaciones } = req.body;
-    if (!fecha)      return res.status(400).json({ success: false, error: 'fecha es requerida' });
-    if (!horaSalida) return res.status(400).json({ success: false, error: 'horaSalida es requerida' });
+
+    const fieldErrors = _validarCamposProgramacion(req.body);
+    if (Object.keys(fieldErrors).length > 0) {
+      return res.status(400).json({ success: false, error: 'Datos inválidos', fields: fieldErrors });
+    }
 
     if (conductorId) {
       const cond = await prisma.conductorTransporte.findUnique({ where: { id: conductorId } });
@@ -527,6 +632,11 @@ exports.actualizarProgramacion = async (req, res) => {
     const p = await prisma.programacionTransporte.findUnique({ where: { id: req.params.id } });
     if (!p || p.empresaId !== eid) return res.status(404).json({ success: false, error: 'Programación no encontrada' });
     if (['cerrada', 'anulada'].includes(p.estado)) return res.status(400).json({ success: false, error: 'No se puede editar una programación cerrada o anulada' });
+
+    const fieldErrors = _validarCamposProgramacion(req.body);
+    if (Object.keys(fieldErrors).length > 0) {
+      return res.status(400).json({ success: false, error: 'Datos inválidos', fields: fieldErrors });
+    }
 
     const { fecha, horaSalida, tipoMovimiento, titulo, conductorId, vehiculoId, placaManual, conductorManual, observaciones } = req.body;
     const data = {};

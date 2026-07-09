@@ -714,10 +714,10 @@ model ProgramacionTransporte {
   fecha            DateTime                 @db.Date
   horaSalida       String                   @db.VarChar(5)
   tipoMovimiento   TipoMovimientoTransporte @default(salida)
-  titulo           String?                  @db.VarChar(200)
+  titulo           String?                  @db.VarChar(150)
   conductorId      String?
   vehiculoId       String?
-  placaManual      String?                  @db.VarChar(10)
+  placaManual      String?                  @db.VarChar(20)
   conductorManual  String?                  @db.VarChar(100)
   estado           EstadoProgramacionOp     @default(borrador)
   observaciones    String?

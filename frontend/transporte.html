@@ -315,7 +315,8 @@
       </div>
       <div class="form-group">
         <label>Conductor (manual/libre)</label>
-        <input type="text" id="nConductorManual" placeholder="Ej: 166 Nicolás">
+        <input type="text" id="nConductorManual" placeholder="Ej: 166 Nicolás" maxlength="100" oninput="_clearFieldError('nConductorManual','nConductorManualError')">
+        <small id="nConductorManualError" class="field-error"></small>
       </div>
     </div>
     <div class="form-row">
@@ -325,16 +326,19 @@
       </div>
       <div class="form-group">
         <label>Placa (manual/libre)</label>
-        <input type="text" id="nPlacaManual" placeholder="Ej: TVD049">
+        <input type="text" id="nPlacaManual" placeholder="Ej: TVD049" maxlength="20" oninput="this.value=this.value.toUpperCase();_clearFieldError('nPlacaManual','nPlacaManualError')">
+        <small id="nPlacaManualError" class="field-error"></small>
       </div>
     </div>
     <div class="form-group" style="margin-bottom:14px">
-      <label>Título / Descripción</label>
-      <input type="text" id="nTitulo" placeholder="Ej: Salida turno B - Sábado 30/05">
+      <label>Título / Descripción <span id="nTituloCounter" style="font-size:.74em;color:#888;font-weight:400">0/150</span></label>
+      <input type="text" id="nTitulo" placeholder="Ej: Salida turno B - Sábado 30/05" maxlength="150" oninput="_clearFieldError('nTitulo','nTituloError');_updateCounter('nTitulo','nTituloCounter',150)">
+      <small id="nTituloError" class="field-error"></small>
     </div>
     <div class="form-group" style="margin-bottom:14px">
-      <label>Observaciones</label>
-      <textarea id="nObservaciones" rows="2" style="resize:vertical;padding:9px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em"></textarea>
+      <label>Observaciones <span id="nObsCounter" style="font-size:.74em;color:#888;font-weight:400">0/500</span></label>
+      <textarea id="nObservaciones" rows="2" style="resize:vertical;padding:9px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em" maxlength="500" oninput="_clearFieldError('nObservaciones','nObsError');_updateCounter('nObservaciones','nObsCounter',500)"></textarea>
+      <small id="nObsError" class="field-error"></small>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="_clearFormErrors();cerrarModal('modalCrear')">Cancelar</button>
@@ -989,32 +993,117 @@ function _getInitialProgramacionFormState() {
   };
 }
 
+const _TIPOS_MOV_VALIDOS = ['salida', 'recogida', 'retorno'];
+const _HTML_RE = /<[^>]+>/;
+
 function _validateProgramacionForm(body) {
   const errors = {};
-  if (!body.fecha || !String(body.fecha).trim())
+
+  // fecha
+  const fechaRaw = body.fecha ? String(body.fecha).trim() : '';
+  if (!fechaRaw) {
     errors.fecha = 'Debe seleccionar una fecha válida.';
-  if (!body.horaSalida || !String(body.horaSalida).trim())
+  } else if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaRaw)) {
+    errors.fecha = 'La fecha debe tener el formato YYYY-MM-DD.';
+  }
+
+  // horaSalida
+  const horaRaw = body.horaSalida ? String(body.horaSalida).trim() : '';
+  if (!horaRaw) {
     errors.horaSalida = 'Debe ingresar la hora de salida.';
+  } else if (!/^\d{2}:\d{2}$/.test(horaRaw)) {
+    errors.horaSalida = 'La hora debe tener el formato HH:mm (ej: 19:00).';
+  }
+
+  // tipoMovimiento
+  if (body.tipoMovimiento && !_TIPOS_MOV_VALIDOS.includes(body.tipoMovimiento)) {
+    errors.tipoMovimiento = 'Tipo de movimiento no permitido.';
+  }
+
+  // conductorManual
+  if (body.conductorManual) {
+    const v = String(body.conductorManual).trim();
+    if (_HTML_RE.test(v)) {
+      errors.conductorManual = 'El conductor manual contiene caracteres no permitidos.';
+    } else if (v.length > 0 && v.length < 3) {
+      errors.conductorManual = 'El conductor manual debe tener al menos 3 caracteres.';
+    } else if (v.length > 100) {
+      errors.conductorManual = 'El conductor manual no puede superar 100 caracteres.';
+    }
+  }
+
+  // placaManual
+  if (body.placaManual) {
+    const v = String(body.placaManual).trim();
+    if (_HTML_RE.test(v)) {
+      errors.placaManual = 'La placa contiene caracteres no permitidos.';
+    } else if (v.length > 20) {
+      errors.placaManual = 'La placa no puede superar 20 caracteres.';
+    }
+  }
+
+  // titulo
+  if (body.titulo) {
+    const v = String(body.titulo).trim();
+    if (_HTML_RE.test(v)) {
+      errors.titulo = 'El título contiene caracteres no permitidos.';
+    } else if (v.length > 150) {
+      errors.titulo = 'El título no puede superar 150 caracteres.';
+    }
+  }
+
+  // observaciones
+  if (body.observaciones) {
+    const v = String(body.observaciones).trim();
+    if (_HTML_RE.test(v)) {
+      errors.observaciones = 'Las observaciones contienen caracteres no permitidos.';
+    } else if (v.length > 500) {
+      errors.observaciones = 'Las observaciones no pueden superar 500 caracteres.';
+    }
+  }
+
   return errors;
 }
+
+const _ALL_ERROR_IDS = [
+  'nFechaError', 'nHoraSalidaError',
+  'nConductorManualError', 'nPlacaManualError',
+  'nTituloError', 'nObsError'
+];
 
 function _clearFieldError(inputId, errorId) {
   const input = document.getElementById(inputId);
   const errEl = document.getElementById(errorId);
   if (input) input.classList.remove('input-error');
   if (errEl) errEl.textContent = '';
-  const anyErrors = ['nFechaError', 'nHoraSalidaError']
-    .some(id => { const e = document.getElementById(id); return e && e.textContent.trim(); });
+  const anyErrors = _ALL_ERROR_IDS.some(id => { const e = document.getElementById(id); return e && e.textContent.trim(); });
   if (!anyErrors) {
     const s = document.getElementById('nFormAlert');
     if (s) { s.textContent = ''; s.style.display = 'none'; }
   }
 }
 
+function _updateCounter(inputId, counterId, max) {
+  const input   = document.getElementById(inputId);
+  const counter = document.getElementById(counterId);
+  if (!input || !counter) return;
+  const len = input.value.length;
+  counter.textContent = `${len}/${max}`;
+  const pct = len / max;
+  counter.style.color = pct >= 1 ? '#c62828' : pct >= 0.85 ? '#e65100' : '#888';
+}
+
 function _clearFormErrors() {
   const s = document.getElementById('nFormAlert');
   if (s) { s.textContent = ''; s.style.display = 'none'; }
-  [{ i: 'nFecha', e: 'nFechaError' }, { i: 'nHoraSalida', e: 'nHoraSalidaError' }].forEach(({ i, e }) => {
+  [
+    { i: 'nFecha',          e: 'nFechaError' },
+    { i: 'nHoraSalida',     e: 'nHoraSalidaError' },
+    { i: 'nConductorManual',e: 'nConductorManualError' },
+    { i: 'nPlacaManual',    e: 'nPlacaManualError' },
+    { i: 'nTitulo',         e: 'nTituloError' },
+    { i: 'nObservaciones',  e: 'nObsError' }
+  ].forEach(({ i, e }) => {
     const input = document.getElementById(i);
     const errEl = document.getElementById(e);
     if (input) input.classList.remove('input-error');
@@ -1024,16 +1113,24 @@ function _clearFormErrors() {
 
 function _showFormErrors(errors) {
   _clearFormErrors();
-  const LABELS  = { fecha: 'Fecha', horaSalida: 'Hora de salida' };
-  const MAP     = {
-    fecha:      { inputId: 'nFecha',      errorId: 'nFechaError' },
-    horaSalida: { inputId: 'nHoraSalida', errorId: 'nHoraSalidaError' }
+  const LABELS = {
+    fecha: 'Fecha', horaSalida: 'Hora de salida',
+    conductorManual: 'Conductor manual', placaManual: 'Placa',
+    titulo: 'Título', observaciones: 'Observaciones', tipoMovimiento: 'Tipo de movimiento'
+  };
+  const MAP = {
+    fecha:           { inputId: 'nFecha',          errorId: 'nFechaError' },
+    horaSalida:      { inputId: 'nHoraSalida',      errorId: 'nHoraSalidaError' },
+    conductorManual: { inputId: 'nConductorManual', errorId: 'nConductorManualError' },
+    placaManual:     { inputId: 'nPlacaManual',     errorId: 'nPlacaManualError' },
+    titulo:          { inputId: 'nTitulo',          errorId: 'nTituloError' },
+    observaciones:   { inputId: 'nObservaciones',   errorId: 'nObsError' }
   };
   const keys = Object.keys(errors);
   if (!keys.length) return;
   const campos = keys.map(k => LABELS[k] || k).join(', ');
   const s = document.getElementById('nFormAlert');
-  if (s) { s.innerHTML = `⚠️ <strong>Corrija los siguientes campos para continuar:</strong> ${campos}.`; s.style.display = 'block'; }
+  if (s) { s.innerHTML = `⚠️ <strong>Corrija los campos marcados antes de continuar:</strong> ${campos}.`; s.style.display = 'block'; }
   keys.forEach(key => {
     const m = MAP[key]; if (!m) return;
     const input = document.getElementById(m.inputId);
@@ -1041,8 +1138,8 @@ function _showFormErrors(errors) {
     if (input) { input.classList.add('input-error'); input.setAttribute('aria-invalid', 'true'); }
     if (errEl) errEl.textContent = errors[key];
   });
-  const first = MAP[keys[0]];
-  if (first) { const el = document.getElementById(first.inputId); if (el) el.focus(); }
+  const firstKey = keys.find(k => MAP[k]);
+  if (firstKey) { const el = document.getElementById(MAP[firstKey].inputId); if (el) el.focus(); }
 }
 
 function _resetFormProgramacion() {
@@ -1058,6 +1155,8 @@ function _resetFormProgramacion() {
   document.getElementById('nObservaciones').value   = s.observaciones;
   const prev = document.getElementById('nFechaPreview');
   if (prev) prev.textContent = '';
+  _updateCounter('nTitulo',        'nTituloCounter', 150);
+  _updateCounter('nObservaciones', 'nObsCounter',    500);
   _clearFormErrors();
 }
 
@@ -1081,12 +1180,26 @@ async function guardarProgramacion() {
   const validationErrors = _validateProgramacionForm(body);
   if (Object.keys(validationErrors).length > 0) { _showFormErrors(validationErrors); return; }
   _clearFormErrors();
-  const r = await POST('/api/transporte/programaciones', body);
-  const d = await r.json();
-  if (d.success) { _resetFormProgramacion(); cerrarModal('modalCrear'); cargarProgramaciones(); showAlert('Programación creada', 'success'); }
-  else {
-    const s = document.getElementById('nFormAlert');
-    if (s) { s.textContent = d.error || 'Error al crear la programación. Intente de nuevo.'; s.style.display = 'block'; }
+  const btnGuardar = document.querySelector('#modalCrear .btn-primary');
+  if (btnGuardar) btnGuardar.disabled = true;
+  try {
+    const r = await POST('/api/transporte/programaciones', body);
+    const d = await r.json();
+    if (d.success) {
+      _resetFormProgramacion();
+      cerrarModal('modalCrear');
+      cargarProgramaciones();
+      showAlert('Programación creada', 'success');
+    } else {
+      if (d.fields && Object.keys(d.fields).length > 0) {
+        _showFormErrors(d.fields);
+      } else {
+        const s = document.getElementById('nFormAlert');
+        if (s) { s.textContent = d.error || 'Error al crear la programación. Intente de nuevo.'; s.style.display = 'block'; }
+      }
+    }
+  } finally {
+    if (btnGuardar) btnGuardar.disabled = false;
   }
 }
 
