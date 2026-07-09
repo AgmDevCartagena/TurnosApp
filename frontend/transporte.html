@@ -72,6 +72,10 @@
     .form-group label{font-size:.82em;font-weight:600;color:#444}
     .form-group input,.form-group select,.form-group textarea{padding:9px 12px;border:1.5px solid #ccc;border-radius:8px;font-size:.88em;transition:border-color .2s}
     .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#2e6da4;outline:none}
+    /* Validación de formularios (fix #35) */
+    .form-alert-error{background:#fce4ec;border:1.5px solid #ef9a9a;border-radius:8px;padding:10px 14px;color:#c62828;font-size:.85em;font-weight:600;margin-bottom:14px;display:none}
+    .field-error{color:#c62828;font-size:.77em;margin-top:2px;display:block;min-height:14px}
+    .input-error{border-color:#c62828!important;background:#fff8f8!important}
     /* Modal */
     .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:1000;justify-content:center;align-items:flex-start;padding-top:40px;overflow-y:auto}
     .modal-overlay.active{display:flex}
@@ -264,15 +268,18 @@
 <div id="modalCrear" class="modal-overlay">
   <div class="modal-box">
     <h2>+ Nueva Programación de Transporte</h2>
+    <div id="nFormAlert" class="form-alert-error" role="alert"></div>
     <div class="form-row">
       <div class="form-group">
         <label>Fecha *</label>
-        <input type="date" id="nFecha" oninput="actualizarDiaSemana()">
+        <input type="date" id="nFecha" oninput="actualizarDiaSemana();_clearFieldError('nFecha','nFechaError')">
+        <small id="nFechaError" class="field-error"></small>
         <small id="nFechaPreview" style="color:#1565c0;font-weight:600;margin-top:4px;min-height:18px;display:block"></small>
       </div>
       <div class="form-group">
         <label>Hora de Salida *</label>
-        <input type="time" id="nHoraSalida" value="19:00">
+        <input type="time" id="nHoraSalida" value="19:00" oninput="_clearFieldError('nHoraSalida','nHoraSalidaError')">
+        <small id="nHoraSalidaError" class="field-error"></small>
       </div>
       <div class="form-group">
         <label>Tipo de Movimiento</label>
@@ -312,7 +319,7 @@
       <textarea id="nObservaciones" rows="2" style="resize:vertical;padding:9px;border:1.5px solid #ccc;border-radius:8px;font-size:.87em"></textarea>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="cerrarModal('modalCrear')">Cancelar</button>
+      <button class="btn btn-outline" onclick="_clearFormErrors();cerrarModal('modalCrear')">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarProgramacion()">Crear Programación</button>
     </div>
   </div>
@@ -964,6 +971,62 @@ function _getInitialProgramacionFormState() {
   };
 }
 
+function _validateProgramacionForm(body) {
+  const errors = {};
+  if (!body.fecha || !String(body.fecha).trim())
+    errors.fecha = 'Debe seleccionar una fecha válida.';
+  if (!body.horaSalida || !String(body.horaSalida).trim())
+    errors.horaSalida = 'Debe ingresar la hora de salida.';
+  return errors;
+}
+
+function _clearFieldError(inputId, errorId) {
+  const input = document.getElementById(inputId);
+  const errEl = document.getElementById(errorId);
+  if (input) input.classList.remove('input-error');
+  if (errEl) errEl.textContent = '';
+  const anyErrors = ['nFechaError', 'nHoraSalidaError']
+    .some(id => { const e = document.getElementById(id); return e && e.textContent.trim(); });
+  if (!anyErrors) {
+    const s = document.getElementById('nFormAlert');
+    if (s) { s.textContent = ''; s.style.display = 'none'; }
+  }
+}
+
+function _clearFormErrors() {
+  const s = document.getElementById('nFormAlert');
+  if (s) { s.textContent = ''; s.style.display = 'none'; }
+  [{ i: 'nFecha', e: 'nFechaError' }, { i: 'nHoraSalida', e: 'nHoraSalidaError' }].forEach(({ i, e }) => {
+    const input = document.getElementById(i);
+    const errEl = document.getElementById(e);
+    if (input) input.classList.remove('input-error');
+    if (errEl) errEl.textContent = '';
+  });
+}
+
+function _showFormErrors(errors) {
+  _clearFormErrors();
+  const LABELS  = { fecha: 'Fecha', horaSalida: 'Hora de salida' };
+  const MAP     = {
+    fecha:      { inputId: 'nFecha',      errorId: 'nFechaError' },
+    horaSalida: { inputId: 'nHoraSalida', errorId: 'nHoraSalidaError' }
+  };
+  const keys = Object.keys(errors);
+  if (!keys.length) return;
+  const campos = keys.map(k => LABELS[k] || k).join(', ');
+  const s = document.getElementById('nFormAlert');
+  if (s) { s.innerHTML = `⚠️ <strong>Corrija los siguientes campos para continuar:</strong> ${campos}.`; s.style.display = 'block'; }
+  keys.forEach(key => {
+    const m = MAP[key]; if (!m) return;
+    const input = document.getElementById(m.inputId);
+    const errEl = document.getElementById(m.errorId);
+    if (input) { input.classList.add('input-error'); input.setAttribute('aria-invalid', 'true'); }
+    if (errEl) errEl.textContent = errors[key];
+  });
+  const first = MAP[keys[0]];
+  if (first) { const el = document.getElementById(first.inputId); if (el) el.focus(); }
+}
+
 function _resetFormProgramacion() {
   const s = _getInitialProgramacionFormState();
   document.getElementById('nFecha').value           = s.fecha;
@@ -977,6 +1040,7 @@ function _resetFormProgramacion() {
   document.getElementById('nObservaciones').value   = s.observaciones;
   const prev = document.getElementById('nFechaPreview');
   if (prev) prev.textContent = '';
+  _clearFormErrors();
 }
 
 function abrirModalCrear() {
@@ -996,11 +1060,16 @@ async function guardarProgramacion() {
     placaManual:     document.getElementById('nPlacaManual').value,
     observaciones:   document.getElementById('nObservaciones').value
   };
-  if (!body.fecha || !body.horaSalida) { showAlert('Fecha y hora de salida son requeridas', 'error'); return; }
+  const validationErrors = _validateProgramacionForm(body);
+  if (Object.keys(validationErrors).length > 0) { _showFormErrors(validationErrors); return; }
+  _clearFormErrors();
   const r = await POST('/api/transporte/programaciones', body);
   const d = await r.json();
   if (d.success) { _resetFormProgramacion(); cerrarModal('modalCrear'); cargarProgramaciones(); showAlert('Programación creada', 'success'); }
-  else showAlert(d.error, 'error');
+  else {
+    const s = document.getElementById('nFormAlert');
+    if (s) { s.textContent = d.error || 'Error al crear la programación. Intente de nuevo.'; s.style.display = 'block'; }
+  }
 }
 
 async function eliminarProgramacion(id) {
