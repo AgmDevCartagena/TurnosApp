@@ -949,9 +949,38 @@ function copiarWA() {
 }
 
 // ══ CREAR PROGRAMACIÓN ══
-function abrirModalCrear() {
+
+function _getInitialProgramacionFormState() {
+  return {
+    fecha:           '',
+    horaSalida:      '19:00',
+    tipoMovimiento:  'salida',
+    conductorId:     '',
+    conductorManual: '',
+    vehiculoId:      '',
+    placaManual:     '',
+    titulo:          '',
+    observaciones:   ''
+  };
+}
+
+function _resetFormProgramacion() {
+  const s = _getInitialProgramacionFormState();
+  document.getElementById('nFecha').value           = s.fecha;
+  document.getElementById('nHoraSalida').value      = s.horaSalida;
+  document.getElementById('nTipoMov').value         = s.tipoMovimiento;
+  document.getElementById('nConductorId').value     = s.conductorId;
+  document.getElementById('nConductorManual').value = s.conductorManual;
+  document.getElementById('nVehiculoId').value      = s.vehiculoId;
+  document.getElementById('nPlacaManual').value     = s.placaManual;
+  document.getElementById('nTitulo').value          = s.titulo;
+  document.getElementById('nObservaciones').value   = s.observaciones;
   const prev = document.getElementById('nFechaPreview');
   if (prev) prev.textContent = '';
+}
+
+function abrirModalCrear() {
+  _resetFormProgramacion();
   abrirModal('modalCrear');
 }
 
@@ -970,7 +999,7 @@ async function guardarProgramacion() {
   if (!body.fecha || !body.horaSalida) { showAlert('Fecha y hora de salida son requeridas', 'error'); return; }
   const r = await POST('/api/transporte/programaciones', body);
   const d = await r.json();
-  if (d.success) { cerrarModal('modalCrear'); cargarProgramaciones(); showAlert('Programación creada', 'success'); }
+  if (d.success) { _resetFormProgramacion(); cerrarModal('modalCrear'); cargarProgramaciones(); showAlert('Programación creada', 'success'); }
   else showAlert(d.error, 'error');
 }
 
@@ -1194,7 +1223,12 @@ async function guardarPersona() {
 }
 
 // ══ NOVEDADES ══
-function abrirModalNovedad() { abrirModal('modalNovedad'); }
+function abrirModalNovedad() {
+  document.getElementById('novTipo').value        = 'persona_no_asistio';
+  document.getElementById('novEmpleado').value    = '';
+  document.getElementById('novDescripcion').value = '';
+  abrirModal('modalNovedad');
+}
 
 async function guardarNovedad() {
   const body = {
