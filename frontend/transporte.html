@@ -6,6 +6,7 @@
   <title>Programación de Transporte y Alimentación</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
+    html,body{overflow-x:hidden}
     body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
     /* Header */
     .header{background:linear-gradient(135deg,#1e3a5f 0%,#2e6da4 100%);color:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.2)}
@@ -101,7 +102,24 @@
     .stat-card .val{font-size:1.8em;font-weight:700;color:#1e3a5f}
     .stat-card .lbl{font-size:.76em;color:#666;margin-top:2px}
     /* Responsive */
-    @media(max-width:768px){.form-row{grid-template-columns:1fr}.preview-row{grid-template-columns:1fr}}
+    @media(max-width:768px){
+      .form-row{grid-template-columns:1fr}
+      .preview-row{grid-template-columns:1fr}
+      .header{flex-direction:column;gap:8px;padding:12px 16px}
+      .header-title h1{font-size:1.05em}
+      .header-actions{justify-content:flex-end;width:100%;flex-wrap:wrap}
+      .content{padding:0 10px;margin:16px auto}
+      .modal-box{padding:18px 14px;max-width:96vw}
+      .modal-footer{flex-direction:column-reverse;gap:8px}
+      .modal-footer .btn{width:100%;text-align:center}
+      .card-header{flex-direction:column;align-items:flex-start;gap:10px}
+      .card>div[style*="display:flex"]{flex-wrap:wrap}
+    }
+    @media(max-width:480px){
+      .btn{padding:8px 10px;font-size:.82em}
+      .tab-btn{padding:8px 10px;font-size:.82em}
+      .header-title h1{font-size:.95em}
+    }
   </style>
 </head>
 <body>

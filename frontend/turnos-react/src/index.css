@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -436,4 +440,29 @@ table tr:hover {
   gap: 10px;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  body { padding: 12px; }
+  .container { padding: 16px; }
+  .header h1 { font-size: 1.6rem; }
+  .form-row { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: 1fr; }
+  .tabs { overflow-x: auto; }
+  .tab-button { padding: 10px 14px; font-size: 0.85rem; }
+  .modal { width: 95vw; max-width: 95vw; padding: 18px; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { width: 100%; }
+  .back-button { padding: 8px 14px; font-size: 0.88rem; }
+  .calendar-container { overflow-x: auto; }
+  .actions { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  body { padding: 8px; }
+  .container { padding: 12px; border-radius: 8px; }
+  .header h1 { font-size: 1.3rem; }
+  .header p { font-size: 0.9rem; }
+  .btn { padding: 10px 16px; font-size: 0.9rem; }
+  .form-section { padding: 14px; }
 }

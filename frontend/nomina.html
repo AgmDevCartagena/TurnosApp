@@ -6,7 +6,8 @@
   <title>Módulo de Nómina</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; }
+    html { overflow-x: hidden; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; overflow-x: hidden; }
 
     /* ── Header ── */
     .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
@@ -121,10 +122,25 @@
     .empty { padding: 40px; text-align: center; color: #999; font-size: 0.9em; }
     .empty-icon { font-size: 2.5em; margin-bottom: 10px; }
 
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 12px; padding: 14px 16px; align-items: flex-start; }
+      .header-actions { flex-wrap: wrap; gap: 8px; }
+      .content { margin: 16px auto; padding: 0 12px; }
+      .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .modal-footer { flex-direction: column-reverse; gap: 8px; }
+      .modal-footer .btn { width: 100%; text-align: center; }
+      .stats { grid-template-columns: 1fr 1fr; }
+    }
     @media (max-width: 640px) {
-      .header { flex-direction: column; gap: 12px; }
       .tabs { gap: 2px; }
       .tab-btn { padding: 8px 12px; font-size: 0.82em; }
+    }
+    @media (max-width: 480px) {
+      .header h1 { font-size: 1.15em; }
+      .stats { grid-template-columns: 1fr; }
+      .btn { padding: 8px 14px; font-size: 0.85em; }
+      .modal-box { padding: 20px 14px; }
+      .resultado-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>

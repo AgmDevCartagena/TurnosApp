@@ -7,10 +7,36 @@
   <title>Módulo de Nómina</title>
   <script type="module" crossorigin src="/nomina/assets/index-D8zpMS_t.js"></script>
   <link rel="stylesheet" crossorigin href="/nomina/assets/index-MtY9Js9P.css">
+  <style>
+    html,body{overflow-x:hidden}
+    body{padding:12px!important}
+    #root{width:100%;max-width:100%}
+    @media(max-width:768px){
+      .container{padding:16px!important}
+      .header h1{font-size:1.6rem!important}
+      .form-row{grid-template-columns:1fr!important}
+      .tabs{flex-wrap:wrap!important;gap:4px!important}
+      .tab-button{padding:10px 14px!important;font-size:.85rem!important}
+      .grid{grid-template-columns:1fr!important}
+      .modal{width:95vw!important;max-width:95vw!important;padding:18px!important}
+      .modal-actions{flex-direction:column-reverse!important}
+      .modal-actions .btn{width:100%!important}
+      .back-button{padding:8px 14px!important;font-size:.88rem!important}
+      table{min-width:500px}
+    }
+    @media(max-width:480px){
+      body{padding:8px!important}
+      .container{padding:12px!important;border-radius:8px!important}
+      .header h1{font-size:1.3rem!important}
+      .header p{font-size:.9rem!important}
+      .btn{padding:10px 16px!important;font-size:.9rem!important}
+    }
+  </style>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root"></div>
+
   <footer
     style="width:100%; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; text-align:center; padding:8px 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; box-shadow:0 -1px 5px rgba(0,0,0,0.1); margin-top: 40px;">
     <div style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">

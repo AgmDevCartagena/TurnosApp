@@ -6,7 +6,8 @@
     <title>Gestión de Usuarios</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; }
+        html { overflow-x: hidden; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; overflow-x: hidden; }
 
         /* ── Multiempresa additions ── */
         .empresa-card { border: 2px solid #e0e0e0; border-radius: 10px; padding: 12px 16px; cursor: pointer; transition: all .18s; display: flex; align-items: center; gap: 10px; background: #fafafa; }
@@ -163,6 +164,39 @@
         .perm-item-nombre { font-weight: 600; font-size: 0.88em; color: #333; }
         .perm-item-desc { font-size: 0.78em; color: #888; margin-top: 1px; }
         .perm-no-results { text-align: center; padding: 24px; color: #bbb; font-size: 0.88em; display: none; }
+
+        /* ── Responsive tabla ── */
+        #tabla-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .card { overflow: visible; }
+
+        /* ── Responsive layout (fix #20) ── */
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 12px; padding: 14px 16px; align-items: flex-start; }
+            .header-actions { flex-wrap: wrap; gap: 8px; }
+            .content { margin: 16px auto; padding: 0 12px; }
+            .tab-bar { overflow-x: auto; padding: 0 8px; -webkit-overflow-scrolling: touch; }
+            .tab-btn { white-space: nowrap; padding: 12px 14px; font-size: 0.88em; }
+            .form-row { grid-template-columns: 1fr !important; }
+            .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .modal { width: 96vw; max-width: 96vw; }
+            .modal-body { padding: 16px; }
+            .modal-header { padding: 16px 16px 12px; }
+            .modal-footer { padding: 12px 16px; flex-direction: column-reverse; gap: 8px; }
+            .modal-footer .btn { width: 100%; text-align: center; }
+            .btn-sm { min-height: 36px; padding: 6px 10px; }
+            .check-grid { gap: 6px; }
+            #grid-empresas { grid-template-columns: 1fr; }
+            .role-card { flex-direction: column; gap: 10px; }
+            .role-actions { flex-direction: row; flex-wrap: wrap; }
+        }
+        @media (max-width: 480px) {
+            .header h1 { font-size: 1.15em; }
+            .header p { font-size: 0.8em; }
+            .btn { padding: 8px 14px; font-size: 0.85em; }
+            .tab-btn { padding: 10px 12px; font-size: 0.82em; }
+            .modal-roles { width: 96vw; }
+            .perm-list { max-height: 240px; }
+        }
     </style>
 </head>
 <body>
