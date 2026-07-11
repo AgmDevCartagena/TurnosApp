@@ -291,7 +291,7 @@ async function main() {
   for (const cfg of SPM_TURNOS) {
     await prisma.configuracionTurnoOp.upsert({
       where:  { empresaId_codigo: { empresaId: spm.id, codigo: cfg.codigo } },
-      update: cfg,
+      update: {}, // No sobreescribir configs existentes — el usuario puede haberlas personalizado
       create: { empresaId: spm.id, ...cfg }
     });
   }

@@ -65,13 +65,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Confiar en el proxy (Nginx) para leer X-Forwarded-Proto y fijar IP real
+if (process.env.TRUST_PROXY === 'true' || process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // Configuración de sesiones
+const cookieSecure = process.env.COOKIE_SECURE === 'true' ||
+  (process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true');
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'sistema_gestion_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false,
+    secure: cookieSecure,
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 1 día
@@ -124,7 +132,9 @@ app.use('/lib', express.static(path.join(__dirname, 'public', 'lib')));
 // Serve frontend static files
 // En Docker, los archivos están en /app/public
 // En desarrollo, están en ../frontend
-const isDocker = process.env.NODE_ENV === 'production' && process.env.MONGO_URI && process.env.MONGO_URI.includes('mongodb://mongodb');
+// FRONTEND_PATH puede forzarse por variable de entorno para evitar detección frágil
+const isDocker = process.env.FRONTEND_FROM_BUILD === 'true' ||
+  (process.env.NODE_ENV === 'production' && process.env.MONGO_URI && process.env.MONGO_URI.includes('mongodb://mongodb'));
 const frontendPath = isDocker ? path.join(__dirname, 'public') : path.join(__dirname, '..', 'frontend');
 const nominaBuildPath = isDocker ? path.join(__dirname, 'public', 'nomina-build') : path.join(__dirname, '..', 'frontend', 'nomina-build');
 const turnosBuildPath = isDocker ? path.join(__dirname, 'public', 'turnos-build') : path.join(__dirname, '..', 'frontend', 'turnos-build');

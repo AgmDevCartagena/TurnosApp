@@ -1,0 +1,105 @@
+# docker-compose.prod.yml — Configuración de producción
+#
+# USO:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# ANTES DE USAR:
+#   1. Crear .env.production con secretos reales (ver .env.production.example)
+#   2. Hacer backup de PostgreSQL y MongoDB
+#   3. Verificar que las pruebas pasen: cd backend && npm test
+#   4. Verificar migraciones: npx prisma migrate status
+#
+# SEGURIDAD:
+#   - PostgreSQL NO expuesto al host (solo red interna Docker)
+#   - MongoDB NO expuesto al host (solo red interna Docker)
+#   - App expuesta solo en 127.0.0.1 (requiere Nginx como proxy)
+#   - Sin credenciales hardcodeadas — todo desde .env.production
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: turnos_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - turnos-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Sin ports: PostgreSQL NO accesible desde el host en producción
+
+  mongodb:
+    image: mongo:7.0
+    container_name: turnos_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: turnos_app
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - turnos-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Sin ports: MongoDB NO accesible desde el host en producción
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: turnos_app
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      - TZ=UTC
+      - NODE_ENV=production
+      - FRONTEND_FROM_BUILD=true
+    ports:
+      # Solo expone al loopback — Nginx hace el proxy hacia afuera
+      - "127.0.0.1:3001:3001"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - turnos-network
+    volumes:
+      # SOLO uploads persiste en host — frontend y código vienen del build
+      - uploads_data:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/auth/verificar-sesion"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  turnos-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  uploads_data:
+    driver: local
