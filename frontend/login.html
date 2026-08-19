@@ -81,15 +81,17 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px 0 36px;
+            padding: 28px 0 0;
+            margin-bottom: clamp(45px, 5.5vh, 65px);
         }
 
         .brand-logo-wrap img {
-            max-width: 200px;
-            max-height: 160px;
+            display: block;
+            width: clamp(200px, 14vw, 260px);
+            max-width: 85%;
+            height: auto;
             object-fit: contain;
-            filter: brightness(0) invert(1);
-            border-radius: 8px;
+            mix-blend-mode: multiply;
         }
 
         .brand-logo-svg {
@@ -373,7 +375,7 @@
         @media (max-width: 960px) {
             .login-brand-panel { padding: 44px 36px 32px; }
             .brand-headline    { font-size: clamp(1.8em, 3.2vw, 2.4em); }
-            .brand-logo-svg    { width: 130px; height: 130px; }
+            .brand-logo-wrap img { width: clamp(180px, 18vw, 210px); }
         }
 
         @media (max-width: 768px) {
@@ -382,8 +384,8 @@
             .login-form-panel  { width: 100%; min-height: auto; }
             .login-brand-panel { padding: 32px 28px 24px; }
             .login-form-panel  { min-height: 100vh; padding: 32px 16px; }
-            .brand-logo-wrap   { padding: 10px 0 18px; }
-            .brand-logo-svg    { width: 90px; height: 90px; }
+            .brand-logo-wrap   { padding: 10px 0 0; margin-bottom: 32px; }
+            .brand-logo-wrap img { width: clamp(130px, 22vw, 160px); }
             .brand-headline    { font-size: 1.8em; }
             .brand-footer      { flex-direction: column; align-items: flex-start; }
         }
@@ -420,21 +422,7 @@
 
         <!-- Logo grande centrado -->
         <div class="brand-logo-wrap" id="brand-logo">
-            <svg class="brand-logo-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo del sistema">
-                <circle cx="60" cy="60" r="56" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
-                <rect x="30" y="44" width="60" height="46" rx="4" fill="rgba(255,255,255,0.88)"/>
-                <rect x="36" y="30" width="48" height="18" rx="3" fill="rgba(255,255,255,0.65)"/>
-                <rect x="44" y="18" width="32" height="16" rx="2" fill="rgba(255,255,255,0.45)"/>
-                <rect x="38" y="52" width="10" height="9" rx="1.5" fill="rgba(102,126,234,0.75)"/>
-                <rect x="55" y="52" width="10" height="9" rx="1.5" fill="rgba(102,126,234,0.75)"/>
-                <rect x="72" y="52" width="10" height="9" rx="1.5" fill="rgba(102,126,234,0.75)"/>
-                <rect x="38" y="67" width="10" height="9" rx="1.5" fill="rgba(102,126,234,0.75)"/>
-                <rect x="55" y="67" width="10" height="9" rx="1.5" fill="rgba(102,126,234,0.75)"/>
-                <rect x="72" y="67" width="10" height="9" rx="1.5" fill="rgba(102,126,234,0.75)"/>
-                <rect x="50" y="73" width="20" height="17" rx="2" fill="rgba(118,75,162,0.80)"/>
-                <circle cx="60" cy="8" r="5" fill="rgba(255,255,255,0.55)"/>
-                <circle cx="60" cy="8" r="2" fill="rgba(255,255,255,0.90)"/>
-            </svg>
+            <img src="/assets/images/logo.png" alt="Logo del sistema" class="brand-logo-img">
         </div>
 
         <!-- Contenido central -->

@@ -381,8 +381,26 @@ exports.buscarPorDocumento = async (req, res) => {
       where: { documento: documento.trim(), empresaId: empresaTarget, estado: 'activo' },
       include: { area: { select: { id: true, nombre: true } } }
     });
-    if (!emp) return res.json({ success: true, existe: false });
-    return res.json({ success: true, existe: true, empleado: _formatearRespuestaEmpleado(emp) });
+    if (emp) return res.json({ success: true, existe: true, empleado: _formatearRespuestaEmpleado(emp) });
+
+    // Fallback: buscar en MongoDB (empleados creados desde módulo Turnos)
+    const mongoEmpresa = await _mongoEmpresaFromPg(empresaTarget);
+    if (mongoEmpresa) {
+      const empMongo = await Empleado.findOne({ documento: documento.trim(), empresaId: mongoEmpresa._id, estado: 'activo' }).populate('areaId', 'nombre');
+      if (empMongo) {
+        return res.json({
+          success: true, existe: true,
+          empleado: {
+            id:       empMongo._id.toString(),
+            nombre:   empMongo.nombre,
+            areaId:   empMongo.areaId?._id?.toString() || null,
+            areaNombre: empMongo.areaId?.nombre || empMongo.area || null,
+            cargo:    empMongo.cargo || null
+          }
+        });
+      }
+    }
+    return res.json({ success: true, existe: false });
   } catch (err) {
     console.error('Error buscarPorDocumento:', err);
     res.status(500).json({ success: false, error: 'Error al buscar empleado' });

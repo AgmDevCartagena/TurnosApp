@@ -36,6 +36,8 @@
     .alert-error  {background:#fce4ec;color:#c62828;border:1px solid #f48fb1}
     .alert-info   {background:#e3f2fd;color:#1565c0;border:1px solid #90caf9}
     .alert-hidden {display:none}
+    /* Toast flotante — siempre encima de modales */
+    #alertGlobal{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;min-width:300px;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.25);margin-bottom:0}
     /* Tabs */
     .tabs{display:flex;gap:4px;background:#fff;border-radius:10px;padding:5px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:20px;flex-wrap:wrap}
     .tab-btn{padding:9px 18px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:.87em;font-weight:600;color:#555;transition:all .2s}
@@ -168,9 +170,9 @@
       <div class="tbl-wrap">
         <table>
           <thead><tr>
-            <th>Fecha</th><th>Hora Salida</th><th>Título</th><th>Tipo</th><th>Conductor</th><th>Placa</th><th>Estado</th><th>Personas</th><th>Acciones</th>
+            <th>Fecha</th><th>Hora Salida</th><th>Título</th><th>Tipo</th><th>Conductor</th><th>Placa</th><th>Estado</th><th>Personas</th><th>Observaciones</th><th>Acciones</th>
           </tr></thead>
-          <tbody id="tbProgramaciones"><tr><td colspan="9" style="text-align:center;padding:24px;color:#999">Cargando...</td></tr></tbody>
+          <tbody id="tbProgramaciones"><tr><td colspan="10" style="text-align:center;padding:24px;color:#999">Cargando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -236,6 +238,8 @@
       <div><strong>Placa:</strong> <span id="dtPlaca">—</span></div>
       <div><strong>Estado:</strong> <span id="dtEstado">—</span></div>
       <div><strong>Tipo:</strong> <span id="dtTipo">—</span></div>
+      <div id="dtRespRow" style="display:none"><strong>Registrado por:</strong> <span id="dtResponsable" style="color:#1565c0;font-weight:600"></span></div>
+      <div id="dtObsRow" style="display:none;grid-column:1/-1;border-top:1px solid #d0e4ff;padding-top:8px;margin-top:4px"><strong>Observaciones:</strong> <span id="dtObservaciones" style="color:#444;word-break:break-word;overflow-wrap:anywhere;white-space:pre-wrap"></span></div>
     </div>
 
     <div class="tabs" style="margin-bottom:14px">
@@ -256,7 +260,7 @@
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>#</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo</th><th>Recogida/Destino</th><th>Merienda</th><th>Cena</th><th>Responsable</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>#</th><th>Nombre</th><th>Área</th><th>Horario</th><th>Tipo</th><th>Recogida/Destino</th><th>Merienda</th><th>Cena</th><th>Resp. Alim.</th><th title="Estado de aprobación por área de cada persona">Aprobación ℹ️</th><th>Acciones</th></tr></thead>
           <tbody id="tbDetalles"><tr><td colspan="11" style="text-align:center;padding:20px;color:#999">Sin personas</td></tr></tbody>
         </table>
       </div>
@@ -285,7 +289,7 @@
 <!-- ══ MODAL: CREAR PROGRAMACIÓN ══ -->
 <div id="modalCrear" class="modal-overlay">
   <div class="modal-box">
-    <h2>+ Nueva Programación de Transporte</h2>
+    <h2 id="nModalTitulo">+ Nueva Programación de Transporte</h2>
     <div id="nFormAlert" class="form-alert-error" role="alert"></div>
     <div class="form-row">
       <div class="form-group">
@@ -342,7 +346,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="_clearFormErrors();cerrarModal('modalCrear')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarProgramacion()">Crear Programación</button>
+      <button id="nBtnGuardar" class="btn btn-primary" onclick="guardarProgramacion()">Crear Programación</button>
     </div>
   </div>
 </div>
@@ -579,7 +583,7 @@
     <input type="hidden" id="vehiculoEditId">
     <div class="form-row">
       <div class="form-group"><label>Placa *</label><input type="text" id="vPlaca" style="text-transform:uppercase"></div>
-      <div class="form-group"><label>Capacidad</label><input type="number" id="vCapacidad" min="1"></div>
+      <div class="form-group"><label>Capacidad</label><input type="number" id="vCapacidad" min="1" max="100" placeholder="Máx. 100"></div>
     </div>
     <div class="form-group" style="margin-bottom:12px"><label>Descripción</label><input type="text" id="vDescripcion"></div>
     <div class="modal-footer">
@@ -680,6 +684,7 @@ function actualizarDiaSemana() {
 // ══ Estado global ══
 let sesion         = null;
 let programacionActualId = null;
+let programacionActualEmpresaId = null;
 let programaciones = [];
 let conductores    = [];
 let vehiculos      = [];
@@ -777,7 +782,7 @@ async function cargarProgramaciones() {
   if (!d.success) return;
   programaciones = d.programaciones;
   const tb = document.getElementById('tbProgramaciones');
-  if (!programaciones.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#999">No hay programaciones</td></tr>'; return; }
+  if (!programaciones.length) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#999">No hay programaciones</td></tr>'; return; }
   tb.innerHTML = programaciones.map(p => {
     const fStr = formatFechaCorta(p.fechaStr);
     const cond  = p.conductor ? p.conductor.nombre : (p.conductorManual || '—');
@@ -791,8 +796,10 @@ async function cargarProgramaciones() {
       <td>${placa}</td>
       <td><span class="badge badge-${p.estado}">${p.estado}</span></td>
       <td>${p._count?.detalles || 0}</td>
+      <td style="max-width:160px;width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#555;font-size:.82em" title="${p.observaciones || ''}">${p.observaciones ? _escHtml(p.observaciones) : '—'}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm btn-outline" onclick="abrirDetalle('${p.id}')">Ver</button>
+        ${['borrador','validada'].includes(p.estado) ? `<button class="btn btn-sm btn-secondary" style="margin-left:4px" onclick="abrirModalEditar('${p.id}')">✏️</button>` : ''}
         ${['borrador','validada'].includes(p.estado) ? `<button class="btn btn-sm btn-danger" onclick="eliminarProgramacion('${p.id}')">✕</button>` : ''}
       </td>
     </tr>`;
@@ -805,15 +812,25 @@ async function abrirDetalle(id) {
   const d = await r.json();
   if (!d.success) { showAlert('Error al cargar programación', 'error'); return; }
   const p = d.programacion;
+  programacionActualEmpresaId = p.empresaId || null;
   const fechaStr = p.fechaStr || (p.fecha ? String(p.fecha).slice(0, 10) : '');
   const fechaFmt = formatFechaConDia(fechaStr);
-  document.getElementById('detalleTitulo').textContent  = `📋 ${p.titulo || 'Programación ' + fechaStr}`;
+  const _meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const [_y,_m,_d] = (fechaStr || '').split('-');
+  const _shortDate  = fechaStr ? `${parseInt(_d)} ${_meses[parseInt(_m)-1]}` : '';
+  document.getElementById('detalleTitulo').textContent  = `📋 ${(p.titulo || 'Programación')}${_shortDate ? ' ' + _shortDate : ''}`;
   document.getElementById('dtFecha').textContent        = fechaFmt || '—';
   document.getElementById('dtHora').textContent         = p.horaSalida;
   document.getElementById('dtConductor').textContent    = p.conductor ? p.conductor.nombre : (p.conductorManual || 'Sin asignar');
   document.getElementById('dtPlaca').textContent        = p.vehiculo  ? p.vehiculo.placa   : (p.placaManual    || 'Sin asignar');
   document.getElementById('dtEstado').innerHTML         = `<span class="badge badge-${p.estado}">${p.estado}</span>`;
   document.getElementById('dtTipo').textContent         = p.tipoMovimiento;
+  const resp = p.creadoPorNombre?.trim();
+  document.getElementById('dtResponsable').textContent  = resp || '';
+  document.getElementById('dtRespRow').style.display    = resp ? '' : 'none';
+  const obs = p.observaciones?.trim();
+  document.getElementById('dtObservaciones').textContent = obs || '';
+  document.getElementById('dtObsRow').style.display     = obs ? 'block' : 'none';
   renderDetalles(p.detalles || []);
   abrirModal('modalDetalle');
   // reset tabs
@@ -1169,8 +1186,40 @@ function _resetFormProgramacion() {
   _clearFormErrors();
 }
 
+let _editandoProgramacionId = null;
+
 function abrirModalCrear() {
+  _editandoProgramacionId = null;
   _resetFormProgramacion();
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('nFecha').min = hoy;
+  document.getElementById('nModalTitulo').textContent = '+ Nueva Programación de Transporte';
+  document.getElementById('nBtnGuardar').textContent  = 'Crear Programación';
+  abrirModal('modalCrear');
+}
+
+function abrirModalEditar(id) {
+  const p = programaciones.find(x => x.id === id);
+  if (!p) { showAlert('Programación no encontrada', 'error'); return; }
+  _editandoProgramacionId = id;
+  _resetFormProgramacion();
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('nFecha').min             = hoy;
+  const fechaVal = p.fechaStr || (p.fecha ? String(p.fecha).slice(0, 10) : '');
+  document.getElementById('nFecha').value            = fechaVal;
+  document.getElementById('nHoraSalida').value       = p.horaSalida  || '19:00';
+  document.getElementById('nTipoMov').value          = p.tipoMovimiento || 'salida';
+  document.getElementById('nConductorId').value      = p.conductorId  || '';
+  document.getElementById('nConductorManual').value  = p.conductorManual || '';
+  document.getElementById('nVehiculoId').value       = p.vehiculoId   || '';
+  document.getElementById('nPlacaManual').value      = p.placaManual  || '';
+  document.getElementById('nTitulo').value           = p.titulo       || '';
+  document.getElementById('nObservaciones').value    = p.observaciones || '';
+  _updateCounter('nTitulo',        'nTituloCounter', 150);
+  _updateCounter('nObservaciones', 'nObsCounter',    500);
+  actualizarDiaSemana();
+  document.getElementById('nModalTitulo').textContent = '✏️ Editar Programación';
+  document.getElementById('nBtnGuardar').textContent  = 'Guardar Cambios';
   abrirModal('modalCrear');
 }
 
@@ -1192,13 +1241,16 @@ async function guardarProgramacion() {
   const btnGuardar = document.querySelector('#modalCrear .btn-primary');
   if (btnGuardar) btnGuardar.disabled = true;
   try {
-    const r = await POST('/api/transporte/programaciones', body);
+    const r = _editandoProgramacionId
+      ? await PUT(`/api/transporte/programaciones/${_editandoProgramacionId}`, body)
+      : await POST('/api/transporte/programaciones', body);
     const d = await r.json();
     if (d.success) {
       _resetFormProgramacion();
       cerrarModal('modalCrear');
       cargarProgramaciones();
-      showAlert('Programación creada', 'success');
+      showAlert(_editandoProgramacionId ? 'Programación actualizada' : 'Programación creada', 'success');
+      _editandoProgramacionId = null;
     } else {
       if (d.fields && Object.keys(d.fields).length > 0) {
         _showFormErrors(d.fields);
@@ -1326,7 +1378,8 @@ async function buscarEmpleadoDoc() {
   ind.innerHTML = '<span style="color:#888">🔍 Buscando…</span>';
   _empleadoEncontrado = null;
   try {
-    const r = await API(`/api/empleados/buscar?documento=${encodeURIComponent(doc)}`);
+    const qs = programacionActualEmpresaId ? `&empresaId=${encodeURIComponent(programacionActualEmpresaId)}` : '';
+    const r = await API(`/api/empleados/buscar?documento=${encodeURIComponent(doc)}${qs}`);
     const d = await r.json();
     if (!d.success) { ind.innerHTML = '<span style="color:#c62828">⚠️ Error al buscar empleado</span>'; return; }
     const nom = document.getElementById('pNombre');
@@ -1501,19 +1554,28 @@ async function cargarCatalogos() {
   el.innerHTML = conductores.length ? conductores.map(c => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0">
       <span>🧑‍✈️ ${c.nombre}${c.documento?' · '+c.documento:''}</span>
-      <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('conductor','${c.id}','inactivo')">Inactivar</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm btn-outline" onclick="abrirModalConductor('${c.id}')">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('conductor','${c.id}','inactivo')">Inactivar</button>
+      </div>
     </div>`).join('') : '<p style="color:#999;font-size:.85em">Sin conductores</p>';
   const elv = document.getElementById('listaVehiculos');
   elv.innerHTML = vehiculos.length ? vehiculos.map(v => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0">
-      <span>🚗 <strong>${v.placa}</strong>${v.descripcion?' · '+v.descripcion:''}</span>
-      <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('vehiculo','${v.id}','inactivo')">Inactivar</button>
+      <span>🚗 <strong>${v.placa}</strong>${v.descripcion?' · '+v.descripcion:''}${v.capacidad?' ('+v.capacidad+' pax)':''}</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm btn-outline" onclick="abrirModalVehiculo('${v.id}')">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('vehiculo','${v.id}','inactivo')">Inactivar</button>
+      </div>
     </div>`).join('') : '<p style="color:#999;font-size:.85em">Sin vehículos</p>';
   const elu = document.getElementById('listaUbicaciones');
   elu.innerHTML = ubicaciones.length ? ubicaciones.map(u => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f0f0f0">
       <span>📍 ${u.nombre}</span>
-      <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('ubicacion','${u.id}','inactivo')">Inactivar</button>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm btn-outline" onclick="abrirModalUbicacion('${u.id}')">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="cambiarEstadoCat('ubicacion','${u.id}','inactivo')">Inactivar</button>
+      </div>
     </div>`).join('') : '<p style="color:#999;font-size:.85em">Sin ubicaciones</p>';
 }
 
@@ -1522,16 +1584,29 @@ async function cambiarEstadoCat(tipo, id, estado) {
   cargarCatalogos();
 }
 
+const _NOMBRE_RE = /^[A-Za-zÀ-ÿ0-9\s.,\-']+$/;
+const _PLACA_RE  = /^[A-Z0-9\-]{2,10}$/;
+
 // ══ CONDUCTORES ══
 function abrirModalConductor(id) {
   document.getElementById('conductorEditId').value = id || '';
   document.getElementById('modalConductorTitulo').textContent = id ? 'Editar Conductor' : '+ Conductor';
-  document.getElementById('cNombre').value = document.getElementById('cDocumento').value = document.getElementById('cTelefono').value = '';
+  if (id) {
+    const c = conductores.find(x => x.id === id);
+    document.getElementById('cNombre').value    = c?.nombre    || '';
+    document.getElementById('cDocumento').value = c?.documento || '';
+    document.getElementById('cTelefono').value  = c?.telefono  || '';
+  } else {
+    document.getElementById('cNombre').value = document.getElementById('cDocumento').value = document.getElementById('cTelefono').value = '';
+  }
   abrirModal('modalConductor');
 }
 async function guardarConductor() {
   const id = document.getElementById('conductorEditId').value;
-  const body = { nombre: document.getElementById('cNombre').value, documento: document.getElementById('cDocumento').value, telefono: document.getElementById('cTelefono').value };
+  const nombre = document.getElementById('cNombre').value.trim();
+  if (!nombre) { showAlert('El nombre es requerido', 'error'); return; }
+  if (!_NOMBRE_RE.test(nombre)) { showAlert('El nombre solo puede contener letras, números, espacios, puntos, comas y guiones', 'error'); return; }
+  const body = { nombre, documento: document.getElementById('cDocumento').value, telefono: document.getElementById('cTelefono').value };
   const r = id ? await PUT(`/api/transporte/conductores/${id}`, body) : await POST('/api/transporte/conductores', body);
   const d = await r.json();
   if (d.success) { cerrarModal('modalConductor'); cargarCatalogos(); cargarCatalogosBase(); showAlert('Conductor guardado', 'success'); }
@@ -1539,14 +1614,31 @@ async function guardarConductor() {
 }
 
 // ══ VEHÍCULOS ══
-function abrirModalVehiculo() {
-  document.getElementById('vehiculoEditId').value = '';
-  document.getElementById('vPlaca').value = document.getElementById('vDescripcion').value = document.getElementById('vCapacidad').value = '';
+function abrirModalVehiculo(id) {
+  document.getElementById('vehiculoEditId').value = id || '';
+  document.getElementById('modalVehiculoTitulo').textContent = id ? 'Editar Vehículo' : '+ Vehículo';
+  if (id) {
+    const v = vehiculos.find(x => x.id === id);
+    document.getElementById('vPlaca').value       = v?.placa       || '';
+    document.getElementById('vDescripcion').value = v?.descripcion || '';
+    document.getElementById('vCapacidad').value   = v?.capacidad  != null ? v.capacidad : '';
+  } else {
+    document.getElementById('vPlaca').value = document.getElementById('vDescripcion').value = document.getElementById('vCapacidad').value = '';
+  }
   abrirModal('modalVehiculo');
 }
 async function guardarVehiculo() {
   const id = document.getElementById('vehiculoEditId').value;
-  const body = { placa: document.getElementById('vPlaca').value, descripcion: document.getElementById('vDescripcion').value, capacidad: document.getElementById('vCapacidad').value };
+  const placa = document.getElementById('vPlaca').value.trim().toUpperCase();
+  const descripcion = document.getElementById('vDescripcion').value.trim();
+  const capacidadStr = document.getElementById('vCapacidad').value;
+  if (!placa) { showAlert('La placa es requerida', 'error'); return; }
+  if (!_PLACA_RE.test(placa)) { showAlert('La placa solo puede contener letras y números (máx. 10 caracteres, sin caracteres especiales)', 'error'); return; }
+  if (capacidadStr !== '') {
+    const cap = parseInt(capacidadStr, 10);
+    if (isNaN(cap) || cap < 1 || cap > 100) { showAlert('La capacidad debe ser un número entero entre 1 y 100', 'error'); return; }
+  }
+  const body = { placa, descripcion, capacidad: capacidadStr !== '' ? capacidadStr : undefined };
   const r = id ? await PUT(`/api/transporte/vehiculos/${id}`, body) : await POST('/api/transporte/vehiculos', body);
   const d = await r.json();
   if (d.success) { cerrarModal('modalVehiculo'); cargarCatalogos(); cargarCatalogosBase(); showAlert('Vehículo guardado', 'success'); }
@@ -1554,14 +1646,24 @@ async function guardarVehiculo() {
 }
 
 // ══ UBICACIONES ══
-function abrirModalUbicacion() {
-  document.getElementById('ubicacionEditId').value = '';
-  document.getElementById('uNombre').value = document.getElementById('uDescripcion').value = '';
+function abrirModalUbicacion(id) {
+  document.getElementById('ubicacionEditId').value = id || '';
+  document.getElementById('modalUbicacionTitulo').textContent = id ? 'Editar Ubicación' : '+ Ubicación';
+  if (id) {
+    const u = ubicaciones.find(x => x.id === id);
+    document.getElementById('uNombre').value      = u?.nombre      || '';
+    document.getElementById('uDescripcion').value = u?.descripcion || '';
+  } else {
+    document.getElementById('uNombre').value = document.getElementById('uDescripcion').value = '';
+  }
   abrirModal('modalUbicacion');
 }
 async function guardarUbicacion() {
   const id = document.getElementById('ubicacionEditId').value;
-  const body = { nombre: document.getElementById('uNombre').value, descripcion: document.getElementById('uDescripcion').value };
+  const nombre = document.getElementById('uNombre').value.trim();
+  if (!nombre) { showAlert('El nombre es requerido', 'error'); return; }
+  if (!_NOMBRE_RE.test(nombre)) { showAlert('El nombre solo puede contener letras, números, espacios, puntos, comas y guiones', 'error'); return; }
+  const body = { nombre, descripcion: document.getElementById('uDescripcion').value };
   const r = id ? await PUT(`/api/transporte/ubicaciones/${id}`, body) : await POST('/api/transporte/ubicaciones', body);
   const d = await r.json();
   if (d.success) { cerrarModal('modalUbicacion'); cargarCatalogos(); cargarCatalogosBase(); showAlert('Ubicación guardada', 'success'); }

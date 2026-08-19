@@ -162,7 +162,9 @@ exports._validarMotivoRechazo = _validarMotivoRechazo;
  * @returns {object} errores por campo. Objeto vacío si todo es válido.
  */
 const TIPOS_MOVIMIENTO_PERMITIDOS = ['salida', 'recogida', 'retorno'];
-const HTML_RE = /<[^>]+>/;
+const HTML_RE     = /<[^>]+>/;
+const TEXTO_RE    = /^[A-Za-z\u00c0-\u00ff0-9\s.,:\-'()\/\u00e1\u00e9\u00ed\u00f3\u00fa\u00c1\u00c9\u00cd\u00d3\u00da\u00f1\u00d1]+$/;
+const TEXTO_MSG   = 'Solo se permiten letras, n\u00fameros, espacios y los s\u00edmbolos: . , : - \' ( ) /';
 
 function _validarCamposProgramacion(body) {
   const errors = {};
@@ -203,12 +205,12 @@ function _validarCamposProgramacion(body) {
     }
   }
 
-  // ── conductorManual (opcional, 3-100 chars, sin HTML) ───────────────────────
+  // ── conductorManual (opcional, 3-100 chars, solo texto seguro) ────────────────
   if (body.conductorManual !== undefined && body.conductorManual !== null) {
     const v = String(body.conductorManual).trim();
     if (v !== '') {
-      if (HTML_RE.test(v)) {
-        errors.conductorManual = 'El conductor manual contiene caracteres no permitidos.';
+      if (HTML_RE.test(v) || !TEXTO_RE.test(v)) {
+        errors.conductorManual = `Conductor manual inv\u00e1lido. ${TEXTO_MSG}`;
       } else if (v.length < 3) {
         errors.conductorManual = 'El conductor manual debe tener al menos 3 caracteres.';
       } else if (v.length > 100) {
@@ -217,36 +219,34 @@ function _validarCamposProgramacion(body) {
     }
   }
 
-  // ── placaManual (opcional, máx 20 chars, sin HTML) ──────────────────────────
+  // ── placaManual (opcional, máx 20 chars, solo alfanumérico+guión) ─────────────
   if (body.placaManual !== undefined && body.placaManual !== null) {
-    const v = String(body.placaManual).trim();
+    const v = String(body.placaManual).trim().toUpperCase();
     if (v !== '') {
-      if (HTML_RE.test(v)) {
-        errors.placaManual = 'La placa contiene caracteres no permitidos.';
-      } else if (v.length > 20) {
-        errors.placaManual = 'La placa no puede superar 20 caracteres.';
+      if (!/^[A-Z0-9\-]{2,20}$/.test(v)) {
+        errors.placaManual = 'La placa solo puede contener letras, números y guiones (máx. 20 caracteres).';
       }
     }
   }
 
-  // ── titulo (opcional, máx 150 chars, sin HTML) ──────────────────────────────
+  // ── titulo (opcional, máx 150 chars, solo texto seguro) ───────────────────────
   if (body.titulo !== undefined && body.titulo !== null) {
     const v = String(body.titulo).trim();
     if (v !== '') {
-      if (HTML_RE.test(v)) {
-        errors.titulo = 'El título contiene caracteres no permitidos.';
+      if (HTML_RE.test(v) || !TEXTO_RE.test(v)) {
+        errors.titulo = `Título inválido. ${TEXTO_MSG}`;
       } else if (v.length > 150) {
         errors.titulo = 'El título no puede superar 150 caracteres.';
       }
     }
   }
 
-  // ── observaciones (opcional, máx 500 chars, sin HTML) ──────────────────────
+  // ── observaciones (opcional, máx 500 chars, solo texto seguro) ────────────────
   if (body.observaciones !== undefined && body.observaciones !== null) {
     const v = String(body.observaciones).trim();
     if (v !== '') {
-      if (HTML_RE.test(v)) {
-        errors.observaciones = 'Las observaciones contienen caracteres no permitidos.';
+      if (HTML_RE.test(v) || !TEXTO_RE.test(v)) {
+        errors.observaciones = `Observaciones inválidas. ${TEXTO_MSG}`;
       } else if (v.length > 500) {
         errors.observaciones = 'Las observaciones no pueden superar 500 caracteres.';
       }
@@ -338,13 +338,22 @@ exports.listarConductores = async (req, res) => {
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
 };
 
+const NOMBRE_CAT_RE = /^[A-Za-zÀ-ÿ0-9\s.,\-']+$/;
+const PLACA_RE      = /^[A-Z0-9\-]{2,10}$/;
+const CAP_MAX       = 100;
+
 exports.crearConductor = async (req, res) => {
   try {
     const eid = empresaFilter(req);
     const { nombre, documento, telefono } = req.body;
     if (!nombre?.trim()) return res.status(400).json({ success: false, error: 'Nombre requerido' });
+    const nombreNorm = nombre.trim();
+    if (!NOMBRE_CAT_RE.test(nombreNorm))
+      return res.status(400).json({ success: false, error: 'El nombre solo puede contener letras, números, espacios, puntos, comas y guiones' });
+    if (nombreNorm.length < 2 || nombreNorm.length > 100)
+      return res.status(400).json({ success: false, error: 'El nombre debe tener entre 2 y 100 caracteres' });
     const c = await prisma.conductorTransporte.create({
-      data: { empresaId: eid, nombre: nombre.trim(), documento: documento?.trim() || null, telefono: telefono?.trim() || null }
+      data: { empresaId: eid, nombre: nombreNorm, documento: documento?.trim() || null, telefono: telefono?.trim() || null }
     });
     res.status(201).json({ success: true, conductor: c });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
@@ -357,7 +366,14 @@ exports.actualizarConductor = async (req, res) => {
     if (!c || c.empresaId !== eid) return res.status(404).json({ success: false, error: 'Conductor no encontrado' });
     const { nombre, documento, telefono, estado } = req.body;
     const data = {};
-    if (nombre)    data.nombre    = nombre.trim();
+    if (nombre) {
+      const nombreNorm = nombre.trim();
+      if (!NOMBRE_CAT_RE.test(nombreNorm))
+        return res.status(400).json({ success: false, error: 'El nombre solo puede contener letras, números, espacios, puntos, comas y guiones' });
+      if (nombreNorm.length < 2 || nombreNorm.length > 100)
+        return res.status(400).json({ success: false, error: 'El nombre debe tener entre 2 y 100 caracteres' });
+      data.nombre = nombreNorm;
+    }
     if (documento) data.documento = documento.trim();
     if (telefono)  data.telefono  = telefono.trim();
     if (estado)    data.estado    = estado;
@@ -397,8 +413,16 @@ exports.crearVehiculo = async (req, res) => {
     const eid = empresaFilter(req);
     const { placa, descripcion, capacidad } = req.body;
     if (!placa?.trim()) return res.status(400).json({ success: false, error: 'Placa requerida' });
+    const placaNorm = placa.trim().toUpperCase();
+    if (!PLACA_RE.test(placaNorm))
+      return res.status(400).json({ success: false, error: 'La placa solo puede contener letras, números y guiones (máx. 10 caracteres, sin caracteres especiales)' });
+    if (capacidad !== undefined && capacidad !== null && capacidad !== '') {
+      const cap = Number(capacidad);
+      if (!Number.isInteger(cap) || cap < 1 || cap > CAP_MAX)
+        return res.status(400).json({ success: false, error: `La capacidad debe ser un número entero entre 1 y ${CAP_MAX}` });
+    }
     const v = await prisma.vehiculoTransporte.create({
-      data: { empresaId: eid, placa: placa.trim().toUpperCase(), descripcion: descripcion?.trim() || null, capacidad: capacidad ? Number(capacidad) : null }
+      data: { empresaId: eid, placa: placaNorm, descripcion: descripcion?.trim() || null, capacidad: capacidad ? Number(capacidad) : null }
     });
     res.status(201).json({ success: true, vehiculo: v });
   } catch (e) {
@@ -414,10 +438,20 @@ exports.actualizarVehiculo = async (req, res) => {
     if (!v || v.empresaId !== eid) return res.status(404).json({ success: false, error: 'Vehículo no encontrado' });
     const { placa, descripcion, capacidad, estado } = req.body;
     const data = {};
-    if (placa)       data.placa       = placa.trim().toUpperCase();
+    if (placa) {
+      const placaNorm = placa.trim().toUpperCase();
+      if (!PLACA_RE.test(placaNorm))
+        return res.status(400).json({ success: false, error: 'La placa solo puede contener letras, números y guiones (máx. 10 caracteres, sin caracteres especiales)' });
+      data.placa = placaNorm;
+    }
     if (descripcion) data.descripcion = descripcion.trim();
-    if (capacidad)   data.capacidad   = Number(capacidad);
-    if (estado)      data.estado      = estado;
+    if (capacidad !== undefined && capacidad !== null && capacidad !== '') {
+      const cap = Number(capacidad);
+      if (!Number.isInteger(cap) || cap < 1 || cap > CAP_MAX)
+        return res.status(400).json({ success: false, error: `La capacidad debe ser un número entero entre 1 y ${CAP_MAX}` });
+      data.capacidad = cap;
+    }
+    if (estado) data.estado = estado;
     const updated = await prisma.vehiculoTransporte.update({ where: { id: req.params.id }, data });
     res.json({ success: true, vehiculo: updated });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
@@ -454,8 +488,13 @@ exports.crearUbicacion = async (req, res) => {
     const eid = empresaFilter(req);
     const { nombre, descripcion } = req.body;
     if (!nombre?.trim()) return res.status(400).json({ success: false, error: 'Nombre requerido' });
+    const nombreTrim = nombre.trim();
+    if (!NOMBRE_CAT_RE.test(nombreTrim))
+      return res.status(400).json({ success: false, error: 'El nombre solo puede contener letras, números, espacios, puntos, comas y guiones' });
+    if (nombreTrim.length < 2 || nombreTrim.length > 100)
+      return res.status(400).json({ success: false, error: 'El nombre debe tener entre 2 y 100 caracteres' });
     const u = await prisma.ubicacionRuta.create({
-      data: { empresaId: eid, nombre: nombre.trim().toUpperCase(), descripcion: descripcion?.trim() || null }
+      data: { empresaId: eid, nombre: nombreTrim.toUpperCase(), descripcion: descripcion?.trim() || null }
     });
     res.status(201).json({ success: true, ubicacion: u });
   } catch (e) {
@@ -471,7 +510,14 @@ exports.actualizarUbicacion = async (req, res) => {
     if (!u || u.empresaId !== eid) return res.status(404).json({ success: false, error: 'Ubicación no encontrada' });
     const { nombre, descripcion, estado } = req.body;
     const data = {};
-    if (nombre)      data.nombre      = nombre.trim().toUpperCase();
+    if (nombre) {
+      const nombreTrim = nombre.trim();
+      if (!NOMBRE_CAT_RE.test(nombreTrim))
+        return res.status(400).json({ success: false, error: 'El nombre solo puede contener letras, números, espacios, puntos, comas y guiones' });
+      if (nombreTrim.length < 2 || nombreTrim.length > 100)
+        return res.status(400).json({ success: false, error: 'El nombre debe tener entre 2 y 100 caracteres' });
+      data.nombre = nombreTrim.toUpperCase();
+    }
     if (descripcion) data.descripcion = descripcion.trim();
     if (estado)      data.estado      = estado;
     const updated = await prisma.ubicacionRuta.update({ where: { id: req.params.id }, data });
@@ -624,9 +670,44 @@ exports.obtenerProgramacion = async (req, res) => {
     }));
 
     const fechaStr = _parseFechaStr(p.fecha);
-    res.json({ success: true, programacion: { ...p, detalles: detallesConFlags, fechaStr } });
+    let creadoPorNombre = null;
+    if (p.creadoPorId) {
+      try {
+        const u = await prisma.usuario.findUnique({ where: { id: p.creadoPorId }, select: { nombre: true } });
+        creadoPorNombre = u?.nombre || null;
+      } catch (_) {}
+    }
+    res.json({ success: true, programacion: { ...p, detalles: detallesConFlags, fechaStr, creadoPorNombre } });
   } catch (e) { res.status(e.status || 500).json({ success: false, error: e.message }); }
 };
+
+async function _verificarDisponibilidad(eid, { fecha, horaSalida, conductorId, vehiculoId, excluirId = null }) {
+  const estadosFiltro = { not: 'anulada' };
+  const baseWhere = { empresaId: eid, fecha: new Date(fecha), horaSalida, estado: estadosFiltro };
+  if (excluirId) baseWhere.id = { not: excluirId };
+
+  if (conductorId) {
+    const conflicto = await prisma.programacionTransporte.findFirst({
+      where: { ...baseWhere, conductorId },
+      select: { id: true, tipoMovimiento: true }
+    });
+    if (conflicto) throw Object.assign(
+      new Error(`El conductor ya tiene una programación el ${fecha} a las ${horaSalida}. Verifique antes de continuar.`),
+      { status: 409 }
+    );
+  }
+
+  if (vehiculoId) {
+    const conflicto = await prisma.programacionTransporte.findFirst({
+      where: { ...baseWhere, vehiculoId },
+      select: { id: true, tipoMovimiento: true }
+    });
+    if (conflicto) throw Object.assign(
+      new Error(`El vehículo ya tiene una programación el ${fecha} a las ${horaSalida}. Verifique antes de continuar.`),
+      { status: 409 }
+    );
+  }
+}
 
 exports.crearProgramacion = async (req, res) => {
   try {
@@ -648,6 +729,8 @@ exports.crearProgramacion = async (req, res) => {
       if (!veh || veh.empresaId !== eid) return res.status(400).json({ success: false, error: 'Vehículo no pertenece a la empresa' });
       if (veh.estado !== 'activo') return res.status(400).json({ success: false, error: 'El vehículo está inactivo' });
     }
+
+    await _verificarDisponibilidad(eid, { fecha, horaSalida, conductorId, vehiculoId });
 
     const p = await prisma.programacionTransporte.create({
       data: {
@@ -681,6 +764,15 @@ exports.actualizarProgramacion = async (req, res) => {
     }
 
     const { fecha, horaSalida, tipoMovimiento, titulo, conductorId, vehiculoId, placaManual, conductorManual, observaciones } = req.body;
+
+    await _verificarDisponibilidad(eid, {
+      fecha:       fecha      ?? _parseFechaStr(p.fecha),
+      horaSalida:  horaSalida ?? p.horaSalida,
+      conductorId: conductorId !== undefined ? conductorId : p.conductorId,
+      vehiculoId:  vehiculoId  !== undefined ? vehiculoId  : p.vehiculoId,
+      excluirId:   req.params.id
+    });
+
     const data = {};
     if (fecha)           data.fecha           = new Date(fecha);
     if (horaSalida)      data.horaSalida      = horaSalida;

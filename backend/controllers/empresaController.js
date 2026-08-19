@@ -5,6 +5,7 @@ const bcrypt   = require('bcryptjs');
 const prisma   = require('../lib/prisma');
 const Auditoria = require('../models/Auditoria'); // Auditoría permanece en MongoDB
 const { sanitizeSvg, deleteLogo } = require('../utils/logoUtils');
+const permisosService = require('../services/permisosService');
 
 /**
  * Registra una acción en el log de auditoría (MongoDB — intencional en arquitectura híbrida)
@@ -466,7 +467,12 @@ exports.listarMisEmpresas = async (req, res) => {
         orderBy: { nombre: 'asc' }
       });
       empresas = filas.map(e => ({ ...e, activa: e.id === (usuario.pgEmpresaId || null) }));
+    } else if (usuario.pgId) {
+      // Usuario con pgId: obtener todas sus empresas asignadas
+      const asignadas = await permisosService.listarEmpresasDeUsuario(usuario.pgId);
+      empresas = asignadas.map(e => ({ ...e, activa: e.id === usuario.pgEmpresaId }));
     } else {
+      // Fallback: solo empresa actual
       const pgEmpresaId = usuario.pgEmpresaId;
       if (!pgEmpresaId) return res.json({ success: true, empresas: [] });
       const e = await prisma.empresa.findUnique({

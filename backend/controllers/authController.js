@@ -32,7 +32,10 @@ function _buildSession(pgUser, empresaId, ctx) {
     rolEmpresa:        ctx?.rol?.codigo        || null,
     modulosPermitidos: pgUser.rol === 'super_admin'
       ? ['turnos', 'nomina', 'usuarios', 'parametros', 'reportes', 'empresas', 'areas']
-      : (ctx?.modulosActivos || []),
+      : pgUser.rol === 'admin'
+        // Admin de empresa: siempre hereda módulos de la empresa + gestión de usuarios/áreas
+        ? [...new Set([...(ctx?.modulosActivos || []), 'usuarios', 'areas'])]
+        : (ctx?.modulosActivos || []),
     areasPermitidas:   (ctx?.areasPermitidas   || []).map(a => a.nombre),
     areasPermitidasIds:(ctx?.areasPermitidas   || []).map(a => a.id),
     permisosEfectivos: ctx?.permisosEfectivos  || [],
@@ -185,9 +188,9 @@ async function _loginMongoDB(req, res, username, password) {
           });
           if (empresaMods.length > 0) {
             const pgMods = empresaMods.map(m => m.modulo.codigo);
-            // admin inherits all empresa modules; other roles keep the intersection
+            // admin inherits all empresa modules + siempre gestión de usuarios/áreas
             modulosPermitidos = usuario.rol === 'admin'
-              ? pgMods
+              ? [...new Set([...pgMods, 'usuarios', 'areas'])]
               : pgMods.filter(m => (usuario.modulosPermitidos || []).includes(m));
           }
         }
@@ -277,8 +280,10 @@ exports.verificarSesion = async (req, res) => {
                 adminMods = ue.modulos.map(m => m.modulo.codigo);
               }
             }
-            usuario.modulosPermitidos = adminMods;
-            req.session.usuario.modulosPermitidos = adminMods;
+            // Admin de empresa: siempre tiene acceso a gestión de usuarios y áreas
+            const ADMIN_REQUIRED = ['usuarios', 'areas'];
+            usuario.modulosPermitidos = [...new Set([...adminMods, ...ADMIN_REQUIRED])];
+            req.session.usuario.modulosPermitidos = usuario.modulosPermitidos;
           } else {
             // Other roles: keep only the intersection with empresa modules
             const modSet = new Set(modCodes);

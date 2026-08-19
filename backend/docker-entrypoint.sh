@@ -16,6 +16,10 @@ sleep 5
 echo "🐘 Aplicando migraciones de PostgreSQL..."
 npx prisma migrate deploy
 
+# Regenerar cliente Prisma para que coincida con el schema actual
+echo "⚙️  Regenerando Prisma Client..."
+npx prisma generate
+
 # Seed inicial de PostgreSQL (módulos base — idempotente)
 echo "🌱 Inicializando datos base de PostgreSQL..."
 node prisma/seed.js
