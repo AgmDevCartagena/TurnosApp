@@ -245,6 +245,19 @@
                 </ul>
                 <button class="module-button">Acceder a Transporte</button>
             </a>
+            <a href="/ia.html" class="module-card" id="modulo-ia" style="display:none;">
+                <div class="module-icon"><svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><defs><linearGradient id="gIA" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs><circle cx="36" cy="36" r="34" fill="url(#gIA)"/><circle cx="36" cy="32" r="12" fill="none" stroke="white" stroke-width="2.5"/><line x1="36" y1="20" x2="36" y2="16" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="36" y1="48" x2="36" y2="52" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="24" y1="28" x2="20" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="48" y1="28" x2="52" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="36" cy="32" r="4" fill="rgba(255,255,255,0.9)"/><path d="M30 52 Q36 56 42 52" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/></svg></div>
+                <h2 class="module-title">Asistente IA</h2>
+                <p class="module-description">Asistente inteligente de programación operativa. Detecta conflictos, sugiere mejoras y analiza indicadores.</p>
+                <ul class="module-features">
+                    <li>Chat con IA para consultas operativas</li>
+                    <li>Validación determinística de turnos</li>
+                    <li>Simulador de cambios sin persistencia</li>
+                    <li>Propuestas con aprobación humana</li>
+                    <li>Auditoría completa de interacciones</li>
+                </ul>
+                <button class="module-button">Acceder al Asistente IA</button>
+            </a>
             <a href="/areas.html" class="module-card" id="modulo-areas" style="display:none;">
                 <div class="module-icon"><svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><defs><linearGradient id="gAreas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#4338ca"/></linearGradient></defs><circle cx="36" cy="36" r="34" fill="url(#gAreas)"/><rect x="17" y="17" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.9)"/><rect x="40" y="17" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.65)"/><rect x="17" y="40" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.65)"/><rect x="40" y="40" width="15" height="15" rx="2.5" fill="rgba(255,255,255,0.9)"/></svg></div>
                 <h2 class="module-title">Gestión de Áreas</h2>
@@ -360,6 +373,11 @@
             const tieneTransporte = usuarioSesion.rol === 'super_admin' || modulosHabilitados.includes('transporte');
             if (tieneTransporte) {
                 document.getElementById('modulo-transporte').style.display = 'block';
+            }
+
+            // Mostrar módulo IA
+            if (usuarioSesion.rol === 'super_admin' || modulosHabilitados.includes('ia')) {
+                document.getElementById('modulo-ia').style.display = 'block';
             }
             
             // Mostrar solo áreas permitidas

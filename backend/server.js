@@ -192,6 +192,16 @@ app.get('/transporte.html', (req, res) => {
   res.sendFile(path.join(frontendPath, 'transporte.html'));
 });
 
+// Proteger acceso a ia.html
+app.get('/ia.html', (req, res) => {
+  if (!req.session || !req.session.autenticado) return res.redirect('/login.html');
+  const modulos = req.session.usuario.modulosPermitidos || [];
+  if (!modulos.includes('ia') && req.session.usuario.rol !== 'super_admin') {
+    return res.status(403).send('Acceso denegado al módulo IA.');
+  }
+  res.sendFile(path.join(frontendPath, 'ia.html'));
+});
+
 // Proteger acceso a dashboard.html
 app.get('/dashboard.html', (req, res) => {
   console.log('🔐 Acceso a dashboard.html - Autenticado:', !!req.session?.autenticado);
