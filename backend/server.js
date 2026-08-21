@@ -17,6 +17,7 @@ const nominaDinamicaRoutes = require('./routes/nominaDinamica');
 const meRoutes             = require('./routes/me');
 const rolesRoutes          = require('./routes/roles');
 const transporteRoutes     = require('./routes/transporte');
+const iaRoutes             = require('./routes/ia');
 const { requireAuth, requireModulo } = require('./middlewares/auth');
 const { requireTenant } = require('./middlewares/tenant');
 
@@ -122,6 +123,7 @@ app.use('/api/empleados', requireAuth, requireTenant, empleadosRoutes);
 app.use('/api/turnos',    requireAuth, requireTenant, requireModulo('turnos'), turnosRoutes);
 app.use('/api/nomina',    requireAuth, requireTenant, requireModulo('nomina'), nominaRoutes);
 app.use('/api/nomina',    requireAuth, requireTenant, nominaDinamicaRoutes);
+app.use('/api/ia',        iaRoutes);
 
 // ── Archivos de logos subidos por usuarios ──────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
