@@ -450,7 +450,7 @@ exports.asignarTurnosTaquilleros = async (req, res) => {
           cronogramaItems: nuevoTurno.cronogramaDetallado?.length || 0
         });
 
-        const turnoCreado = await turnosService.crearTurno(nuevoTurno, req.empresaId);
+        const turnoCreado = await turnosService.crearTurno(nuevoTurno, req.empresaId, req.pgEmpresaId);
 
         console.log('Turno con CRONOGRAMA DETALLADO creado exitosamente:', {
           id: turnoCreado._id,
@@ -601,7 +601,7 @@ exports.asignarTurnosAdministrativos = async (req, res) => {
           fechaInicio: inicio,
           fechaFin: fin,
           cronogramaDetallado: cronograma
-        });
+        }, req.empresaId, req.pgEmpresaId);
 
         resultados.push({
           empleadoId,

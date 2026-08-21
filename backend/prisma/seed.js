@@ -19,6 +19,7 @@ async function main() {
     { codigo: 'areas',      nombre: 'Áreas',        descripcion: 'Administración de áreas' },
     { codigo: 'transporte',              nombre: 'Transporte',              descripcion: 'Programación de transporte y rutas del personal' },
     { codigo: 'programacion_operativa',  nombre: 'Programación Operativa',  descripcion: 'Programación de alimentación, meriendas y cenas' },
+    { codigo: 'ia',                      nombre: 'Asistente IA',            descripcion: 'Asistente Inteligente de Programación Operativa' },
   ];
   const modulosMap = {};
   for (const m of MODULOS_DEF) {
@@ -97,6 +98,15 @@ async function main() {
     { orden:116, codigo: 'transporte.configurar_rutas',             modulo: 'transporte', recurso: 'transporte', accion: 'configurar_rutas', nombre: 'Configurar rutas y catálogos',          descripcion: 'Permite gestionar conductores, vehículos, ubicaciones y config de turnos.' },
     { orden:117, codigo: 'transporte.importar',                     modulo: 'transporte', recurso: 'transporte', accion: 'importar',         nombre: 'Importar listado desde WhatsApp',       descripcion: 'Permite parsear e importar listados de personal desde texto libre.' },
     { orden:118, codigo: 'transporte.registrar_novedad',            modulo: 'transporte', recurso: 'transporte', accion: 'registrar_novedad',nombre: 'Registrar novedades operativas',        descripcion: 'Permite registrar novedades en las programaciones de transporte.' },
+    // ── IA ──
+    { orden:120, codigo: 'ia.consultar',            modulo: 'ia', recurso: 'ia', accion: 'consultar',            nombre: 'Consultar Asistente IA',           descripcion: 'Permite utilizar el asistente conversacional y consultar indicadores autorizados.' },
+    { orden:121, codigo: 'ia.validar_programacion', modulo: 'ia', recurso: 'ia', accion: 'validar_programacion', nombre: 'Validar programación con IA',      descripcion: 'Permite ejecutar validaciones determinísticas sobre una programación.' },
+    { orden:122, codigo: 'ia.generar_propuesta',    modulo: 'ia', recurso: 'ia', accion: 'generar_propuesta',    nombre: 'Generar propuesta IA',             descripcion: 'Permite crear escenarios y propuestas de programación en estado borrador.' },
+    { orden:123, codigo: 'ia.simular_cambios',      modulo: 'ia', recurso: 'ia', accion: 'simular_cambios',      nombre: 'Simular cambios de programación',  descripcion: 'Permite simular reemplazos o cambios sin persistirlos en el sistema.' },
+    { orden:124, codigo: 'ia.ver_costos',           modulo: 'ia', recurso: 'ia', accion: 'ver_costos',           nombre: 'Ver impacto económico IA',         descripcion: 'Permite consultar el impacto económico estimado de una propuesta.' },
+    { orden:125, codigo: 'ia.aprobar_propuesta',    modulo: 'ia', recurso: 'ia', accion: 'aprobar_propuesta',    nombre: 'Aprobar propuesta IA',             descripcion: 'Permite aprobar y aplicar una propuesta generada por el asistente.' },
+    { orden:126, codigo: 'ia.ver_auditoria',        modulo: 'ia', recurso: 'ia', accion: 'ver_auditoria',        nombre: 'Ver auditoría IA',                 descripcion: 'Permite consultar el registro de ejecuciones, consumo y decisiones del módulo IA.' },
+    { orden:127, codigo: 'ia.configurar',           modulo: 'ia', recurso: 'ia', accion: 'configurar',           nombre: 'Configurar módulo IA',             descripcion: 'Permite administrar la configuración del módulo IA de la empresa.' },
   ];
 
   const permisosMap = {};

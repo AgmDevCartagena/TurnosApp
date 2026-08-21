@@ -38,6 +38,7 @@ enum TipoModulo {
   areas
   transporte
   programacion_operativa
+  ia
 }
 
 enum EstadoProgramacionOp {
@@ -188,6 +189,7 @@ model Empresa {
   vehiculos             VehiculoTransporte[]
   ubicaciones           UbicacionRuta[]
   programacionesTransporte ProgramacionTransporte[]
+  configuracionIA          ConfiguracionIA?
 
   @@index([estado])
   @@map("empresas")
@@ -825,4 +827,133 @@ model NovedadOperativa {
   @@index([programacionId])
   @@index([empresaId, fecha])
   @@map("novedades_operativas")
+}
+
+// ─── IA ────────────────────────────────────────────────────────────────────────
+
+enum EstadoPropuestaIA {
+  borrador
+  validada
+  aprobada
+  aplicada
+  rechazada
+  expirada
+}
+
+enum TipoOperacionIA {
+  validacion
+  generacion_propuesta
+  simulacion
+  consulta_asistente
+  explicacion
+  aprobacion
+  aplicacion
+}
+
+enum ResultadoOperacionIA {
+  exitoso
+  fallido
+  rechazado
+  bloqueado
+}
+
+model ConfiguracionIA {
+  id                      String   @id @default(uuid())
+  empresaId               String   @unique
+  habilitada              Boolean  @default(false)
+  proveedor               String   @default("openai") @db.VarChar(50)
+  modelo                  String   @default("gpt-4o-mini") @db.VarChar(100)
+  temperatura             Decimal  @default(0.2) @db.Decimal(3, 2)
+  limiteTokensRespuesta   Int      @default(2000)
+  limiteMensualTokens     Int?
+  permitirDatosNomina     Boolean  @default(false)
+  permitirNombres         Boolean  @default(false)
+  retencionAuditoriaDias  Int      @default(90)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@map("configuracion_ia")
+}
+
+model PropuestaProgramacionIA {
+  id                   String             @id @default(uuid())
+  empresaId            String
+  areaId               String?
+  periodoInicio        DateTime           @db.Date
+  periodoFin           DateTime           @db.Date
+  nombre               String             @db.VarChar(200)
+  objetivo             String             @db.VarChar(60)
+  estado               EstadoPropuestaIA  @default(borrador)
+  restricciones        Json
+  propuesta            Json
+  indicadoresBase      Json?
+  indicadoresPropuesta Json?
+  hallazgos            Json?
+  explicacion          String?
+  dataHash             String?            @db.VarChar(64)
+  creadoPorId          String
+  aprobadoPorId        String?
+  fechaAprobacion      DateTime?
+  version              Int                @default(1)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([empresaId, periodoInicio, periodoFin])
+  @@index([empresaId, estado])
+  @@map("propuestas_programacion_ia")
+}
+
+model EjecucionIA {
+  id            String              @id @default(uuid())
+  empresaId     String
+  usuarioId     String
+  propuestaId   String?
+  tipoOperacion TipoOperacionIA
+  proveedor     String?             @db.VarChar(50)
+  modelo        String?             @db.VarChar(100)
+  promptHash    String?             @db.VarChar(64)
+  tokensEntrada Int?
+  tokensSalida  Int?
+  costoEstimado Decimal?            @db.Decimal(14, 6)
+  duracionMs    Int?
+  resultado     ResultadoOperacionIA
+  codigoError   String?             @db.VarChar(80)
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+
+  @@index([empresaId, createdAt])
+  @@index([empresaId, tipoOperacion])
+  @@map("ejecuciones_ia")
+}
+
+model ConversacionIA {
+  id        String   @id @default(uuid())
+  empresaId String
+  usuarioId String
+  titulo    String?  @db.VarChar(200)
+  estado    String   @default("activa") @db.VarChar(20)
+  contexto  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mensajes MensajeIA[]
+
+  @@index([empresaId, usuarioId, updatedAt])
+  @@map("conversaciones_ia")
+}
+
+model MensajeIA {
+  id             String   @id @default(uuid())
+  conversacionId String
+  rol            String   @db.VarChar(20)
+  contenido      String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  conversacion ConversacionIA @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@index([conversacionId, createdAt])
+  @@map("mensajes_ia")
 }

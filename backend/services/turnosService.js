@@ -9,12 +9,18 @@ const prisma   = require('../lib/prisma');
 
 /**
  * Sincroniza un turno en PostgreSQL tras guardarlo en MongoDB.
- * Fire-and-forget: silencia errores para no bloquear la operación principal.
+ * Fire-and-forget: errores no bloquean la operación principal pero se registran.
+ * @param {string} documentoEmpleado
+ * @param {Object} datosTurno
+ * @param {*} mongoDocId
+ * @param {string|null} pgEmpresaId - UUID de empresa en PostgreSQL (requerido para aislamiento)
  */
-async function syncTurnoPG(documentoEmpleado, datosTurno, mongoDocId) {
+async function syncTurnoPG(documentoEmpleado, datosTurno, mongoDocId, pgEmpresaId = null) {
   try {
+    const whereEmp = { documento: documentoEmpleado };
+    if (pgEmpresaId) whereEmp.empresaId = pgEmpresaId;
     const pgEmp = await prisma.empleado.findFirst({
-      where:  { documento: documentoEmpleado },
+      where:  whereEmp,
       select: { id: true, empresaId: true, areaId: true }
     });
     if (!pgEmp) return;
@@ -290,9 +296,10 @@ function obtenerNombreMes(numeroMes) {
  * SOBRESCRIBE las fechas solapadas del turno anterior
  * Si no existe, crea un nuevo documento
  */
-async function crearTurno(datosTurno, empresaId = null) {
+async function crearTurno(datosTurno, empresaId = null, pgEmpresaId = null) {
   try {
     const { empleadoId, nombreEmpleado, documentoEmpleado, cargo, salario, ...datosDelTurno } = datosTurno;
+    const pgEmpresaIdSync = pgEmpresaId || null;
     
     // Obtener las fechas del nuevo turno
     const nuevaFechaInicio = new Date(datosDelTurno.fechaInicio);
@@ -373,7 +380,9 @@ async function crearTurno(datosTurno, empresaId = null) {
       );
       
       await documentoTurno.save();
-      syncTurnoPG(documentoEmpleado, datosDelTurno, documentoTurno._id).catch(() => {});
+      syncTurnoPG(documentoEmpleado, datosDelTurno, documentoTurno._id, pgEmpresaIdSync).catch(err => {
+        console.warn('[sync-pg] Error actualizando turno:', JSON.stringify({ op: 'update', empresaId: pgEmpresaIdSync, mongoId: documentoTurno._id?.toString(), err: err.message, ts: new Date().toISOString() }));
+      });
       
       console.log(`📊 Historial actualizado: ${documentoTurno.historialTurnos.length} turnos en total`);
       
@@ -407,7 +416,9 @@ async function crearTurno(datosTurno, empresaId = null) {
       });
       
       await nuevoDocumento.save();
-      syncTurnoPG(documentoEmpleado, datosDelTurno, nuevoDocumento._id).catch(() => {});
+      syncTurnoPG(documentoEmpleado, datosDelTurno, nuevoDocumento._id, pgEmpresaIdSync).catch(err => {
+        console.warn('[sync-pg] Error creando turno:', JSON.stringify({ op: 'create', empresaId: pgEmpresaIdSync, mongoId: nuevoDocumento._id?.toString(), err: err.message, ts: new Date().toISOString() }));
+      });
       
       console.log(`✅ Documento creado con éxito, ID: ${nuevoDocumento._id}`);
       
@@ -513,12 +524,16 @@ async function obtenerTurnos(filtro = {}, empresaId = null) {
 }
 
 /**
- * Obtiene un turno específico por ID del empleado y ID del turno en el historial
+ * Obtiene un turno específico por ID del empleado y ID del turno en el historial.
+ * @param {string} turnoId - ID del turno en el historial
+ * @param {string|null} empresaId - MongoDB empresaId para aislamiento de tenant
  */
-async function obtenerTurnoPorId(turnoId) {
+async function obtenerTurnoPorId(turnoId, empresaId = null) {
   try {
+    const filtro = { 'historialTurnos._id': turnoId };
+    if (empresaId) filtro.empresaId = empresaId;
     // Buscar el documento que contiene este turno en su historial
-    const documento = await Turno.findOne({ 'historialTurnos._id': turnoId });
+    const documento = await Turno.findOne(filtro);
     
     if (!documento) {
       return null;
