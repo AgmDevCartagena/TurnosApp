@@ -334,23 +334,13 @@
             const modulosPermitidos = usuarioSesion.modulosPermitidos || [];
             
             // Configurar módulo de turnos
-            const moduloTurnos = document.getElementById('modulo-turnos');
-            if (!modulosPermitidos.includes('turnos')) {
-                moduloTurnos.style.opacity = '0.5';
-                moduloTurnos.style.pointerEvents = 'none';
-                moduloTurnos.style.filter = 'grayscale(1)';
-                moduloTurnos.querySelector('.module-button').textContent = 'No disponible';
-                moduloTurnos.querySelector('.module-button').style.background = '#ccc';
+            if (!modulosPermitidos.includes('turnos') && usuarioSesion.rol !== 'super_admin') {
+                document.getElementById('modulo-turnos').style.display = 'none';
             }
             
             // Configurar módulo de nómina
-            const moduloNomina = document.getElementById('modulo-nomina');
-            if (!modulosPermitidos.includes('nomina')) {
-                moduloNomina.style.opacity = '0.5';
-                moduloNomina.style.pointerEvents = 'none';
-                moduloNomina.style.filter = 'grayscale(1)';
-                moduloNomina.querySelector('.module-button').textContent = 'No disponible';
-                moduloNomina.querySelector('.module-button').style.background = '#ccc';
+            if (!modulosPermitidos.includes('nomina') && usuarioSesion.rol !== 'super_admin') {
+                document.getElementById('modulo-nomina').style.display = 'none';
             }
             
             // Mostrar módulo de empresas para super_admin o admin con módulo empresas
