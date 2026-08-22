@@ -239,7 +239,8 @@
           <label><input type="checkbox" class="mod-checkbox" value="nomina"> 💰 Nómina</label>
           <label><input type="checkbox" class="mod-checkbox" value="usuarios"> 👤 Usuarios</label>
           <label><input type="checkbox" class="mod-checkbox" value="areas"> 🗂️ Áreas</label>
-          <label><input type="checkbox" class="mod-checkbox" value="transporte"> � Transporte</label>
+          <label><input type="checkbox" class="mod-checkbox" value="transporte"> 🚌 Transporte</label>
+          <label><input type="checkbox" class="mod-checkbox" value="ia"> 🤖 Asistente IA</label>
         </div>
       </div>
       <div class="form-group" id="campo-estado-group" style="display:none;">
@@ -382,10 +383,10 @@
     }
 
     const filas = lista.map(e => {
-      const MODULOS_VALIDOS = ['turnos','nomina','usuarios','parametros','reportes','empresas','areas','transporte','programacion_operativa'];
+      const MODULOS_VALIDOS = ['turnos','nomina','usuarios','parametros','reportes','empresas','areas','transporte','programacion_operativa','ia'];
       const modulos = (e.modulosHabilitados || [])
         .filter(m => MODULOS_VALIDOS.includes(m))
-        .map(m => `<span class="tag">${m === 'turnos' ? '📅' : '💰'} ${esc(m)}</span>`)
+        .map(m => { const iconos = {turnos:'📅',nomina:'💰',transporte:'🚌',ia:'🤖',usuarios:'👤',areas:'🗂️'}; return `<span class="tag">${iconos[m]||'�'} ${esc(m)}</span>`; })
         .join('');
       const colorRaw = e.colorTema || '#667eea';
       const color = /^#[0-9a-fA-F]{3,8}$/.test(colorRaw) ? colorRaw : '#667eea';

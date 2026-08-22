@@ -31,7 +31,7 @@ function _buildSession(pgUser, empresaId, ctx) {
     colorTema:         ctx?.empresa?.colorTema || '#667eea',
     rolEmpresa:        ctx?.rol?.codigo        || null,
     modulosPermitidos: pgUser.rol === 'super_admin'
-      ? ['turnos', 'nomina', 'usuarios', 'parametros', 'reportes', 'empresas', 'areas']
+      ? ['turnos', 'nomina', 'usuarios', 'parametros', 'reportes', 'empresas', 'areas', 'transporte', 'ia']
       : pgUser.rol === 'admin'
         // Admin de empresa: siempre hereda módulos de la empresa + gestión de usuarios/áreas
         ? [...new Set([...(ctx?.modulosActivos || []), 'usuarios', 'areas'])]
