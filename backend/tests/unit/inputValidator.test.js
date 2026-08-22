@@ -163,6 +163,34 @@ describe('validarEmpresaCrear — acepta datos válidos', () => {
     });
     assert.equal(nextCalled, true);
   });
+
+  it('acepta modulosHabilitados con ia', async () => {
+    const { nextCalled } = await runMiddleware(validarEmpresaCrear, {
+      nombre: 'Empresa IA',
+      modulosHabilitados: ['turnos', 'nomina', 'ia']
+    });
+    assert.equal(nextCalled, true, 'ia debe ser un módulo válido');
+  });
+
+  it('acepta todos los módulos conocidos a la vez', async () => {
+    const { nextCalled } = await runMiddleware(validarEmpresaCrear, {
+      nombre: 'Empresa Completa',
+      modulosHabilitados: [
+        'turnos', 'nomina', 'usuarios', 'parametros', 'reportes',
+        'empresas', 'areas', 'transporte', 'programacion_operativa', 'ia'
+      ]
+    });
+    assert.equal(nextCalled, true, 'Todos los módulos del catálogo deben pasar la validación');
+  });
+
+  it('rechaza módulo inventado', async () => {
+    const { res, nextCalled } = await runMiddleware(validarEmpresaCrear, {
+      nombre: 'Empresa',
+      modulosHabilitados: ['turnos', 'modulo_inexistente']
+    });
+    assert.equal(nextCalled, false, 'Un módulo fuera del catálogo debe ser rechazado');
+    assert.equal(res._status, 400);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

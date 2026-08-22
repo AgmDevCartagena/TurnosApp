@@ -89,7 +89,7 @@ const schemaEmpresaCrear = joiSinHtml.object({
   modulosHabilitados: Joi.array()
     .items(Joi.string().valid(
       'turnos', 'nomina', 'usuarios', 'parametros', 'reportes',
-      'empresas', 'areas', 'transporte', 'programacion_operativa'
+      'empresas', 'areas', 'transporte', 'programacion_operativa', 'ia'
     ))
     .optional(),
 
