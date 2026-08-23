@@ -869,6 +869,10 @@ model ConfiguracionIA {
   permitirDatosNomina     Boolean  @default(false)
   permitirNombres         Boolean  @default(false)
   retencionAuditoriaDias  Int      @default(90)
+  apiKeyEncriptada        String?
+  apiKeyMascara           String?  @db.VarChar(30)
+  apiKeyEstado            String?  @db.VarChar(20)
+  apiKeyFechaValidacion   DateTime?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 

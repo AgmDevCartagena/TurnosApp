@@ -49,9 +49,10 @@
     .sidebar-divider { border: none; border-top: 1px solid #eee; margin: 8px 16px; }
     .config-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; font-size: 0.82em; color: #777; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-    .status-dot.verde  { background: #43a047; }
-    .status-dot.rojo   { background: #e53935; }
-    .status-dot.gris   { background: #bdbdbd; }
+    .status-dot.verde    { background: #43a047; }
+    .status-dot.rojo     { background: #e53935; }
+    .status-dot.gris     { background: #bdbdbd; }
+    .status-dot.amarillo { background: #f9a825; }
 
     /* ── Panel principal (tabs) ── */
     .main-panel { display: flex; flex-direction: column; overflow: hidden; background: #f5f6fa; }
@@ -166,6 +167,58 @@
     .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Configuración IA ── */
+    .status-pill { display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: .82em; font-weight: 700; }
+    .pill-verde    { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .pill-amarillo { background: #fff8e1; color: #e65100; border: 1px solid #ffcc80; }
+    .pill-rojo     { background: #fce4ec; color: #c62828; border: 1px solid #f48fb1; }
+    .pill-gris     { background: #f5f5f5; color: #757575; border: 1px solid #e0e0e0; }
+    .field-help { display: block; font-weight: 400; color: #aaa; font-size: .78em; margin-top: 2px; }
+    .field-aviso { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; border-radius: 6px; padding: 7px 11px; font-size: .82em; margin-top: 6px; }
+    .checks-row { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 6px; }
+    .check-label { display: flex; align-items: flex-start; gap: 9px; font-size: .9em; color: #444; cursor: pointer; line-height: 1.4; }
+    .check-label input[type=checkbox] { margin-top: 2px; flex-shrink: 0; }
+    .collapsible-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+    .collapsible-header:hover h3 { color: #667eea; }
+    .var-block { background: #f5f5f5; border-radius: 6px; padding: 12px 14px; font-family: monospace; font-size: .82em; line-height: 2.1; color: #444; }
+    .var-block em { font-family: inherit; color: #aaa; font-style: normal; }
+
+    /* ── BYOK API Key block ── */
+    .apikey-mask { font-family: monospace; font-size: .93em; letter-spacing: .06em; color: #444; }
+    .btn-danger  { color: #c62828 !important; border-color: #e57373 !important; }
+    .btn-danger:hover { background: #fce4ec !important; }
+
+    /* ── Custom provider dropdown ── */
+    .csel-wrap { position: relative; }
+    .csel-btn {
+      width: 100%; padding: 9px 36px 9px 12px; border: 1.5px solid #dde;
+      border-radius: 8px; background: white; cursor: pointer;
+      text-align: left; font-size: .9em; font-family: inherit; color: #333;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: border-color .18s; box-sizing: border-box;
+    }
+    .csel-btn:hover { border-color: #667eea; }
+    .csel-btn:focus { outline: 2px solid #c5caeb; border-color: #667eea; }
+    .csel-btn .csel-arrow { color: #bbb; font-size: .76em; flex-shrink: 0; transition: transform .18s; margin-left: 8px; }
+    .csel-btn.open .csel-arrow { transform: rotate(180deg); color: #667eea; }
+    .csel-display { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+    .csel-list {
+      display: none; position: absolute; z-index: 700;
+      left: 0; right: 0; background: white;
+      border: 1.5px solid #c5caeb; border-radius: 8px;
+      box-shadow: 0 6px 24px rgba(102,126,234,.13);
+      overflow-y: auto; overflow-x: hidden;
+    }
+    .csel-list.open { display: block; }
+    .csel-grp { font-size: .71em; font-weight: 800; color: #9fa8da; letter-spacing: .09em;
+      text-transform: uppercase; padding: 10px 14px 3px; pointer-events: none; }
+    .csel-opt {
+      padding: 8px 16px; cursor: pointer; font-size: .87em; color: #333; transition: background .08s;
+    }
+    .csel-opt:hover { background: #f0f0fb; color: #667eea; }
+    .csel-opt.csel-sel { background: #eef; color: #667eea; font-weight: 700; }
+    .csel-placeholder { color: #bbb; }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; height: auto; }
@@ -222,6 +275,9 @@
         <span class="nav-icon">📋</span> Propuestas
         <span class="nav-badge" id="badge-propuestas" style="display:none">0</span>
       </div>
+      <div class="nav-item" id="nav-configuracion" onclick="activarTab('configuracion')" style="display:none">
+        <span class="nav-icon">⚙️</span> Configuración
+      </div>
     </div>
     <hr class="sidebar-divider">
     <div class="sidebar-section">
@@ -248,6 +304,7 @@
       <button class="tab-btn"        id="tab-btn-validar"   onclick="activarTab('validar')">✅ Validar</button>
       <button class="tab-btn"        id="tab-btn-simular"   onclick="activarTab('simular')">🔬 Simular</button>
       <button class="tab-btn"        id="tab-btn-propuestas" onclick="activarTab('propuestas')">📋 Propuestas</button>
+      <button class="tab-btn"        id="tab-btn-configuracion" onclick="activarTab('configuracion')" style="display:none">⚙️ Config</button>
     </div>
 
     <!-- ── TAB: Chat ── -->
@@ -265,6 +322,148 @@
         <div class="chat-input-wrap">
           <textarea id="chat-input" placeholder="Escribe tu consulta… (Enter envía, Shift+Enter nueva línea)" rows="1"></textarea>
           <button id="btn-enviar" onclick="enviarMensaje()">Enviar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: Configuración ── -->
+    <div class="tab-content" id="tab-configuracion">
+      <div class="section-title">⚙️ Configuración del Asistente IA</div>
+
+      <!-- BLOQUE 1: Estado de conexión -->
+      <div class="card">
+        <h3 style="margin-bottom:14px">🔗 Estado del Asistente IA</h3>
+        <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+          <span class="status-pill pill-gris" id="pill-conexion">Verificando…</span>
+          <div>
+            <div id="conexion-msg" style="font-size:.9em;color:#555;line-height:1.5">Consultando estado de conexión…</div>
+            <div id="conexion-detalle" style="font-size:.8em;color:#999;margin-top:3px"></div>
+          </div>
+        </div>
+        <p style="font-size:.86em;color:#666;line-height:1.6;margin-bottom:14px">
+          El Asistente IA requiere una conexión segura con un proveedor de inteligencia artificial
+          para responder consultas y generar propuestas. Por seguridad, la clave de acceso se
+          configura únicamente en el servidor y no se muestra en esta pantalla.
+        </p>
+        <div class="row-btns">
+          <button class="btn btn-outline btn-sm" onclick="verificarConexionIA(event)">🔌 Verificar conexión</button>
+          <button class="btn btn-outline btn-sm" onclick="cargarConfiguracion()">↺ Recargar estado</button>
+        </div>
+      </div>
+
+      <!-- BLOQUE: Clave de Acceso IA (BYOK) -->
+      <div class="card" id="card-api-key">
+        <h3 style="margin-bottom:14px">🔑 Clave de Acceso IA</h3>
+        <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+          <span class="status-pill pill-gris" id="apikey-pill">Sin configurar</span>
+          <div>
+            <div id="apikey-proveedor" style="font-size:.87em;color:#555"></div>
+            <div class="apikey-mask" id="apikey-mask" style="margin-top:3px"></div>
+            <div id="apikey-fecha" style="font-size:.77em;color:#aaa;margin-top:2px"></div>
+          </div>
+        </div>
+        <div id="form-apikey-wrap" style="display:none;margin-bottom:14px;max-width:540px">
+          <div class="form-group">
+            <label>API Key <small class="field-help">Se cifrará con AES-256-GCM antes de guardarse. No se mostrará completa nunca más.</small></label>
+            <input type="password" id="input-api-key" placeholder="sk-… / nvapi-… / sk-ant-…" autocomplete="new-password" style="font-family:monospace;letter-spacing:.04em">
+          </div>
+          <div class="row-btns" style="margin-top:10px">
+            <button type="button" class="btn btn-primary btn-sm" onclick="guardarApiKeyIA()">💾 Cifrar y guardar</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="cancelarApiKeyIA()">Cancelar</button>
+          </div>
+        </div>
+        <div class="row-btns">
+          <button type="button" class="btn btn-outline btn-sm" onclick="mostrarFormApiKeyIA()">🔑 Registrar / Reemplazar clave</button>
+          <button type="button" class="btn btn-outline btn-sm btn-danger" id="btn-del-key" style="display:none" onclick="eliminarApiKeyIA()">🗑️ Eliminar clave</button>
+        </div>
+        <p style="font-size:.79em;color:#bbb;margin-top:14px;line-height:1.5">
+          La clave se cifra con AES-256-GCM antes de guardarse en la base de datos. El valor original nunca se almacena en texto plano, no se muestra completo en pantalla ni aparece en logs. Solo se puede reemplazar o eliminar.
+        </p>
+      </div>
+
+      <!-- BLOQUE 2: Configuración funcional -->
+      <div class="card">
+        <h3 style="margin-bottom:16px">�️ Configuración funcional</h3>
+        <form id="form-config-ia" onsubmit="guardarConfigIA(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Proveedor IA <small class="field-help">Servicio que procesará las solicitudes del asistente</small></label>
+              <div class="csel-wrap" id="prov-wrap">
+                <button type="button" class="csel-btn" id="prov-btn" onclick="toggleDropdownProv()">
+                  <span class="csel-display csel-placeholder" id="prov-display">Selecciona un proveedor…</span>
+                  <span class="csel-arrow">&#9660;</span>
+                </button>
+                <div class="csel-list" id="prov-list"></div>
+              </div>
+              <input type="hidden" id="cfg-proveedor" value="">
+              <div id="cfg-proveedor-aviso" class="field-aviso" style="display:none"></div>
+            </div>
+            <div class="form-group">
+              <label>Modelo <small class="field-help">Selecciona una sugerencia o escribe el identificador del modelo que tengas habilitado con tu proveedor</small></label>
+              <input type="text" id="cfg-modelo" list="lista-modelos" placeholder="Selecciona o escribe el modelo" autocomplete="off" required>
+              <datalist id="lista-modelos"></datalist>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Temperatura <small class="field-help">0.0 = respuestas consistentes · 1.0 = respuestas más variadas</small></label>
+              <input type="number" id="cfg-temperatura" min="0" max="1" step="0.05" placeholder="0.2">
+            </div>
+            <div class="form-group">
+              <label>Límite de tokens por respuesta <small class="field-help">Controla la longitud máxima de cada respuesta del asistente</small></label>
+              <input type="number" id="cfg-tokens-resp" min="100" max="8000" placeholder="2000">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Límite mensual de tokens <small class="field-help">Vacío = sin límite de consumo mensual</small></label>
+              <input type="number" id="cfg-tokens-mes" min="0" placeholder="Sin límite">
+            </div>
+            <div class="form-group">
+              <label>Retención de registros (días) <small class="field-help">Tiempo que se conservarán los registros de uso del módulo IA</small></label>
+              <input type="number" id="cfg-retencion" min="1" max="365" placeholder="90">
+            </div>
+          </div>
+          <div class="checks-row">
+            <label class="check-label">
+              <input type="checkbox" id="cfg-habilitada">
+              <span>Módulo IA habilitado para esta empresa</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" id="cfg-permitir-nombres">
+              <span>Permitir nombres reales en el contexto enviado al proveedor IA <small style="color:#aaa">(si está desactivado, los nombres se anonimizan automáticamente)</small></span>
+            </label>
+          </div>
+          <div class="row-btns" style="margin-top:18px">
+            <button type="submit" class="btn btn-primary">💾 Guardar configuración</button>
+            <button type="button" class="btn btn-outline" onclick="cargarConfigIA()">↺ Recargar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- BLOQUE 3: Información técnica — colapsable, solo super_admin -->
+      <div class="card" id="card-tecnico" style="display:none">
+        <div class="collapsible-header" onclick="toggleTecnico()">
+          <h3>🔧 Información técnica para el administrador del servidor</h3>
+          <span id="icono-tecnico" style="font-size:1em;color:#aaa">▼</span>
+        </div>
+        <div id="panel-tecnico" style="display:none;margin-top:14px">
+          <p style="font-size:.87em;color:#555;line-height:1.7;margin-bottom:14px">
+            La clave privada de conexión con el proveedor IA se configura únicamente en el servidor
+            de aplicación. No se guarda en la base de datos ni se muestra en esta pantalla.
+          </p>
+          <p style="font-size:.83em;color:#777;margin-bottom:8px">Variables de entorno requeridas en el servidor:</p>
+          <div class="var-block">
+            AI_ENABLED<br>
+            AI_PROVIDER<br>
+            AI_API_KEY &nbsp;<em>(valor: ••••••••)</em><br>
+            AI_MODEL<br>
+            AI_TEMPERATURE
+          </div>
+          <p style="font-size:.8em;color:#999;margin-top:12px">
+            Después de modificar las variables de entorno, el servicio de aplicación debe
+            reiniciarse desde el entorno de despliegue correspondiente.
+          </p>
         </div>
       </div>
     </div>
@@ -373,9 +572,17 @@
   // ─── Inicialización ────────────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', async () => {
     await verificarSesion();
-    await cargarConfigIA();
+    await cargarCatalogoProveedores();
+    await cargarConfiguracion();
     actualizarParamsSim();
     cargarPropuestas();
+
+    document.addEventListener('click', (e) => {
+      if (!document.getElementById('prov-wrap')?.contains(e.target)) {
+        document.getElementById('prov-list')?.classList.remove('open');
+        document.getElementById('prov-btn')?.classList.remove('open');
+      }
+    });
 
     const inp = document.getElementById('chat-input');
     inp.addEventListener('keydown', e => {
@@ -390,47 +597,73 @@
   async function verificarSesion() {
     const resp = await fetch('/api/auth/verificar-sesion');
     const data = await resp.json();
-    if (!data.autenticado) { window.location.href = '/login.html'; }
+    if (!data.autenticado) { window.location.href = '/login.html'; return; }
+    const rol = data.usuario?.rol;
+    if (['admin','super_admin'].includes(rol)) {
+      document.getElementById('nav-configuracion').style.display = 'flex';
+      document.getElementById('tab-btn-configuracion').style.display = 'inline-block';
+    }
+    if (rol === 'super_admin') {
+      document.getElementById('card-tecnico').style.display = 'block';
+    }
   }
 
-  async function cargarConfigIA() {
+  async function cargarConfiguracion() {
     try {
       const resp = await fetch('/api/ia/configuracion');
       if (!resp.ok) throw new Error('Sin acceso al módulo IA');
       const data = await resp.json();
       configIA   = data.configuracion;
+      const status = data.connectionStatus || 'disabled';
 
-      const dot  = document.getElementById('dot-ia');
-      const txt  = document.getElementById('txt-ia-estado');
-      const mod  = document.getElementById('txt-modelo');
+      const dot   = document.getElementById('dot-ia');
+      const txt   = document.getElementById('txt-ia-estado');
+      const mod   = document.getElementById('txt-modelo');
       const badge = document.getElementById('badge-proveedor');
 
-      if (configIA?.habilitada) {
-        dot.className  = 'status-dot verde';
-        txt.textContent = 'Habilitado';
-        mod.textContent = `${configIA.proveedor} / ${configIA.modelo}`;
-        badge.textContent = configIA.proveedor.toUpperCase();
-      } else {
-        dot.className  = 'status-dot rojo';
-        txt.textContent = 'Deshabilitado';
-        mod.textContent = 'Chat no disponible';
-        document.getElementById('btn-enviar').disabled = true;
-        document.getElementById('chat-input').disabled = true;
-        mostrarAlerta('El módulo IA no está habilitado para esta empresa. El chat no está disponible, pero puedes usar Validar y Simular.', 'warn');
+      const statusMap = {
+        configured: { dotCls:'verde',    sidebarTxt:'Activo',             modTxt: configIA ? `${configIA.providerName||configIA.proveedor} / ${configIA.modelo}` : '', badgeTxt: configIA?.proveedor?.toUpperCase()||'IA' },
+        pending:    { dotCls:'amarillo', sidebarTxt:'Clave sin validar', modTxt:'Verifica la conexión', badgeTxt: configIA?.proveedor?.toUpperCase()||'IA' },
+        no_key:     { dotCls:'amarillo', sidebarTxt:'Sin clave activa',  modTxt:'Chat no disponible',  badgeTxt:'IA' },
+        error:      { dotCls:'rojo',     sidebarTxt:'Error de clave',    modTxt:'Chat no disponible',  badgeTxt:'IA' },
+        disabled:   { dotCls:'rojo',     sidebarTxt:'Deshabilitado',     modTxt:'Chat no disponible',  badgeTxt:'IA' },
+      };
+      const s = statusMap[status] || statusMap.disabled;
+      dot.className     = `status-dot ${s.dotCls}`;
+      txt.textContent   = s.sidebarTxt;
+      mod.textContent   = s.modTxt;
+      if (s.badgeTxt !== 'IA') badge.textContent = s.badgeTxt;
+
+      const chatDisabled = status !== 'configured';
+      document.getElementById('btn-enviar').disabled  = chatDisabled;
+      document.getElementById('chat-input').disabled  = chatDisabled;
+
+      if (status === 'pending') {
+        mostrarAlerta('Clave registrada. Haz clic en «Verificar conexión» para confirmar que es válida y activar el chat IA.', 'warn');
+      } else if (status === 'no_key') {
+        mostrarAlerta('El chat IA requiere una clave de conexión activa en el servidor. Las herramientas Validar y Simular funcionan sin conexión a IA.', 'warn');
+      } else if (status === 'error') {
+        mostrarAlerta('La clave IA registrada no pudo validarse. Verifica que la clave sea correcta o registra una nueva.', 'error');
+      } else if (status === 'disabled') {
+        mostrarAlerta('El módulo IA está deshabilitado para esta empresa. Puedes usar Validar y Simular.', 'warn');
       }
+
+      actualizarPillConexion(status, null);
+      cargarEstadoApiKey(configIA);
     } catch (e) {
-      mostrarAlerta('Error cargando configuración IA. Verifica que tienes acceso al módulo.', 'error');
+      mostrarAlerta('Error al cargar la configuración del módulo IA.', 'error');
     }
   }
 
   // ─── Tabs ──────────────────────────────────────────────────────────────────
   function activarTab(tab) {
-    ['chat','validar','simular','propuestas'].forEach(t => {
+    ['chat','validar','simular','propuestas','configuracion'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
       document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
       document.getElementById(`nav-${t}`).classList.toggle('active', t === tab);
     });
     if (tab === 'propuestas') cargarPropuestas();
+    if (tab === 'configuracion') cargarConfigIA();
   }
 
   // ─── Alerta global ─────────────────────────────────────────────────────────
@@ -440,6 +673,320 @@
     el.textContent = msg;
     el.style.display = 'block';
     if (autoOcultar) setTimeout(() => { el.style.display = 'none'; }, autoOcultar);
+  }
+
+  // ─── CONFIGURACIÓN IA ───────────────────────────────────────────────────────
+  let catalogoProveedores = [];
+
+  async function cargarCatalogoProveedores() {
+    try {
+      const resp = await fetch('/api/ia/providers');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      catalogoProveedores = data.providers || [];
+      poblarSelectProveedores();
+    } catch (e) { /* silent */ }
+  }
+
+  function poblarSelectProveedores(valorActual) {
+    const list = document.getElementById('prov-list');
+    if (!list) return;
+    const grupos = {};
+    catalogoProveedores.forEach(p => {
+      if (!grupos[p.tipo]) grupos[p.tipo] = [];
+      grupos[p.tipo].push(p);
+    });
+    const tipoLabels = { direct_api:'API Directa', cloud_platform:'Plataformas Cloud', aggregator:'Agregadores', local_runtime:'Ejecución Local' };
+    list.innerHTML = '';
+    Object.entries(tipoLabels).forEach(([tipo, label]) => {
+      if (!grupos[tipo]) return;
+      const grp = document.createElement('div');
+      grp.className = 'csel-grp'; grp.textContent = label;
+      list.appendChild(grp);
+      grupos[tipo].forEach(p => {
+        const opt = document.createElement('div');
+        opt.className = 'csel-opt' + (p.codigo === valorActual ? ' csel-sel' : '');
+        opt.textContent = p.nombre;
+        opt.dataset.codigo = p.codigo;
+        opt.dataset.nombre = p.nombre;
+        opt.onclick = () => seleccionarProveedor(p.codigo, p.nombre);
+        list.appendChild(opt);
+      });
+    });
+    if (valorActual) {
+      const prov = catalogoProveedores.find(p => p.codigo === valorActual);
+      if (prov) _setDisplayProveedor(prov.nombre);
+    }
+  }
+
+  function _setDisplayProveedor(nombre) {
+    const el = document.getElementById('prov-display');
+    if (!el) return;
+    el.textContent = nombre || 'Selecciona un proveedor…';
+    el.classList.toggle('csel-placeholder', !nombre);
+  }
+
+  function toggleDropdownProv() {
+    const wrap = document.getElementById('prov-wrap');
+    const list = document.getElementById('prov-list');
+    const btn  = document.getElementById('prov-btn');
+    const isOpen = list.classList.contains('open');
+    if (isOpen) { list.classList.remove('open'); btn.classList.remove('open'); return; }
+
+    const rect       = wrap.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 6;
+    const spaceAbove = rect.top - 6;
+    const maxH       = Math.min(300, Math.max(spaceBelow, spaceAbove) - 2);
+    list.style.maxHeight = maxH + 'px';
+
+    if (spaceBelow >= 160 || spaceBelow >= spaceAbove) {
+      list.style.top = '100%'; list.style.bottom = 'auto';
+      list.style.marginTop = '4px'; list.style.marginBottom = '0';
+    } else {
+      list.style.bottom = '100%'; list.style.top = 'auto';
+      list.style.marginBottom = '4px'; list.style.marginTop = '0';
+    }
+    list.classList.add('open');
+    btn.classList.add('open');
+
+    const selOpt = list.querySelector('.csel-sel');
+    if (selOpt) selOpt.scrollIntoView({ block: 'nearest' });
+  }
+
+  function seleccionarProveedor(codigo, nombre) {
+    document.getElementById('cfg-proveedor').value = codigo;
+    _setDisplayProveedor(nombre);
+    document.querySelectorAll('.csel-opt').forEach(o =>
+      o.classList.toggle('csel-sel', o.dataset.codigo === codigo)
+    );
+    document.getElementById('prov-list').classList.remove('open');
+    document.getElementById('prov-btn').classList.remove('open');
+    alCambiarProveedor(true);
+  }
+
+  async function alCambiarProveedor(reemplazarModelo = false) {
+    const codigo = document.getElementById('cfg-proveedor').value;
+    const prov   = catalogoProveedores.find(p => p.codigo === codigo);
+    const dl     = document.getElementById('lista-modelos');
+    const aviso  = document.getElementById('cfg-proveedor-aviso');
+    const inp    = document.getElementById('cfg-modelo');
+
+    // Cargar modelos del catálogo estático mientras se obtienen los dinámicos
+    dl.innerHTML = '';
+    const catalogoModelos = prov?.modelosSugeridos || [];
+    catalogoModelos.forEach(m => {
+      const opt = document.createElement('option'); opt.value = m; dl.appendChild(opt);
+    });
+    if (reemplazarModelo || !inp.value) inp.value = catalogoModelos[0] || '';
+    inp.placeholder = 'Cargando modelos…';
+
+    // Intentar cargar modelos dinámicos desde la API del proveedor
+    try {
+      const r = await fetch('/api/ia/providers/models');
+      if (r.ok) {
+        const d = await r.json();
+        if (d.success && d.modelos?.length) {
+          dl.innerHTML = '';
+          d.modelos.forEach(m => {
+            const opt = document.createElement('option'); opt.value = m; dl.appendChild(opt);
+          });
+          if (reemplazarModelo || !inp.value) inp.value = d.modelos[0] || '';
+          inp.placeholder = `${d.modelos.length} modelos disponibles`;
+        } else {
+          inp.placeholder = 'Selecciona o escribe el modelo';
+        }
+      } else {
+        inp.placeholder = 'Selecciona o escribe el modelo';
+      }
+    } catch {
+      inp.placeholder = 'Selecciona o escribe el modelo';
+    }
+
+    const avisos = [];
+    if (prov?.requiereBaseUrl) {
+      avisos.push('⚠️ Este proveedor requiere una URL base (AI_BASE_URL) configurada en el servidor.');
+    }
+    if (prov?.notaModelos) {
+      avisos.push('ℹ️ ' + prov.notaModelos);
+    }
+    if (avisos.length) {
+      aviso.style.display = 'block';
+      aviso.innerHTML = avisos.map(a => `<div style="margin-bottom:4px">${a}</div>`).join('');
+    } else {
+      aviso.style.display = 'none';
+    }
+    const provEl = document.getElementById('apikey-proveedor');
+    if (provEl && prov?.nombre) provEl.textContent = `Proveedor: ${prov.nombre}`;
+  }
+
+  async function cargarConfigIA() {
+    try {
+      const resp = await fetch('/api/ia/configuracion');
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const c = data.configuracion;
+      if (!c) return;
+      const codigoProv = c.proveedor || 'openai';
+      document.getElementById('cfg-proveedor').value = codigoProv;
+      poblarSelectProveedores(codigoProv);
+      alCambiarProveedor();
+      document.getElementById('cfg-modelo').value         = c.modelo    || '';
+      document.getElementById('cfg-temperatura').value    = c.temperatura ?? 0.2;
+      document.getElementById('cfg-tokens-resp').value    = c.limiteTokensRespuesta ?? 2000;
+      document.getElementById('cfg-tokens-mes').value     = c.limiteMensualTokens ?? '';
+      document.getElementById('cfg-retencion').value      = c.retencionAuditoriaDias ?? 90;
+      document.getElementById('cfg-habilitada').checked   = !!c.habilitada;
+      document.getElementById('cfg-permitir-nombres').checked = !!c.permitirNombres;
+    } catch (e) { /* silent */ }
+  }
+
+  async function guardarConfigIA(e) {
+    e.preventDefault();
+    const proveedor = document.getElementById('cfg-proveedor').value;
+    const modelo    = document.getElementById('cfg-modelo').value.trim();
+    const temp      = parseFloat(document.getElementById('cfg-temperatura').value);
+    const tokResp   = parseInt(document.getElementById('cfg-tokens-resp').value);
+    const tokMes    = document.getElementById('cfg-tokens-mes').value;
+    const retencion = parseInt(document.getElementById('cfg-retencion').value);
+    if (!proveedor)       { mostrarAlerta('Selecciona un proveedor IA.', 'error'); return; }
+    if (!modelo)          { mostrarAlerta('Ingresa el modelo que deseas utilizar.', 'error'); return; }
+    if (isNaN(temp) || temp < 0 || temp > 1) { mostrarAlerta('La temperatura debe estar entre 0 y 1.', 'error'); return; }
+    if (isNaN(tokResp) || tokResp < 100)     { mostrarAlerta('El límite de tokens debe ser mayor que cero.', 'error'); return; }
+    const body = {
+      proveedor, modelo, temperatura: temp,
+      limiteTokensRespuesta:  tokResp,
+      limiteMensualTokens:    tokMes ? parseInt(tokMes) : null,
+      retencionAuditoriaDias: isNaN(retencion) ? 90 : retencion,
+      habilitada:             document.getElementById('cfg-habilitada').checked,
+      permitirNombres:        document.getElementById('cfg-permitir-nombres').checked,
+    };
+    try {
+      const resp = await fetch('/api/ia/configuracion', {
+        method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+      if (!resp.ok) { mostrarAlerta(data.error || 'Error al guardar.', 'error'); return; }
+      mostrarAlerta('Configuración guardada correctamente.', 'success');
+      cargarConfiguracion();
+    } catch (e) {
+      mostrarAlerta('Error de conexión al guardar la configuración.', 'error');
+    }
+  }
+
+  async function verificarConexionIA(e) {
+    const btn = e?.target || document.querySelector('[onclick*="verificarConexionIA"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
+    try {
+      const resp = await fetch('/api/ia/verificar-conexion', { method:'POST' });
+      const data = await resp.json();
+      actualizarPillConexion(data.ok ? 'configured' : 'error', data.message);
+      await cargarConfiguracion();
+    } catch {
+      actualizarPillConexion('error', 'No fue posible verificar la conexión.');
+      await cargarConfiguracion();
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🔌 Verificar conexión'; }
+    }
+  }
+
+  // ─── BYOK ────────────────────────────────────────────────────────────
+  function cargarEstadoApiKey(cfg) {
+    const pill    = document.getElementById('apikey-pill');
+    const provEl  = document.getElementById('apikey-proveedor');
+    const maskEl  = document.getElementById('apikey-mask');
+    const fechaEl = document.getElementById('apikey-fecha');
+    const btnDel  = document.getElementById('btn-del-key');
+    if (!pill) return;
+    const estado = cfg?.apiKeyEstado;
+    const estadoMap = {
+      configurada: { cls:'pill-verde',    txt:'Clave configurada y validada' },
+      pendiente:   { cls:'pill-amarillo', txt:'Clave registrada — pendiente de validación' },
+      error:       { cls:'pill-rojo',     txt:'Error en última validación' },
+      env:         { cls:'pill-verde',    txt:'Clave global del servidor (administrador)' },
+    };
+    const st = estadoMap[estado] || { cls:'pill-gris', txt:'Sin clave configurada' };
+    pill.className   = `status-pill ${st.cls}`;
+    pill.textContent = st.txt;
+    provEl.textContent = cfg?.providerName ? `Proveedor: ${cfg.providerName}` : '';
+    maskEl.textContent = cfg?.apiKeyMascara || '';
+    if (cfg?.apiKeyFechaValidacion) {
+      const d = new Date(cfg.apiKeyFechaValidacion);
+      fechaEl.textContent = `Última validación: ${d.toLocaleDateString('es-CO')} ${d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}`;
+    } else {
+      fechaEl.textContent = cfg?.apiKeyMascara && estado !== 'env' ? 'Pendiente de primera validación' : '';
+    }
+    btnDel.style.display = (cfg?.apiKeyMascara && estado !== 'env') ? 'inline-block' : 'none';
+  }
+
+  function mostrarFormApiKeyIA() {
+    document.getElementById('form-apikey-wrap').style.display = 'block';
+    setTimeout(() => document.getElementById('input-api-key').focus(), 50);
+  }
+
+  function cancelarApiKeyIA() {
+    document.getElementById('form-apikey-wrap').style.display = 'none';
+    document.getElementById('input-api-key').value = '';
+  }
+
+  async function guardarApiKeyIA() {
+    const raw = document.getElementById('input-api-key').value;
+    if (!raw || raw.trim().length < 10) {
+      mostrarAlerta('La clave ingresada es demasiado corta (mínimo 10 caracteres).', 'error');
+      return;
+    }
+    try {
+      const proveedor = document.getElementById('cfg-proveedor').value || undefined;
+      const resp = await fetch('/api/ia/api-key', {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ apiKey: raw.trim(), ...(proveedor ? { proveedor } : {}) }),
+      });
+      document.getElementById('input-api-key').value = '';
+      const data = await resp.json();
+      if (!resp.ok) { mostrarAlerta(data.error || 'Error al guardar la clave.', 'error'); return; }
+      cancelarApiKeyIA();
+      mostrarAlerta('Clave registrada y cifrada correctamente. Verifica la conexión para confirmar que es válida.', 'success', 8000);
+      await cargarConfiguracion();
+    } catch {
+      mostrarAlerta('Error de conexión al guardar la clave.', 'error');
+    }
+  }
+
+  async function eliminarApiKeyIA() {
+    if (!confirm('¿Eliminar la clave de acceso IA? El asistente dejará de funcionar hasta que registres una nueva clave.')) return;
+    try {
+      const resp = await fetch('/api/ia/api-key', { method:'DELETE' });
+      const data = await resp.json();
+      if (!resp.ok) { mostrarAlerta(data.error || 'Error al eliminar la clave.', 'error'); return; }
+      mostrarAlerta('Clave eliminada correctamente.', 'success');
+      await cargarConfiguracion();
+    } catch {
+      mostrarAlerta('Error de conexión al eliminar la clave.', 'error');
+    }
+  }
+
+  function actualizarPillConexion(estado, mensaje) {
+    const pill = document.getElementById('pill-conexion');
+    const msg  = document.getElementById('conexion-msg');
+    if (!pill) return;
+    const cfg = {
+      configured: { cls:'pill-verde',    txt:'Conexión configurada',          def:'El Asistente IA está conectado y listo para usarse.' },
+      pending:    { cls:'pill-amarillo', txt:'Clave registrada — sin validar', def:'La clave está guardada pero no ha sido validada. Haz clic en «Verificar conexión».' },
+      no_key:     { cls:'pill-amarillo', txt:'Pendiente por configurar',      def:'El módulo IA no tiene una clave de conexión activa. Contacta al equipo técnico para activarlo.' },
+      error:      { cls:'pill-rojo',     txt:'Error de conexión',             def:'No fue posible validar la conexión con el proveedor IA. Revisa o reemplaza la clave.' },
+      disabled:   { cls:'pill-gris',     txt:'Módulo deshabilitado',          def:'El módulo IA está deshabilitado para esta empresa.' },
+    };
+    const c = cfg[estado] || cfg.disabled;
+    pill.className  = `status-pill ${c.cls}`;
+    pill.textContent = c.txt;
+    if (msg) msg.textContent = mensaje || c.def;
+  }
+
+  function toggleTecnico() {
+    const panel = document.getElementById('panel-tecnico');
+    const icono = document.getElementById('icono-tecnico');
+    const abierto = panel.style.display !== 'none';
+    panel.style.display = abierto ? 'none' : 'block';
+    icono.textContent   = abierto ? '▼' : '▲';
   }
 
   // ─── CHAT ──────────────────────────────────────────────────────────────────

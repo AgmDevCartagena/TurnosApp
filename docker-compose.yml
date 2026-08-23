@@ -60,6 +60,7 @@ services:
       - SESSION_SECRET=sistema_gestion_secret_production_2025
       - ALLOWED_ORIGINS=http://localhost:3001,http://10.250.10.9:3001
       - ADMIN_INIT_PASSWORD=SuperAdmin2025!
+      - AI_SECRETS_MASTER_KEY=TurnosApp_IA_MasterKey_2025_Secure_v1!
     depends_on:
       mongodb:
         condition: service_healthy
@@ -71,6 +72,16 @@ services:
       - ./backend/utils:/app/utils
       - ./backend/uploads:/app/uploads
       - ./frontend:/app/public
+      - ./backend/config:/app/config
+      - ./backend/services/ia:/app/services/ia
+      - ./backend/controllers/iaController.js:/app/controllers/iaController.js
+      - ./backend/controllers/authController.js:/app/controllers/authController.js
+      - ./backend/routes/ia.js:/app/routes/ia.js
+      - ./backend/middlewares/inputValidator.js:/app/middlewares/inputValidator.js
+      - ./backend/prisma/schema.prisma:/app/prisma/schema.prisma
+      - ./backend/prisma/seed.js:/app/prisma/seed.js
+      - ./backend/server.js:/app/server.js
+      - ./backend/docker-entrypoint.sh:/app/docker-entrypoint.sh
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/auth/verificar-sesion"]
       interval: 30s

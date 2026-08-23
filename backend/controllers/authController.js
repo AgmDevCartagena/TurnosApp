@@ -288,6 +288,16 @@ exports.verificarSesion = async (req, res) => {
           }
         }
         console.log('[verificarSesion] modulosPermitidos final:', usuario.modulosPermitidos);
+
+        // Refrescar permisosEfectivos desde BD para que nuevos permisos (ej. IA)
+        // se propaguen automáticamente sin necesidad de hacer logout.
+        if (usuario.pgId) {
+          const ctx = await permisosService.obtenerContextoEmpresa(usuario.pgId, usuario.pgEmpresaId);
+          if (ctx) {
+            usuario.permisosEfectivos          = ctx.permisosEfectivos;
+            req.session.usuario.permisosEfectivos = ctx.permisosEfectivos;
+          }
+        }
       } catch (err) {
         console.error('[verificarSesion] ERROR al refrescar datos de empresa:', err.message);
       }

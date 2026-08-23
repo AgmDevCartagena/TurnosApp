@@ -9,6 +9,17 @@ router.use(requireAuth);
 router.use(requireTenant);
 router.use(requireModulo('ia'));
 
+// ── Catálogo de proveedores (solo requiere acceso al módulo) ──
+router.get ('/providers',             ia.listarProveedores);
+router.get ('/providers/models',      requirePermiso('ia.configurar'), ia.listarModelosProveedor);
+
+// ── Verificar conexión ──
+router.post('/verificar-conexion',    requirePermiso('ia.configurar'),       ia.verificarConexion);
+
+// ── API Key por empresa (BYOK) ──
+router.put   ('/api-key',             requirePermisoStrict('ia.configurar'), ia.registrarApiKey);
+router.delete('/api-key',             requirePermisoStrict('ia.configurar'), ia.eliminarApiKey);
+
 // ── Configuración ──
 router.get ('/configuracion',         requirePermiso('ia.configurar'),       ia.obtenerConfiguracion);
 router.put ('/configuracion',         requirePermisoStrict('ia.configurar'), ia.actualizarConfiguracion);

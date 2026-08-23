@@ -12,14 +12,15 @@
  * - Si AI_ENABLED=false, toda llamada retorna un error controlado.
  */
 
-const prisma = require('../../lib/prisma');
-const crypto = require('crypto');
+const prisma      = require('../../lib/prisma');
+const crypto      = require('crypto');
+const aiProviders = require('../../config/aiProviders');
 
 // ─── Configuración desde env ──────────────────────────────────────────────────
 
 function getConfig() {
   return {
-    habilitado:    process.env.AI_ENABLED === 'true',
+    habilitado:    process.env.AI_ENABLED !== 'false',
     proveedor:     process.env.AI_PROVIDER || 'openai',
     apiKey:        process.env.AI_API_KEY  || null,
     modelo:        process.env.AI_MODEL    || 'gpt-4o-mini',
@@ -39,8 +40,8 @@ function hashPrompt(prompt) {
 // ─── Adaptadores de proveedor ─────────────────────────────────────────────────
 
 async function llamarOpenAI(messages, config, señalAbort) {
-  const { default: fetch } = await import('node-fetch');
-  const url = config.baseUrl || 'https://api.openai.com/v1/chat/completions';
+  const base = config.baseUrl || 'https://api.openai.com/v1';
+  const url  = `${base.replace(/\/$/, '')}/chat/completions`;
 
   const body = {
     model:       config.modelo,
@@ -73,7 +74,6 @@ async function llamarOpenAI(messages, config, señalAbort) {
 }
 
 async function llamarAnthropic(messages, config, señalAbort) {
-  const { default: fetch } = await import('node-fetch');
   const url = config.baseUrl || 'https://api.anthropic.com/v1/messages';
 
   const systemMsg = messages.find(m => m.role === 'system');
@@ -138,6 +138,32 @@ async function invocar({
   const cfg = { ...getConfig(), ...configOverride };
   const t0  = Date.now();
 
+  // BYOK: obtener clave, proveedor y modelo de la ConfiguracionIA de la empresa
+  // DEBE ejecutarse antes del check !cfg.apiKey
+  if (empresaId) {
+    try {
+      const enc = require('./encryptionService');
+      const compCfg = await prisma.configuracionIA.findUnique({
+        where:  { empresaId },
+        select: { apiKeyEncriptada: true, proveedor: true, modelo: true, temperatura: true, limiteTokensRespuesta: true },
+      });
+      if (compCfg) {
+        if (!cfg.proveedor || cfg.proveedor === 'openai') {
+          if (compCfg.proveedor) cfg.proveedor = compCfg.proveedor;
+        }
+        if (!configOverride.modelo && compCfg.modelo) cfg.modelo = compCfg.modelo;
+        if (!cfg.apiKey && compCfg.apiKeyEncriptada && enc.masterKeyConfigurada()) {
+          cfg.apiKey = enc.descifrar(compCfg.apiKeyEncriptada);
+        }
+        // Completar baseUrl desde catálogo si el proveedor lo requiere
+        if (!cfg.baseUrl) {
+          const provInfo = aiProviders.buscarPorCodigo(cfg.proveedor);
+          if (provInfo?.baseUrlDefault) cfg.baseUrl = provInfo.baseUrlDefault;
+        }
+      }
+    } catch { /* fallback a env */ }
+  }
+
   if (!cfg.habilitado) {
     await _registrarEjecucion({
       empresaId, usuarioId, propuestaId, tipoOperacion,
@@ -170,12 +196,13 @@ async function invocar({
 
   try {
     let respuesta;
-    if (cfg.proveedor === 'openai') {
-      respuesta = await llamarOpenAI(messages, cfg, controller.signal);
-    } else if (cfg.proveedor === 'anthropic') {
+    const provInfo = aiProviders.buscarPorCodigo(cfg.proveedor);
+    if (cfg.proveedor === 'anthropic') {
       respuesta = await llamarAnthropic(messages, cfg, controller.signal);
+    } else if (cfg.proveedor === 'openai' || provInfo?.compatibleOpenAI || cfg.baseUrl) {
+      respuesta = await llamarOpenAI(messages, cfg, controller.signal);
     } else {
-      throw new Error(`Proveedor IA no soportado: ${cfg.proveedor}`);
+      throw new Error(`Proveedor IA no soportado actualmente: ${cfg.proveedor}. Verifica la configuración.`);
     }
 
     contenido     = respuesta.contenido;
@@ -184,9 +211,10 @@ async function invocar({
     rawModel      = respuesta.rawModel || cfg.modelo;
 
   } catch (err) {
-    resultado   = err.name === 'AbortError' ? 'fallido' : 'fallido';
+    resultado   = 'fallido';
     codigoError = err.code || err.name || 'ERROR_PROVEEDOR';
     clearTimeout(timer);
+    console.error(`[proveedorIA] Error proveedor=${cfg.proveedor} modelo=${cfg.modelo}: ${err.message}`);
 
     const ejecucionId = await _registrarEjecucion({
       empresaId, usuarioId, propuestaId, tipoOperacion,
@@ -195,7 +223,8 @@ async function invocar({
       resultado, codigoError, duracionMs: Date.now() - t0, metadata,
     });
 
-    const publicErr  = new Error(err.name === 'AbortError' ? 'Timeout llamando al proveedor IA.' : 'Error comunicándose con el proveedor IA.');
+    const esTimeout = err.name === 'AbortError' || err.name === 'TimeoutError';
+    const publicErr  = new Error(esTimeout ? 'Tiempo de espera agotado con el proveedor IA.' : `Error con el proveedor IA: ${err.message}`);
     publicErr.code   = codigoError;
     publicErr.ejecucionId = ejecucionId;
     throw publicErr;

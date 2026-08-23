@@ -1,6 +1,7 @@
 'use strict';
 
 const prisma             = require('../lib/prisma');
+const aiProviders        = require('../config/aiProviders');
 const { evaluar }        = require('../services/ia/constraintEngine');
 const { simular }        = require('../services/ia/simulador');
 const { procesar }       = require('../services/ia/asistenteIA');
@@ -37,7 +38,285 @@ exports.obtenerConfiguracion = async (req, res) => {
     if (!eid && !esSA(req)) return res.status(403).json({ success: false, error: 'Sin empresa activa' });
 
     const config = await prisma.configuracionIA.findUnique({ where: { empresaId: eid } });
-    res.json({ success: true, configuracion: config || null });
+
+    const hasCompanyKey = !!(config?.apiKeyEncriptada);
+    const hasEnvKey     = !!(process.env.AI_API_KEY && process.env.AI_API_KEY.length > 5);
+    const globalKilled  = process.env.AI_ENABLED === 'false';
+
+    let connectionStatus;
+    if (globalKilled) {
+      connectionStatus = 'disabled';
+    } else if (!config) {
+      connectionStatus = 'no_key';
+    } else if (!config.habilitada) {
+      connectionStatus = 'disabled';
+    } else if (!hasCompanyKey && !hasEnvKey) {
+      connectionStatus = 'no_key';
+    } else if (config.apiKeyEstado === 'configurada' || hasEnvKey) {
+      connectionStatus = 'configured';
+    } else if (hasCompanyKey && config.apiKeyEstado === 'pendiente') {
+      connectionStatus = 'pending'; // clave registrada, aún sin validar
+    } else if (hasCompanyKey && config.apiKeyEstado === 'error') {
+      connectionStatus = 'error'; // clave inválida
+    } else {
+      connectionStatus = 'no_key';
+    }
+
+    const providerInfo = config ? aiProviders.buscarPorCodigo(config.proveedor) : null;
+
+    const configSafe = config ? {
+      id:                    config.id,
+      empresaId:             config.empresaId,
+      habilitada:            config.habilitada,
+      proveedor:             config.proveedor,
+      providerName:          providerInfo?.nombre || config.proveedor,
+      modelo:                config.modelo,
+      temperatura:           config.temperatura,
+      limiteTokensRespuesta: config.limiteTokensRespuesta,
+      limiteMensualTokens:   config.limiteMensualTokens,
+      permitirDatosNomina:   config.permitirDatosNomina,
+      permitirNombres:       config.permitirNombres,
+      retencionAuditoriaDias:config.retencionAuditoriaDias,
+      // API Key metadata — NUNCA la clave cifrada ni el valor plano
+      apiKeyEstado:          config.apiKeyEstado || (hasEnvKey ? 'env' : null),
+      apiKeyMascara:         config.apiKeyMascara || (hasEnvKey ? '••••••(servidor)' : null),
+      apiKeyFechaValidacion: config.apiKeyFechaValidacion,
+      createdAt:             config.createdAt,
+      updatedAt:             config.updatedAt,
+    } : null;
+
+    res.json({
+      success:             true,
+      configuracion:       configSafe,
+      serverKeyConfigured: hasCompanyKey || hasEnvKey,
+      connectionStatus,
+    });
+  } catch (err) {
+    enviarError(res, err);
+  }
+};
+
+/**
+ * GET /api/ia/providers
+ * Catálogo de proveedores IA activos (sin secretos).
+ */
+exports.listarProveedores = (req, res) => {
+  res.json({ success: true, providers: aiProviders.listarActivos() });
+};
+
+/**
+ * GET /api/ia/providers/models
+ * Retorna los modelos disponibles para el proveedor configurado en la empresa,
+ * consultando la API real del proveedor con la clave almacenada.
+ */
+exports.listarModelosProveedor = async (req, res) => {
+  try {
+    const eid = pgEmpresaId(req);
+    if (!eid) return res.status(403).json({ success: false, error: 'Sin empresa activa' });
+
+    const config = await prisma.configuracionIA.findUnique({ where: { empresaId: eid } });
+    if (!config?.proveedor) return res.json({ success: true, modelos: [], fuente: 'sin_config' });
+
+    const enc = require('../services/ia/encryptionService');
+    let apiKey = null;
+    if (config.apiKeyEncriptada && enc.masterKeyConfigurada()) {
+      try { apiKey = enc.descifrar(config.apiKeyEncriptada); } catch {}
+    }
+    if (!apiKey) apiKey = process.env.AI_API_KEY || null;
+    if (!apiKey) return res.json({ success: true, modelos: [], fuente: 'sin_clave' });
+
+    const provInfo = aiProviders.buscarPorCodigo(config.proveedor);
+    const baseUrl  = process.env.AI_BASE_URL || provInfo?.baseUrlDefault || null;
+
+    let modelos = [];
+    let fuente  = 'api';
+
+    try {
+      if (config.proveedor === 'anthropic' || config.proveedor === 'google_gemini') {
+        fuente  = 'catalogo';
+        modelos = provInfo?.modelosSugeridos || [];
+      } else {
+        const base    = baseUrl || 'https://api.openai.com/v1';
+        const url     = `${base.replace(/\/$/, '')}/models`;
+        const headers = config.proveedor === 'anthropic'
+          ? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+          : { Authorization: `Bearer ${apiKey}` };
+
+        const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+        if (resp.ok) {
+          const json = await resp.json();
+          // OpenAI / NVIDIA NIM formato: { data: [{ id, ... }] }
+          if (Array.isArray(json.data)) {
+            modelos = json.data.map(m => m.id || m).filter(Boolean).sort();
+          } else if (Array.isArray(json)) {
+            modelos = json.map(m => m.id || m).filter(Boolean).sort();
+          }
+        }
+      }
+    } catch {
+      fuente  = 'catalogo';
+      modelos = provInfo?.modelosSugeridos || [];
+    }
+
+    if (!modelos.length) {
+      fuente  = 'catalogo';
+      modelos = provInfo?.modelosSugeridos || [];
+    }
+
+    apiKey = null;
+    res.json({ success: true, modelos, fuente });
+  } catch (err) {
+    enviarError(res, err);
+  }
+};
+
+/**
+ * POST /api/ia/verificar-conexion
+ * Verifica la clave IA de la empresa con una llamada real al proveedor.
+ * Actualiza apiKeyEstado y apiKeyFechaValidacion en BD.
+ */
+exports.verificarConexion = async (req, res) => {
+  try {
+    const eid = pgEmpresaId(req);
+    if (!eid) return res.status(403).json({ success: false, error: 'Sin empresa activa' });
+
+    const config  = await prisma.configuracionIA.findUnique({ where: { empresaId: eid } });
+    const enc     = require('../services/ia/encryptionService');
+
+    // Obtener clave: empresa primero, env como fallback
+    let apiKey = null; let keySource = 'none';
+    if (config?.apiKeyEncriptada && enc.masterKeyConfigurada()) {
+      try { apiKey = enc.descifrar(config.apiKeyEncriptada); keySource = 'company'; } catch {}
+    }
+    if (!apiKey) {
+      apiKey = (process.env.AI_API_KEY?.length > 5) ? process.env.AI_API_KEY : null;
+      keySource = apiKey ? 'env' : 'none';
+    }
+
+    if (!apiKey) {
+      return res.json({ ok: false, message: 'No hay una clave de acceso IA configurada. Registra una clave en la sección “Clave de Acceso IA”.' });
+    }
+
+    const proveedor  = config?.proveedor || process.env.AI_PROVIDER || 'openai';
+    const provInfo   = aiProviders.buscarPorCodigo(proveedor);
+    const baseUrl    = process.env.AI_BASE_URL || provInfo?.baseUrlDefault || null;
+    const provNombre = provInfo?.nombre || proveedor;
+
+    // Llamada de prueba al proveedor (fetch nativo Node.js 18+)
+    let testOk = false, testMsg = '';
+
+    try {
+      let testUrl, headers;
+      if (proveedor === 'anthropic') {
+        testUrl = 'https://api.anthropic.com/v1/models';
+        headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+      } else if (proveedor === 'google_gemini') {
+        testUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+        headers = {};
+      } else {
+        const base = baseUrl || 'https://api.openai.com/v1';
+        testUrl    = `${base.replace(/\/$/, '')}/models`;
+        headers    = { Authorization: `Bearer ${apiKey}` };
+      }
+
+      const resp = await fetch(testUrl, { headers, signal: AbortSignal.timeout(12000) });
+
+      if (resp.ok) {
+        testOk  = true;
+        testMsg = `La conexión con ${provNombre} fue validada correctamente.`;
+      } else if (resp.status === 401 || resp.status === 403) {
+        testMsg = `La clave no fue aceptada por ${provNombre}. Verifica que sea correcta y esté vigente.`;
+      } else {
+        testMsg = `${provNombre} respondió con estado ${resp.status}. Puede ser un problema temporal del proveedor.`;
+      }
+    } catch (e) {
+      testMsg = e.name === 'AbortError' || e.name === 'TimeoutError'
+        ? `Tiempo de espera agotado al conectar con ${provNombre}.`
+        : `No fue posible conectar con ${provNombre}.`;
+    }
+
+    apiKey = null; // limpiar de memoria (best effort)
+
+    // Actualizar estado en BD solo para clave de empresa
+    if (keySource === 'company' && config) {
+      await prisma.configuracionIA.update({
+        where: { empresaId: eid },
+        data:  {
+          apiKeyEstado:          testOk ? 'configurada' : 'error',
+          apiKeyFechaValidacion: testOk ? new Date() : config.apiKeyFechaValidacion,
+        },
+      });
+    }
+
+    return res.json({ ok: testOk, message: testMsg });
+  } catch (err) {
+    enviarError(res, err);
+  }
+};
+
+/**
+ * PUT /api/ia/api-key
+ * Registra o reemplaza la API Key de la empresa (se cifra con AES-256-GCM).
+ * La clave plana nunca se guarda; solo el valor cifrado y la máscara.
+ */
+exports.registrarApiKey = async (req, res) => {
+  try {
+    const eid = pgEmpresaId(req);
+    const uid = pgUsuarioId(req);
+    if (!eid) return res.status(403).json({ success: false, error: 'Sin empresa activa' });
+
+    // Rechazar campos que nunca deben venir del frontend
+    if (req.body.apiKeyEncriptada || req.body.apiKeyMascara || req.body.apiKeyEstado) {
+      return res.status(400).json({ success: false, error: 'Solicitud inválida.' });
+    }
+
+    const { apiKey, proveedor: proveedorBody } = req.body;
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 10) {
+      return res.status(400).json({ success: false, error: 'La clave ingresada no es válida (mínimo 10 caracteres).' });
+    }
+    const proveedorValido = proveedorBody && aiProviders.buscarPorCodigo(proveedorBody) ? proveedorBody : null;
+
+    const enc = require('../services/ia/encryptionService');
+    if (!enc.masterKeyConfigurada()) {
+      return res.status(503).json({ success: false, error: 'El servidor no tiene configurada la clave maestra de cifrado (AI_SECRETS_MASTER_KEY). Contacta al administrador técnico.' });
+    }
+
+    const clave            = apiKey.trim();
+    const apiKeyEncriptada = enc.cifrar(clave);
+    const apiKeyMascara    = enc.generarMascara(clave);
+
+    const updateData = { apiKeyEncriptada, apiKeyMascara, apiKeyEstado: 'pendiente', apiKeyFechaValidacion: null };
+    if (proveedorValido) updateData.proveedor = proveedorValido;
+    await prisma.configuracionIA.upsert({
+      where:  { empresaId: eid },
+      update: updateData,
+      create: { empresaId: eid, apiKeyEncriptada, apiKeyMascara, apiKeyEstado: 'pendiente', habilitada: false,
+                ...(proveedorValido ? { proveedor: proveedorValido } : {}) },
+    });
+
+    console.log(`[ia] apiKey registrada empresa=${eid} usuario=${uid} mascara=${apiKeyMascara}`);
+    res.json({ success: true, apiKeyMascara, apiKeyEstado: 'pendiente' });
+  } catch (err) {
+    enviarError(res, err);
+  }
+};
+
+/**
+ * DELETE /api/ia/api-key
+ * Elimina la API Key de la empresa.
+ */
+exports.eliminarApiKey = async (req, res) => {
+  try {
+    const eid = pgEmpresaId(req);
+    if (!eid) return res.status(403).json({ success: false, error: 'Sin empresa activa' });
+
+    await prisma.configuracionIA.updateMany({
+      where: { empresaId: eid },
+      data:  { apiKeyEncriptada: null, apiKeyMascara: null, apiKeyEstado: null, apiKeyFechaValidacion: null },
+    });
+
+    console.log(`[ia] apiKey eliminada empresa=${eid}`);
+    res.json({ success: true });
   } catch (err) {
     enviarError(res, err);
   }
