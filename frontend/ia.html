@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Asistente IA — Programación Operativa</title>
   <style>
+    :root {
+      --ai-primary:    #667eea;
+      --ai-secondary:  #764ba2;
+      --ai-icon-active:#5b5ef0;
+      --ai-icon-muted: #8b8fa3;
+      --ai-icon-soft:  #eef0ff;
+      --ai-text-main:  #1f2937;
+      --ai-text-muted: #6b7280;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { overflow-x: hidden; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; min-height: 100vh; overflow-x: hidden; }
@@ -44,7 +53,9 @@
     .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; cursor: pointer; transition: background .15s; font-size: 0.92em; color: #444; font-weight: 500; margin-bottom: 2px; }
     .nav-item:hover { background: #f3f4ff; color: #667eea; }
     .nav-item.active { background: #e8eaf6; color: #5c6bc0; font-weight: 700; }
-    .nav-item .nav-icon { width: 28px; text-align: center; font-size: 1.1em; flex-shrink: 0; }
+    .nav-item .nav-icon { width: 28px; display:flex; align-items:center; justify-content:center; flex-shrink: 0; color: inherit; line-height:0; }
+    .nav-item .nav-icon svg { display:block; }
+    .nav-item:hover .nav-icon svg, .nav-item.active .nav-icon svg { stroke: var(--ai-primary); }
     .nav-item .nav-badge { margin-left: auto; background: #667eea; color: white; border-radius: 10px; padding: 1px 7px; font-size: 0.72em; font-weight: 700; }
     .sidebar-divider { border: none; border-top: 1px solid #eee; margin: 8px 16px; }
     .config-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; font-size: 0.82em; color: #777; }
@@ -57,7 +68,8 @@
     /* ── Panel principal (tabs) ── */
     .main-panel { display: flex; flex-direction: column; overflow: hidden; background: #f5f6fa; }
     .tab-header { background: white; border-bottom: 1px solid #e8eaf6; display: flex; gap: 0; flex-shrink: 0; }
-    .tab-btn { padding: 14px 22px; font-size: 0.9em; font-weight: 600; color: #888; border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s; }
+    .tab-btn { padding: 14px 20px; font-size: 0.9em; font-weight: 600; color: #888; border: none; background: transparent; cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s; display:inline-flex; align-items:center; gap:6px; }
+    .tab-btn svg { flex-shrink:0; stroke: currentColor; }
     .tab-btn:hover { color: #667eea; }
     .tab-btn.active { color: #5c6bc0; border-bottom-color: #667eea; }
     .tab-content { display: none; flex: 1; overflow-y: auto; padding: 24px; }
@@ -78,7 +90,8 @@
     .msg-time { font-size: 0.72em; opacity: 0.55; margin-top: 5px; }
     .msg.user .msg-time { text-align: right; }
     .chat-empty { text-align: center; color: #bbb; padding: 60px 20px; }
-    .chat-empty .empty-icon { font-size: 3.5em; margin-bottom: 14px; }
+    .chat-empty .empty-icon { display:flex; justify-content:center; margin-bottom: 18px; line-height:0; }
+    .chat-empty .empty-icon svg { opacity: 0.35; }
     .chat-empty p { font-size: 0.95em; line-height: 1.6; }
     .chat-input-wrap { display: flex; gap: 10px; margin-top: 14px; flex-shrink: 0; }
     .chat-input-wrap textarea { flex: 1; border: 1.5px solid #dde; border-radius: 12px; padding: 11px 14px; font-size: 0.92em; font-family: inherit; resize: none; outline: none; transition: border .2s; min-height: 48px; max-height: 120px; }
@@ -241,8 +254,11 @@
 <!-- ── Header ── -->
 <div class="header">
   <div class="header-left">
+    <div style="background:rgba(255,255,255,0.18);border-radius:12px;padding:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+    </div>
     <div>
-      <h1>🤖 Asistente IA</h1>
+      <h1>Asistente IA</h1>
       <p>Programación Operativa Inteligente</p>
     </div>
     <span class="ai-badge" id="badge-proveedor">IA</span>
@@ -263,20 +279,20 @@
     <div class="sidebar-section">
       <h3>Navegación</h3>
       <div class="nav-item active" id="nav-chat"      onclick="activarTab('chat')">
-        <span class="nav-icon">💬</span> Chat con IA
+        <span class="nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span> Chat con IA
       </div>
       <div class="nav-item" id="nav-validar"  onclick="activarTab('validar')">
-        <span class="nav-icon">✅</span> Validar Programación
+        <span class="nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span> Validar Programación
       </div>
       <div class="nav-item" id="nav-simular"  onclick="activarTab('simular')">
-        <span class="nav-icon">🔬</span> Simulador
+        <span class="nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6l3.09 6.49a2 2 0 0 1 .08.26L19 18a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2l1.83-3.25a2 2 0 0 1 .08-.26L10 8V2"/><path d="M6.09 15h11.82"/><path d="M9 2h6"/></svg></span> Simulador
       </div>
       <div class="nav-item" id="nav-propuestas" onclick="activarTab('propuestas')">
-        <span class="nav-icon">📋</span> Propuestas
+        <span class="nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg></span> Propuestas
         <span class="nav-badge" id="badge-propuestas" style="display:none">0</span>
       </div>
       <div class="nav-item" id="nav-configuracion" onclick="activarTab('configuracion')" style="display:none">
-        <span class="nav-icon">⚙️</span> Configuración
+        <span class="nav-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg></span> Configuración
       </div>
     </div>
     <hr class="sidebar-divider">
@@ -300,11 +316,11 @@
   <!-- ── Panel principal ── -->
   <div class="main-panel">
     <div class="tab-header">
-      <button class="tab-btn active" id="tab-btn-chat"      onclick="activarTab('chat')">💬 Chat</button>
-      <button class="tab-btn"        id="tab-btn-validar"   onclick="activarTab('validar')">✅ Validar</button>
-      <button class="tab-btn"        id="tab-btn-simular"   onclick="activarTab('simular')">🔬 Simular</button>
-      <button class="tab-btn"        id="tab-btn-propuestas" onclick="activarTab('propuestas')">📋 Propuestas</button>
-      <button class="tab-btn"        id="tab-btn-configuracion" onclick="activarTab('configuracion')" style="display:none">⚙️ Config</button>
+      <button class="tab-btn active" id="tab-btn-chat"      onclick="activarTab('chat')" aria-label="Chat con IA"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg> Chat</button>
+      <button class="tab-btn"        id="tab-btn-validar"   onclick="activarTab('validar')" aria-label="Validar programación"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Validar</button>
+      <button class="tab-btn"        id="tab-btn-simular"   onclick="activarTab('simular')" aria-label="Simulador"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2v6l3.09 6.49a2 2 0 0 1 .08.26L19 18a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2l1.83-3.25a2 2 0 0 1 .08-.26L10 8V2"/><path d="M6.09 15h11.82"/><path d="M9 2h6"/></svg> Simular</button>
+      <button class="tab-btn"        id="tab-btn-propuestas" onclick="activarTab('propuestas')" aria-label="Propuestas"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg> Propuestas</button>
+      <button class="tab-btn"        id="tab-btn-configuracion" onclick="activarTab('configuracion')" style="display:none" aria-label="Configuración"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg> Config</button>
     </div>
 
     <!-- ── TAB: Chat ── -->
@@ -312,7 +328,7 @@
       <div class="chat-wrapper">
         <div class="chat-messages" id="chat-messages">
           <div class="chat-empty" id="chat-empty">
-            <div class="empty-icon">🤖</div>
+            <div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg></div>
             <p>Hola. Soy tu Asistente de Programación Operativa.<br>
                Puedo ayudarte a detectar conflictos, analizar indicadores<br>
                y sugerir mejoras en la programación.<br><br>
@@ -328,11 +344,11 @@
 
     <!-- ── TAB: Configuración ── -->
     <div class="tab-content" id="tab-configuracion">
-      <div class="section-title">⚙️ Configuración del Asistente IA</div>
+      <div class="section-title"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg> Configuración del Asistente IA</div>
 
       <!-- BLOQUE 1: Estado de conexión -->
       <div class="card">
-        <h3 style="margin-bottom:14px">🔗 Estado del Asistente IA</h3>
+        <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:7px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg> Estado del Asistente IA</h3>
         <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
           <span class="status-pill pill-gris" id="pill-conexion">Verificando…</span>
           <div>
@@ -346,14 +362,14 @@
           configura únicamente en el servidor y no se muestra en esta pantalla.
         </p>
         <div class="row-btns">
-          <button class="btn btn-outline btn-sm" onclick="verificarConexionIA(event)">🔌 Verificar conexión</button>
-          <button class="btn btn-outline btn-sm" onclick="cargarConfiguracion()">↺ Recargar estado</button>
+          <button class="btn btn-outline btn-sm" onclick="verificarConexionIA(event)" style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4z"/><path d="m2 22 3-3"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m18 3-4 4h6l-4 4"/></svg> Verificar conexión</button>
+          <button class="btn btn-outline btn-sm" onclick="cargarConfiguracion()" style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Recargar estado</button>
         </div>
       </div>
 
       <!-- BLOQUE: Clave de Acceso IA (BYOK) -->
       <div class="card" id="card-api-key">
-        <h3 style="margin-bottom:14px">🔑 Clave de Acceso IA</h3>
+        <h3 style="margin-bottom:14px;display:flex;align-items:center;gap:7px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg> Clave de Acceso IA</h3>
         <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
           <span class="status-pill pill-gris" id="apikey-pill">Sin configurar</span>
           <div>
@@ -368,13 +384,13 @@
             <input type="password" id="input-api-key" placeholder="sk-… / nvapi-… / sk-ant-…" autocomplete="new-password" style="font-family:monospace;letter-spacing:.04em">
           </div>
           <div class="row-btns" style="margin-top:10px">
-            <button type="button" class="btn btn-primary btn-sm" onclick="guardarApiKeyIA()">💾 Cifrar y guardar</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="guardarApiKeyIA()" style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg> Cifrar y guardar</button>
             <button type="button" class="btn btn-outline btn-sm" onclick="cancelarApiKeyIA()">Cancelar</button>
           </div>
         </div>
         <div class="row-btns">
-          <button type="button" class="btn btn-outline btn-sm" onclick="mostrarFormApiKeyIA()">🔑 Registrar / Reemplazar clave</button>
-          <button type="button" class="btn btn-outline btn-sm btn-danger" id="btn-del-key" style="display:none" onclick="eliminarApiKeyIA()">🗑️ Eliminar clave</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="mostrarFormApiKeyIA()" style="display:inline-flex;align-items:center;gap:5px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg> Registrar / Reemplazar clave</button>
+          <button type="button" class="btn btn-outline btn-sm btn-danger" id="btn-del-key" style="display:none;align-items:center;gap:5px;" onclick="eliminarApiKeyIA()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> Eliminar clave</button>
         </div>
         <p style="font-size:.79em;color:#bbb;margin-top:14px;line-height:1.5">
           La clave se cifra con AES-256-GCM antes de guardarse en la base de datos. El valor original nunca se almacena en texto plano, no se muestra completo en pantalla ni aparece en logs. Solo se puede reemplazar o eliminar.
@@ -383,7 +399,7 @@
 
       <!-- BLOQUE 2: Configuración funcional -->
       <div class="card">
-        <h3 style="margin-bottom:16px">�️ Configuración funcional</h3>
+        <h3 style="margin-bottom:16px;display:flex;align-items:center;gap:7px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><circle cx="12" cy="4" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="14" cy="20" r="2"/></svg> Configuración funcional</h3>
         <form id="form-config-ia" onsubmit="guardarConfigIA(event)">
           <div class="form-row">
             <div class="form-group">
@@ -435,8 +451,8 @@
             </label>
           </div>
           <div class="row-btns" style="margin-top:18px">
-            <button type="submit" class="btn btn-primary">💾 Guardar configuración</button>
-            <button type="button" class="btn btn-outline" onclick="cargarConfigIA()">↺ Recargar</button>
+            <button type="submit" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg> Guardar configuración</button>
+            <button type="button" class="btn btn-outline" onclick="cargarConfigIA()" style="display:inline-flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Recargar</button>
           </div>
         </form>
       </div>
@@ -444,7 +460,7 @@
       <!-- BLOQUE 3: Información técnica — colapsable, solo super_admin -->
       <div class="card" id="card-tecnico" style="display:none">
         <div class="collapsible-header" onclick="toggleTecnico()">
-          <h3>🔧 Información técnica para el administrador del servidor</h3>
+          <h3 style="display:flex;align-items:center;gap:7px;"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Información técnica para el administrador del servidor</h3>
           <span id="icono-tecnico" style="font-size:1em;color:#aaa">▼</span>
         </div>
         <div id="panel-tecnico" style="display:none;margin-top:14px">
@@ -933,7 +949,7 @@
     } else {
       fechaEl.textContent = cfg?.apiKeyMascara && estado !== 'env' ? 'Pendiente de primera validación' : '';
     }
-    btnDel.style.display = (cfg?.apiKeyMascara && estado !== 'env') ? 'inline-block' : 'none';
+    btnDel.style.display = (cfg?.apiKeyMascara && estado !== 'env') ? 'inline-flex' : 'none';
   }
 
   function mostrarFormApiKeyIA() {
