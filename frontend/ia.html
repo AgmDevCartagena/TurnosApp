@@ -859,7 +859,8 @@
     if (!inp || !drop || !wrap) return;
 
     inp.addEventListener('focus', () => {
-      renderModelDropdown(inp.value);
+      inp.select();
+      renderModelDropdown('');
       openModelDropdown();
     });
     inp.addEventListener('input', () => {
