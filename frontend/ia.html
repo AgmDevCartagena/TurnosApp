@@ -400,7 +400,7 @@
             </div>
             <div class="form-group">
               <label>Modelo <small class="field-help">Selecciona una sugerencia o escribe el identificador del modelo que tengas habilitado con tu proveedor</small></label>
-              <input type="text" id="cfg-modelo" list="lista-modelos" placeholder="Selecciona o escribe el modelo" autocomplete="off" required>
+              <input type="text" id="cfg-modelo" list="lista-modelos" placeholder="Haz clic para ver todos los modelos o escribe para filtrar" autocomplete="off" required>
               <datalist id="lista-modelos"></datalist>
             </div>
           </div>
@@ -591,6 +591,24 @@
     inp.addEventListener('input', () => {
       inp.style.height = 'auto';
       inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+    });
+
+    // Datalist: borrar texto al enfocar para mostrar todas las opciones.
+    // El datalist filtra por el valor actual, por lo que si ya hay un modelo
+    // seleccionado el desplegable no muestra nada. Al borrar en foco y
+    // restaurar en blur (si no se seleccionó nada) se resuelve el problema.
+    const modeloInp = document.getElementById('cfg-modelo');
+    let _modeloAntes = '';
+    modeloInp.addEventListener('focus', () => {
+      _modeloAntes = modeloInp.value;
+      modeloInp.value = '';
+    });
+    modeloInp.addEventListener('blur', () => {
+      if (!modeloInp.value.trim()) modeloInp.value = _modeloAntes;
+      else _modeloAntes = modeloInp.value;
+    });
+    modeloInp.addEventListener('change', () => {
+      _modeloAntes = modeloInp.value;
     });
   });
 
