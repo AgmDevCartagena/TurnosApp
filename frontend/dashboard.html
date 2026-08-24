@@ -59,6 +59,7 @@
             .modal-btns button { width: 100%; }
             .info-grid { grid-template-columns: 1fr; }
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
         /* Modal de cambio de contraseña */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
         .modal-overlay.active { display: flex; }
@@ -180,8 +181,8 @@
             <div class="header-user" id="header-user-right"></div>
         </div>
         <div id="dashboard-resumen" style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin:14px 0 22px;"></div>
-        <div class="modules-grid">
-            <a href="/turnos" class="module-card" id="modulo-turnos">
+        <div class="modules-grid" style="display:none;">
+            <a href="/turnos" class="module-card" id="modulo-turnos" style="display:none;">
                 <div class="module-icon"><svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><defs><linearGradient id="gTurnos" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#764ba2"/></linearGradient></defs><circle cx="36" cy="36" r="34" fill="url(#gTurnos)"/><rect x="20" y="25" width="32" height="26" rx="3" fill="none" stroke="white" stroke-width="2.5"/><rect x="20" y="25" width="32" height="9" rx="3" fill="rgba(255,255,255,0.25)" stroke="none"/><line x1="20" y1="34" x2="52" y2="34" stroke="white" stroke-width="2.5"/><line x1="29" y1="19" x2="29" y2="29" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="43" y1="19" x2="43" y2="29" stroke="white" stroke-width="2.5" stroke-linecap="round"/><circle cx="29" cy="43" r="2.5" fill="white"/><circle cx="36" cy="43" r="2.5" fill="white"/><circle cx="43" cy="43" r="2.5" fill="white"/><circle cx="29" cy="49" r="2.5" fill="rgba(255,255,255,0.55)"/><circle cx="36" cy="49" r="2.5" fill="rgba(255,255,255,0.55)"/></svg></div>
                 <h2 class="module-title">Módulo de Turnos</h2>
                 <p class="module-description">Gestión completa de turnos y horarios laborales para todas las áreas operativas.</p>
@@ -194,7 +195,7 @@
                 </ul>
                 <button class="module-button">Acceder a Turnos</button>
             </a>
-            <a href="/nomina.html" class="module-card" id="modulo-nomina">
+            <a href="/nomina.html" class="module-card" id="modulo-nomina" style="display:none;">
                 <div class="module-icon"><svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72"><defs><linearGradient id="gNomina" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309"/></linearGradient></defs><circle cx="36" cy="36" r="34" fill="url(#gNomina)"/><circle cx="36" cy="36" r="16" fill="none" stroke="white" stroke-width="2.5"/><line x1="36" y1="18" x2="36" y2="54" stroke="white" stroke-width="2.5" stroke-linecap="round"/><path d="M27 27c0-2.8 4-5 9-5s9 2.2 9 5-4 4-9 5-9 2.2-9 5 4 5 9 5 9-2.2 9-5" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>
                 <h2 class="module-title">Módulo de Nómina</h2>
                 <p class="module-description">Cálculo automático de nómina con prestaciones sociales y deducciones.</p>
@@ -271,6 +272,14 @@
                 <button class="module-button">Gestionar Áreas</button>
             </a>
         </div>
+        <!-- Overlay de carga inicial -->
+        <div id="loading-permisos" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:60px 20px;">
+            <div style="width:44px;height:44px;border:4px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <p style="color:white;font-size:1.05em;opacity:0.9;">Cargando módulos disponibles…</p>
+        </div>
+        <div id="sin-modulos" style="display:none;background:rgba(255,255,255,0.15);border-radius:16px;padding:36px;text-align:center;color:white;margin-bottom:30px;">
+            <p style="font-size:1.1em;">No tienes módulos habilitados para esta empresa.<br>Contacta al administrador.</p>
+        </div>
         <div class="info-section">
             <h2>🏢 Áreas Operativas</h2>
             <div class="info-grid" id="areas-operativas-grid">
@@ -278,8 +287,7 @@
             </div>
         </div>
         <footer style="position:fixed; left:0; bottom:0; width:100%; background:linear-gradient(90deg,#764ba2 60%,#667eea 100%); color:#fff; text-align:center; padding:12px 0 8px 0; font-size:1em; font-weight:500; letter-spacing:0.5px; z-index:100; box-shadow:0 -2px 16px rgba(0,0,0,0.10);">
-            <span style="color:#ffe066;">© 2026 Innovar</span> - <span style="color:#fff;">Sistema Integrado de Gestión v2.0</span><br>
-            <span style="color:#ffe066;">Módulo de Turnos + Módulo de Nómina</span>
+            <span style="color:#ffe066;">© 2026 Innovar</span> - <span style="color:#fff;">Sistema Integrado de Gestión v2.0</span>
         </footer>
     </div>
     
@@ -319,8 +327,26 @@
                 .replace(/'/g, '&#x27;');
         }
 
+        const TODOS_MODULOS = ['turnos','nomina','empresas','usuarios','areas','transporte','ia'];
+
+        function ocultarTodosModulos() {
+            TODOS_MODULOS.forEach(m => {
+                const el = document.getElementById('modulo-' + m);
+                if (el) el.style.display = 'none';
+            });
+            document.getElementById('loading-permisos').style.display = 'flex';
+            document.getElementById('sin-modulos').style.display = 'none';
+            document.querySelector('.modules-grid').style.display = 'none';
+        }
+
+        function mostrarGridModulos() {
+            document.getElementById('loading-permisos').style.display = 'none';
+            document.querySelector('.modules-grid').style.display = 'grid';
+        }
+
         let usuarioSesion = null;
         async function verificarAutenticacion() {
+            ocultarTodosModulos();
             try {
                 const response = await fetch('/api/auth/verificar-sesion');
                 const data = await response.json();
@@ -331,43 +357,33 @@
             } catch (error) { console.error('Error al verificar sesión:', error); window.location.href = '/login.html'; }
         }
         function configurarModulos() {
-            const modulosPermitidos = usuarioSesion.modulosPermitidos || [];
-            
-            // Configurar módulo de turnos
-            if (!modulosPermitidos.includes('turnos') && usuarioSesion.rol !== 'super_admin') {
-                document.getElementById('modulo-turnos').style.display = 'none';
-            }
-            
-            // Configurar módulo de nómina
-            if (!modulosPermitidos.includes('nomina') && usuarioSesion.rol !== 'super_admin') {
-                document.getElementById('modulo-nomina').style.display = 'none';
-            }
-            
-            // Mostrar módulo de empresas para super_admin o admin con módulo empresas
-            const rolesAdmin = ['admin', 'super_admin'];
-            if (usuarioSesion.rol === 'super_admin' ||
-                (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('empresas'))) {
-                document.getElementById('modulo-empresas').style.display = 'block';
-            }
+            // Todos ocultos — opt-in puro desde permisos reales del backend
+            TODOS_MODULOS.forEach(m => {
+                const el = document.getElementById('modulo-' + m);
+                if (el) el.style.display = 'none';
+            });
 
-            // Mostrar módulo de usuarios y áreas según rol + módulos habilitados para la empresa
-            if (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('usuarios')) {
-                document.getElementById('modulo-usuarios').style.display = 'block';
-            }
-            if (rolesAdmin.includes(usuarioSesion.rol) && modulosPermitidos.includes('areas')) {
-                document.getElementById('modulo-areas').style.display = 'block';
-            }
+            const mods    = usuarioSesion.modulosPermitidos || [];
+            const esSA    = usuarioSesion.rol === 'super_admin';
+            const esAdmin = usuarioSesion.rol === 'admin' || esSA;
+            let   visible = 0;
 
-            // Mostrar módulo de transporte (super_admin, admin y usuarios con permiso transporte)
-            const modulosHabilitados = usuarioSesion.modulosPermitidos || [];
-            const tieneTransporte = usuarioSesion.rol === 'super_admin' || modulosHabilitados.includes('transporte');
-            if (tieneTransporte) {
-                document.getElementById('modulo-transporte').style.display = 'block';
-            }
+            const mostrar = (id) => {
+                const el = document.getElementById(id);
+                if (el) { el.style.display = 'block'; visible++; }
+            };
 
-            // Mostrar módulo IA
-            if (usuarioSesion.rol === 'super_admin' || modulosHabilitados.includes('ia')) {
-                document.getElementById('modulo-ia').style.display = 'block';
+            if (esSA || mods.includes('turnos'))     mostrar('modulo-turnos');
+            if (esSA || mods.includes('nomina'))     mostrar('modulo-nomina');
+            if (esSA || (esAdmin && mods.includes('empresas'))) mostrar('modulo-empresas');
+            if (esAdmin && mods.includes('usuarios')) mostrar('modulo-usuarios');
+            if (esAdmin && mods.includes('areas'))    mostrar('modulo-areas');
+            if (esSA || mods.includes('transporte')) mostrar('modulo-transporte');
+            if (esSA || mods.includes('ia'))         mostrar('modulo-ia');
+
+            mostrarGridModulos();
+            if (visible === 0) {
+                document.getElementById('sin-modulos').style.display = 'block';
             }
             
             // Mostrar solo áreas permitidas
@@ -483,10 +499,12 @@
                     tituloEl.textContent = '🏢 Sistema de Gestión Empresarial';
                 }
 
+                ocultarTodosModulos();
                 configurarModulos();
                 cargarResumenDashboard();
             } catch (err) {
                 console.error('Error al cambiar empresa:', err);
+                mostrarGridModulos();
             }
         }
         
