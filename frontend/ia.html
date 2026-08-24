@@ -232,6 +232,21 @@
     .csel-opt.csel-sel { background: #eef; color: #667eea; font-weight: 700; }
     .csel-placeholder { color: #bbb; }
 
+    /* ── Combobox modelos ── */
+    .ai-model-wrap { position: relative; width: 100%; }
+    .ai-model-input { width: 100%; border: 1.5px solid #dde; border-radius: 8px; padding: 9px 32px 9px 12px; font-size: .9em; font-family: inherit; outline: none; transition: border .2s; box-sizing: border-box; background: white; }
+    .ai-model-input:focus { border-color: #667eea; }
+    .ai-model-wrap.open .ai-model-input { border-color: #667eea; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .ai-model-arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #bbb; font-size: .72em; transition: transform .18s, color .18s; }
+    .ai-model-wrap.open .ai-model-arrow { transform: translateY(-50%) rotate(180deg); color: #667eea; }
+    .ai-model-dropdown { position: absolute; left: 0; right: 0; background: #fff; border: 1.5px solid #c5caeb; border-radius: 0 0 10px 10px; box-shadow: 0 12px 36px rgba(102,126,234,.18); z-index: 2000; overflow-y: auto; scroll-behavior: smooth; }
+    .ai-model-dropdown.drop-up { border-radius: 10px 10px 0 0; box-shadow: 0 -12px 36px rgba(102,126,234,.15); }
+    .ai-model-option { padding: 9px 14px; cursor: pointer; font-size: .87em; color: #333; line-height: 1.35; word-break: break-all; transition: background .08s; border-bottom: 1px solid #f5f5f5; }
+    .ai-model-option:last-child { border-bottom: none; }
+    .ai-model-option:hover, .ai-model-option.ai-kb-active { background: #f0f0fb; color: #667eea; }
+    .ai-model-option.ai-selected { background: #eef0ff; color: #5b5ef0; font-weight: 700; }
+    .ai-model-empty { padding: 12px 14px; color: #aaa; font-size: .85em; font-style: italic; }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; height: auto; }
@@ -416,8 +431,11 @@
             </div>
             <div class="form-group">
               <label>Modelo <small class="field-help">Selecciona una sugerencia o escribe el identificador del modelo que tengas habilitado con tu proveedor</small></label>
-              <input type="text" id="cfg-modelo" list="lista-modelos" placeholder="Haz clic para ver todos los modelos o escribe para filtrar" autocomplete="off" required>
-              <datalist id="lista-modelos"></datalist>
+              <div class="ai-model-wrap" id="model-wrap">
+                <input type="text" id="cfg-modelo" class="ai-model-input" placeholder="Busca o escribe el modelo" autocomplete="off" required>
+                <span class="ai-model-arrow" aria-hidden="true">&#9660;</span>
+                <div class="ai-model-dropdown" id="model-dropdown" style="display:none;"></div>
+              </div>
             </div>
           </div>
           <div class="form-row">
@@ -584,6 +602,7 @@
   let configIA         = null;
   let enviandoMensaje  = false;
   let propuestaSelId   = null;
+  let _modelosLista    = [];
 
   // ─── Inicialización ────────────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', async () => {
@@ -609,23 +628,7 @@
       inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
     });
 
-    // Datalist: borrar texto al enfocar para mostrar todas las opciones.
-    // El datalist filtra por el valor actual, por lo que si ya hay un modelo
-    // seleccionado el desplegable no muestra nada. Al borrar en foco y
-    // restaurar en blur (si no se seleccionó nada) se resuelve el problema.
-    const modeloInp = document.getElementById('cfg-modelo');
-    let _modeloAntes = '';
-    modeloInp.addEventListener('focus', () => {
-      _modeloAntes = modeloInp.value;
-      modeloInp.value = '';
-    });
-    modeloInp.addEventListener('blur', () => {
-      if (!modeloInp.value.trim()) modeloInp.value = _modeloAntes;
-      else _modeloAntes = modeloInp.value;
-    });
-    modeloInp.addEventListener('change', () => {
-      _modeloAntes = modeloInp.value;
-    });
+    initModelCombobox();
   });
 
   async function verificarSesion() {
@@ -801,16 +804,13 @@
   async function alCambiarProveedor(reemplazarModelo = false) {
     const codigo = document.getElementById('cfg-proveedor').value;
     const prov   = catalogoProveedores.find(p => p.codigo === codigo);
-    const dl     = document.getElementById('lista-modelos');
     const aviso  = document.getElementById('cfg-proveedor-aviso');
     const inp    = document.getElementById('cfg-modelo');
 
     // Cargar modelos del catálogo estático mientras se obtienen los dinámicos
-    dl.innerHTML = '';
     const catalogoModelos = prov?.modelosSugeridos || [];
-    catalogoModelos.forEach(m => {
-      const opt = document.createElement('option'); opt.value = m; dl.appendChild(opt);
-    });
+    _modelosLista = catalogoModelos;
+    renderModelDropdown();
     if (reemplazarModelo || !inp.value) inp.value = catalogoModelos[0] || '';
     inp.placeholder = 'Cargando modelos…';
 
@@ -820,10 +820,8 @@
       if (r.ok) {
         const d = await r.json();
         if (d.success && d.modelos?.length) {
-          dl.innerHTML = '';
-          d.modelos.forEach(m => {
-            const opt = document.createElement('option'); opt.value = m; dl.appendChild(opt);
-          });
+          _modelosLista = d.modelos;
+          renderModelDropdown(inp.value);
           if (reemplazarModelo || !inp.value) inp.value = d.modelos[0] || '';
           inp.placeholder = `${d.modelos.length} modelos disponibles`;
         } else {
@@ -851,6 +849,105 @@
     }
     const provEl = document.getElementById('apikey-proveedor');
     if (provEl && prov?.nombre) provEl.textContent = `Proveedor: ${prov.nombre}`;
+  }
+
+  // ─── Combobox modelos ────────────────────────────────────────────────────
+  function initModelCombobox() {
+    const inp  = document.getElementById('cfg-modelo');
+    const drop = document.getElementById('model-dropdown');
+    const wrap = document.getElementById('model-wrap');
+    if (!inp || !drop || !wrap) return;
+
+    inp.addEventListener('focus', () => {
+      renderModelDropdown(inp.value);
+      openModelDropdown();
+    });
+    inp.addEventListener('input', () => {
+      renderModelDropdown(inp.value);
+      openModelDropdown();
+    });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModelDropdown(); return; }
+      if (e.key === 'Tab') { closeModelDropdown(); return; }
+      if (!['ArrowDown','ArrowUp','Enter'].includes(e.key)) return;
+      e.preventDefault();
+      const items = [...drop.querySelectorAll('.ai-model-option')];
+      const cur   = drop.querySelector('.ai-kb-active');
+      const idx   = cur ? items.indexOf(cur) : -1;
+      if (e.key === 'ArrowDown') {
+        cur?.classList.remove('ai-kb-active');
+        const next = items[Math.min(idx + 1, items.length - 1)];
+        next?.classList.add('ai-kb-active');
+        next?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp') {
+        cur?.classList.remove('ai-kb-active');
+        const prev = items[Math.max(idx - 1, 0)];
+        prev?.classList.add('ai-kb-active');
+        prev?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        const active = drop.querySelector('.ai-kb-active');
+        if (active) selectModelo(active.dataset.value);
+      }
+    });
+    document.addEventListener('click', e => {
+      if (!wrap.contains(e.target)) closeModelDropdown();
+    });
+  }
+
+  function renderModelDropdown(filter) {
+    const drop = document.getElementById('model-dropdown');
+    const inp  = document.getElementById('cfg-modelo');
+    if (!drop) return;
+    const q = (filter ?? '').trim().toLowerCase();
+    const matches = q
+      ? _modelosLista.filter(m => m.toLowerCase().includes(q))
+      : _modelosLista;
+    if (!matches.length) {
+      drop.innerHTML = '<div class="ai-model-empty">No hay coincidencias · el valor escrito se usará como identificador del modelo</div>';
+      return;
+    }
+    const current = inp?.value || '';
+    drop.innerHTML = matches.map(m =>
+      `<div class="ai-model-option${m === current ? ' ai-selected' : ''}" data-value="${esc(m)}">${esc(m)}</div>`
+    ).join('');
+    drop.querySelectorAll('.ai-model-option').forEach(opt => {
+      opt.addEventListener('mousedown', e => { e.preventDefault(); selectModelo(opt.dataset.value); });
+    });
+  }
+
+  function openModelDropdown() {
+    const drop = document.getElementById('model-dropdown');
+    const wrap = document.getElementById('model-wrap');
+    if (!drop || !_modelosLista.length) return;
+    const rect = wrap.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const maxH = Math.min(320, Math.max(spaceBelow, spaceAbove) - 4);
+    drop.style.maxHeight = maxH + 'px';
+    if (spaceBelow >= 180 || spaceBelow >= spaceAbove) {
+      drop.style.top = 'calc(100% - 1px)'; drop.style.bottom = 'auto';
+      drop.classList.remove('drop-up');
+    } else {
+      drop.style.bottom = 'calc(100% - 1px)'; drop.style.top = 'auto';
+      drop.classList.add('drop-up');
+    }
+    drop.style.display = 'block';
+    wrap.classList.add('open');
+    const sel = drop.querySelector('.ai-selected');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+
+  function closeModelDropdown() {
+    const drop = document.getElementById('model-dropdown');
+    const wrap = document.getElementById('model-wrap');
+    if (drop) drop.style.display = 'none';
+    wrap?.classList.remove('open');
+  }
+
+  function selectModelo(value) {
+    const inp = document.getElementById('cfg-modelo');
+    if (inp) inp.value = value;
+    closeModelDropdown();
   }
 
   async function cargarConfigIA() {
