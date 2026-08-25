@@ -41,6 +41,7 @@ COPY frontend/empresas.html ./public/
 COPY frontend/areas.html ./public/
 COPY frontend/nomina.html ./public/
 COPY frontend/transporte.html ./public/
+COPY frontend/ia.html ./public/
 COPY frontend/index.html ./public/
 
 # Exponer el puerto
