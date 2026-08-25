@@ -80,6 +80,7 @@ services:
       - ./backend/middlewares/inputValidator.js:/app/middlewares/inputValidator.js
       - ./backend/prisma/schema.prisma:/app/prisma/schema.prisma
       - ./backend/prisma/seed.js:/app/prisma/seed.js
+      - ./backend/prisma/migrations:/app/prisma/migrations
       - ./backend/server.js:/app/server.js
       - ./backend/docker-entrypoint.sh:/app/docker-entrypoint.sh
     healthcheck:
